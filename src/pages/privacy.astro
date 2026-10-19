@@ -9,12 +9,11 @@
  *
  *   hosting        GitHub Pages serves every file (public/CNAME, deploy.yml);
  *                  the domain's DNS is at Cloudflare, requests go to GitHub.
- *   live counts    LiveCount.tsx and StarGlobe.tsx call api.github.com and
- *                  discord.com from the browser on load, and cache the numbers
- *                  in sessionStorage.
- *   videos         BuiltInPublic.astro creates the youtube-nocookie.com iframe
- *                  only when the visitor presses play; posters are local.
- *   nothing else   no cookies, no analytics, no web fonts from a CDN, no forms.
+ *   live count     StarGlobe.tsx calls api.github.com from the browser on load
+ *                  and caches the number in sessionStorage.
+ *   nothing else   no cookies, no analytics, no web fonts from a CDN, no forms,
+ *                  no video embeds. The YouTube gallery and the Discord member
+ *                  count went with the "Built in public" section on 2026-10-19.
  *
  * The app section describes the desktop app's Google connections, read from
  * the app repo: jarvis/marketplace/auth/oauth_pkce_loopback.py (sign-in on
@@ -36,9 +35,8 @@ import { IMPRINT_HREF, OPERATOR } from "@/lib/legal";
     <li>This site sets <strong>no cookies</strong> and runs <strong>no analytics or tracking</strong>.</li>
     <li>There are no accounts, no forms and no newsletter.</li>
     <li>
-      Your browser talks to three other services: GitHub (which hosts the site
-      and supplies the star count), Discord (member count) and — only if you
-      press play on a video — YouTube.
+      Your browser talks to one other service: GitHub, which hosts the site
+      and supplies the star count.
     </li>
     <li>We never receive a record of your visit ourselves.</li>
     <li>
@@ -83,45 +81,24 @@ import { IMPRINT_HREF, OPERATOR } from "@/lib/legal";
     site are not routed through Cloudflare.
   </p>
 
-  <h2>Live counts from GitHub and Discord</h2>
+  <h2>Live star count from GitHub</h2>
   <p>
-    Some numbers on this page are fetched live when the page loads: the
-    project's star count from GitHub's public API (api.github.com) and the
-    member count of our Discord server from Discord's public API
-    (discord.com). For this, your browser connects directly to these services,
-    which receive your IP address and browser information. No login and no
-    cookie is involved, and we do not receive any of this data.
+    The project's star count is fetched live from GitHub's public API
+    (api.github.com) when the page loads. For this, your browser connects
+    directly to GitHub, which receives your IP address and browser
+    information. No login and no cookie is involved, and we do not receive any
+    of this data.
   </p>
   <p>
     The legal basis is Article 6(1)(f) GDPR: our legitimate interest in
-    showing current figures instead of outdated ones. Both providers are based
-    in the USA (GitHub, Inc.; Discord Inc., 444 De Haro Street, San Francisco,
-    CA 94107) and are certified under the EU–U.S. Data Privacy Framework. See
-    <a href="https://discord.com/privacy">Discord's privacy policy</a>.
+    showing a current figure instead of an outdated one. GitHub, Inc. is based
+    in the USA and certified under the EU–U.S. Data Privacy Framework.
   </p>
   <p>
-    So that the numbers are not fetched again on every page view, your browser
-    keeps them in its session storage until you close the tab. This stores
-    only the public numbers, no personal data, and is strictly necessary for
-    the function you see (Section 25(2) No. 2 TDDDG).
-  </p>
-
-  <h2>Videos</h2>
-  <p>
-    The video section shows a still image stored on this site. Nothing is
-    loaded from YouTube until you press play. When you do, the video is
-    embedded from youtube-nocookie.com, operated by Google Ireland Limited,
-    Gordon House, Barrow Street, Dublin 4, Ireland. Google then receives your
-    IP address and device information and may store information on your
-    device, including for playback statistics.
-  </p>
-  <p>
-    Pressing play is your consent to this (Article 6(1)(a) GDPR, Section 25(1)
-    TDDDG). Data may be transferred to Google LLC in the USA, which is
-    certified under the EU–U.S. Data Privacy Framework. You can withdraw your
-    consent at any time with effect for the future by not playing videos and
-    clearing your browser data. Details:
-    <a href="https://policies.google.com/privacy">Google Privacy Policy</a>.
+    So that the number is not fetched again on every page view, your browser
+    keeps it in its session storage until you close the tab. This stores only
+    the public number, no personal data, and is strictly necessary for the
+    function you see (Section 25(2) No. 2 TDDDG).
   </p>
 
   <h2>Links to other sites</h2>

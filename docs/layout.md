@@ -928,14 +928,14 @@ in it, and the hero's stage frame reaches within a hair of it on a short screen.
 
 **Wordmark left, section links centre, one CTA right.** The links are every
 section a reader might want to be sent to, in page order — Plugins, Skills,
-CLIs, What changes, Stars, Built in public, Open source — plus Docs, which is
+CLIs, What changes, Stars, Privacy, Open source — plus Docs, which is
 not a section of this page at all. Four sections are deliberately not in the
 row: the hero, which the wordmark already goes to; the logo strip, which is a
 band the reader passes *through*; the install steps, which have the whole
 Download button to themselves; and the legal foot, which is one End key away.
 
-**Stars and Built in public were missing until 2026-08-29 and had to be added
-back.** The nav shipped that afternoon listing five sections, on the reasoning
+**Stars and Built in public (since replaced by Privacy) were missing until
+2026-08-29 and had to be added back.** The nav shipped that afternoon listing five sections, on the reasoning
 that nobody navigates to social proof — while three sections were being added to
 the page over the same few hours. The maintainer's answer on seeing it was that
 they belong in the nav. **A section added to `index.astro` is added to

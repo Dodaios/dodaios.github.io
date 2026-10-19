@@ -47,8 +47,8 @@ export interface NavLink {
 
 /**
  * IN PAGE ORDER, and every label is carrying its section's own words: "Stars"
- * is what the globe section counts, "Built in public" is the first line of its
- * headline. A nav label invented for the nav is a label the section never
+ * is what the globe section counts, "Privacy" is the eyebrow of the section
+ * that took the place of "Built in public" on 2026-10-19. A nav label invented for the nav is a label the section never
  * confirms when the reader lands on it.
  *
  * THE ROW IS WIDTH-CONSTRAINED AND THIS LIST IS WHY. Seven section links, the
@@ -68,7 +68,7 @@ export const NAV_LINKS: readonly NavLink[] = [
   { id: "agents", label: "Agents" },
   { id: "voice", label: "What changes" },
   { id: "stargazers", label: "Stars" },
-  { id: "built-in-public", label: "Built in public" },
+  { id: "privacy", label: "Privacy" },
   { id: "open-source", label: "Open source" },
 ];
 

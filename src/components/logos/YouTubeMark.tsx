@@ -6,8 +6,9 @@
  * needs no second asset for dark mode.
  *
  * Not part of `marks.ts`. That list is the connection strip — the services
- * Dodaios itself talks to — and YouTube is not one of them; this mark labels a
- * channel card in the "Built in public" section instead.
+ * Dodaios itself talks to — and YouTube is not one of them. It labelled the
+ * stat row of the "Built in public" section, retired on 2026-10-19, and has
+ * no user on the page today.
  */
 export function YouTubeMark({ className }: { className?: string }) {
   return (

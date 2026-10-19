@@ -45,6 +45,7 @@ import {
   ordered,
   type Frame,
 } from "./frames";
+import { useLiveRepoCounts } from "./useLiveRepoCounts";
 
 export const CANVAS_WIDTH = 1440;
 export const CANVAS_HEIGHT = 880;
@@ -274,6 +275,7 @@ function CountPill({ icon, label }: { icon: React.ReactNode; label: string }) {
  */
 function RepoHeader({ crumbHover }: { crumbHover: boolean }) {
   const [owner, name] = REPO.split("/");
+  const { stars, forks } = useLiveRepoCounts(REPO, { stars: STARS, forks: FORKS });
   return (
     <div style={{ height: BAR_H, borderBottom: HAIRLINE, padding: `0 ${PAD}px` }}>
       <div style={{ height: 60, display: "flex", alignItems: "center", gap: 12 }}>
@@ -307,8 +309,8 @@ function RepoHeader({ crumbHover }: { crumbHover: boolean }) {
 
         <span style={{ flex: 1 }} />
 
-        <CountPill icon={<StarIcon />} label={`Star ${STARS}`} />
-        <CountPill icon={<ForkIcon />} label={`Fork ${FORKS}`} />
+        <CountPill icon={<StarIcon />} label={`Star ${stars}`} />
+        <CountPill icon={<ForkIcon />} label={`Fork ${forks}`} />
       </div>
 
       <div style={{ display: "flex", alignItems: "flex-end", gap: 30, height: 52 }}>
@@ -519,6 +521,7 @@ function FileTable({ entries, hover }: { entries: { name: string; type: string }
 
 /** The About box: what the repository says about itself, and nothing else. */
 function About() {
+  const { stars, forks } = useLiveRepoCounts(REPO, { stars: STARS, forks: FORKS });
   return (
     <div style={{ width: SIDE_W }}>
       <p style={{ fontSize: 19, fontWeight: 600, color: "var(--ink)" }}>About</p>
@@ -558,8 +561,8 @@ function About() {
         {[
           { icon: <BookIcon />, label: "Readme" },
           { icon: <ScaleIcon />, label: `${LICENSE} license` },
-          { icon: <StarIcon />, label: `${STARS} stars` },
-          { icon: <ForkIcon />, label: `${FORKS} forks` },
+          { icon: <StarIcon />, label: `${stars} stars` },
+          { icon: <ForkIcon />, label: `${forks} forks` },
         ].map((row) => (
           <span
             key={row.label}

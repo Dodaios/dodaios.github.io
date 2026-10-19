@@ -58,11 +58,11 @@ jobs:
         run: node scripts/fetch-social-counts.mjs --verbose
 
       - name: Fetch commit activity
-        # The year of daily commit counts the "Built in public" skyline draws.
-        # Public and anonymous; the token only raises the rate limit. GitHub
-        # computes these statistics lazily and can still be busy after the
-        # retries, so a failure keeps yesterday's file instead of failing the
-        # run.
+        # The year of daily commit counts the "Built in public" skyline draws,
+        # counted from the commit list (~60 pages). The token is what makes
+        # that fit the rate limit; the data itself is public. A failure keeps
+        # yesterday's file instead of failing the run — the browser tops the
+        # year up live either way.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/fetch-commit-activity.mjs || echo "kept the previous commit activity"

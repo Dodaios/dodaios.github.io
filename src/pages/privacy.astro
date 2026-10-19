@@ -11,6 +11,9 @@
  *                  the domain's DNS is at Cloudflare, requests go to GitHub.
  *   live count     StarGlobe.tsx calls api.github.com from the browser on load
  *                  and caches the number in sessionStorage.
+ *   live commits   CommitSkyline.tsx calls api.github.com for the commits since
+ *                  the last build, on load and every five minutes while the tab
+ *                  is visible. Nothing is stored.
  *   nothing else   no cookies, no analytics, no web fonts from a CDN, no forms,
  *                  no video embeds. The YouTube gallery and the Discord member
  *                  count went with the "Built in public" section on 2026-10-19.
@@ -36,7 +39,7 @@ import { IMPRINT_HREF, OPERATOR } from "@/lib/legal";
     <li>There are no accounts, no forms and no newsletter.</li>
     <li>
       Your browser talks to one other service: GitHub, which hosts the site
-      and supplies the star count.
+      and supplies the star count and the commit counts.
     </li>
     <li>We never receive a record of your visit ourselves.</li>
     <li>
@@ -81,17 +84,19 @@ import { IMPRINT_HREF, OPERATOR } from "@/lib/legal";
     site are not routed through Cloudflare.
   </p>
 
-  <h2>Live star count from GitHub</h2>
+  <h2>Live figures from GitHub</h2>
   <p>
-    The project's star count is fetched live from GitHub's public API
-    (api.github.com) when the page loads. For this, your browser connects
+    The project's star count and its recent commit counts are fetched live
+    from GitHub's public API (api.github.com) when the page loads; the commit
+    counts are asked for again every five minutes while the page is open and
+    visible. For this, your browser connects
     directly to GitHub, which receives your IP address and browser
     information. No login and no cookie is involved, and we do not receive any
     of this data.
   </p>
   <p>
     The legal basis is Article 6(1)(f) GDPR: our legitimate interest in
-    showing a current figure instead of an outdated one. GitHub, Inc. is based
+    showing current figures instead of outdated ones. GitHub, Inc. is based
     in the USA and certified under the EU–U.S. Data Privacy Framework.
   </p>
   <p>

@@ -20,6 +20,7 @@ import {
   type ContributionDay,
   type RGB,
 } from "./model";
+import { trackProgress } from "@/lib/scrollSpan";
 
 /**
  * Commit Skyline — a year of commits as a heat map that folds up into an
@@ -30,6 +31,19 @@ import {
  * corner. Switching views swings one camera between the two while each week's
  * bars rise (or settle) in a wave from the oldest week to the newest. The 3D
  * view rises out of the flat one the first time it scrolls into sight.
+ *
+ * IN A PINNED SECTION THE SCROLL DRIVES IT. Inside a `[data-scroll-span]`
+ * track whose `[data-viewport]` is sticky, the morph is a function of how far
+ * the reader is through the pause (see `SCRUB`): the calendar holds, the
+ * skyline rises week by week, then the camera turns once round it. Scrolling
+ * back runs it backwards, standing still stands it still. Where the section
+ * does not pin — narrow, short or reduced motion — it falls back to the
+ * one-time rise above. The toggle still works in both; in a pinned section it
+ * holds until the reader next scrolls.
+ *
+ * IT IS LIVE. The built year is the first paint; the browser then asks GitHub
+ * for the commits since the last stored day and adds them, and asks again
+ * every few minutes while the tab is visible (see `topUp`).
  *
  * Hover or tap a day for its count, arrow keys walk the grid, hover a legend
  * swatch to isolate that level, and in 3D drag to orbit (double-click resets).
@@ -60,6 +74,59 @@ export interface CommitSkylineProps {
   /** Morph length, ms. */
   duration?: number;
   locale?: string;
+  /** `owner/name`. With it the year is topped up live from GitHub and the caption names it. */
+  repo?: string;
+  /** When `data` was read, ISO. Named in the caption until a live read replaces it. */
+  readAt?: string;
+}
+
+/**
+ * How the pinned span is spent, as fractions of it.
+ *
+ *   0 → hold       the calendar, flat, so the reader sees what is about to rise
+ *   hold → rise    the skyline rises, oldest week first
+ *   rise → 1       the camera turns a little and closes in on the weeks that
+ *                  have commits, so the finished skyline fills the frame
+ *                  instead of sharing it with the empty months before it
+ *
+ * `follow` is how quickly the picture catches the scroll position, per second:
+ * a wheel moves in steps, and a picture that jumps with each one reads as
+ * broken rather than driven.
+ */
+const SCRUB = { hold: 0.1, rise: 0.58, yawFrom: -0.3, yawTo: 0.08, elevDip: -0.08, follow: 9 };
+
+/** Minutes between live reads while the tab is visible. */
+const LIVE_EVERY_MIN = 5;
+/** Pages of a hundred a live read may take before it gives up and keeps the build. */
+const LIVE_MAX_PAGES = 5;
+
+const nextLink = (link: string | null) => /<([^>]+)>;\s*rel="next"/.exec(link ?? "")?.[1] ?? null;
+
+/**
+ * The commits on `main` since `fromDay`, counted per UTC day of their committer
+ * date — the same rule scripts/fetch-commit-activity.mjs counts the build by,
+ * so the two join without a seam. `null` when GitHub cannot be asked or there
+ * is more to catch up on than a visit should fetch; the build then stands.
+ */
+async function topUp(repo: string, fromDay: string, signal: AbortSignal): Promise<Map<string, number> | null> {
+  const counts = new Map<string, number>();
+  let url: string | null =
+    `https://api.github.com/repos/${repo}/commits?sha=main&per_page=100&since=${fromDay}T00:00:00Z`;
+  for (let page = 0; url; page++) {
+    if (page >= LIVE_MAX_PAGES) return null;
+    const res: Response = await fetch(url, { headers: { Accept: "application/vnd.github+json" }, signal });
+    if (!res.ok) return null;
+    const list: unknown = await res.json();
+    if (!Array.isArray(list)) return null;
+    for (const c of list) {
+      const when = c?.commit?.committer?.date;
+      if (typeof when !== "string") continue;
+      const day = when.slice(0, 10);
+      counts.set(day, (counts.get(day) ?? 0) + 1);
+    }
+    url = nextLink(res.headers.get("link"));
+  }
+  return counts;
 }
 
 const UNIT = "commit";
@@ -223,19 +290,66 @@ export default function CommitSkyline({
   defaultView = "3d",
   duration = 1300,
   locale = "en-GB",
+  repo,
+  readAt,
 }: CommitSkylineProps) {
   const heightScale = 1;
   const orbit = true;
   const weekStart = 0;
 
+  // The built year, then the same year with today's commits added by `topUp`.
+  const [days, setDays] = React.useState(data);
+  const [liveAt, setLiveAt] = React.useState<number | null>(null);
+
   const model = React.useMemo(() => {
-    const dates = data.map((d) => dayMs(d.date)).filter(Number.isFinite);
-    const end = endDate ? dayMs(endDate) : dates.length ? Math.max(...dates) : dayMs(new Date());
-    const grid = buildGrid(data, end, weekStart);
+    const dates = days.map((d) => dayMs(d.date)).filter(Number.isFinite);
+    const end = endDate && liveAt === null ? dayMs(endDate) : dates.length ? Math.max(...dates) : dayMs(new Date());
+    const grid = buildGrid(days, end, weekStart);
     return { ...grid, stats: computeStats(grid.cells), months: monthLabels(grid.cells, grid.weeks, locale) };
-  }, [data, endDate, locale]);
+  }, [days, endDate, liveAt, locale]);
+
+  React.useEffect(() => {
+    if (!repo) return;
+    const built = data.map((d) => d.date).sort();
+    const fromDay = built.length ? built[built.length - 1] : new Date().toISOString().slice(0, 10);
+    const ctl = new AbortController();
+    let timer = 0;
+    let lastRead = 0;
+    const read = async () => {
+      lastRead = Date.now();
+      try {
+        const fresh = await topUp(repo, fromDay, ctl.signal);
+        if (!fresh) return;
+        // Days before the last stored one are the build's; from it on, GitHub's.
+        const next = data.filter((d) => d.date < fromDay);
+        const today = dayMs(new Date().toISOString().slice(0, 10));
+        for (let ms = dayMs(fromDay); ms <= today; ms += 86400000) {
+          const date = new Date(ms).toISOString().slice(0, 10);
+          next.push({ date, count: fresh.get(date) ?? 0 });
+        }
+        setDays(next);
+        setLiveAt(Date.now());
+      } catch {
+        /* offline, rate-limited or aborted: the build stands */
+      }
+    };
+    const schedule = () => {
+      window.clearTimeout(timer);
+      if (document.visibilityState !== "visible") return;
+      const wait = Math.max(0, lastRead + LIVE_EVERY_MIN * 60000 - Date.now());
+      timer = window.setTimeout(() => read().finally(schedule), wait);
+    };
+    document.addEventListener("visibilitychange", schedule);
+    schedule();
+    return () => {
+      ctl.abort();
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", schedule);
+    };
+  }, [repo, data]);
 
   const [view, setView] = React.useState<View>(defaultView);
+  const [scrub, setScrub] = React.useState(false);
   const [swatches, setSwatches] = React.useState<string[]>([]);
   const [width, setWidth] = React.useState(0);
   const [active, setActive] = React.useState(-1);
@@ -246,7 +360,12 @@ export default function CommitSkyline({
   const stageRef = React.useRef<HTMLDivElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const tipRef = React.useRef<HTMLDivElement>(null);
-  const engine = React.useRef<{ kick: () => void; tipWidth: (w: number) => void } | null>(null);
+  const engine = React.useRef<{
+    kick: () => void;
+    tipWidth: (w: number) => void;
+    reload: () => void;
+    manual: () => void;
+  } | null>(null);
 
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const df = React.useMemo(
@@ -268,6 +387,7 @@ export default function CommitSkyline({
       }),
     [locale],
   );
+  const tf = React.useMemo(() => new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }), [locale]);
   const noun = (n: number) => (n === 1 ? UNIT : PLURAL);
   const describe = (i: number) => {
     const c = model.cells[i];
@@ -285,6 +405,8 @@ export default function CommitSkyline({
     setWidth,
     setSwatches,
     setAnnounce,
+    setView,
+    setScrub,
     describe,
   });
   cfg.current = {
@@ -296,6 +418,8 @@ export default function CommitSkyline({
     setWidth,
     setSwatches,
     setAnnounce,
+    setView,
+    setScrub,
     describe,
   };
 
@@ -356,6 +480,20 @@ export default function CommitSkyline({
     let tipW = 0;
     let raf = 0;
     let last = 0;
+    // scroll scrub: the pinned track this chart stands in, if it stands in one
+    const track = root.closest<HTMLElement>("[data-scroll-span]");
+    let scrubbing = false;
+    let manual = false;
+    let tGoal = 0;
+    let ys = 0;
+    let es = 0;
+    let ysGoal = 0;
+    let esGoal = 0;
+    // close-in: 0 frames the whole year, 1 frames from `focusWeek` on
+    let fz = 0;
+    let fzGoal = 0;
+    let focusWeek = 0;
+    let sentView: View | null = null;
 
     const load = () => {
       const m = cfg.current.model;
@@ -379,6 +517,8 @@ export default function CommitSkyline({
         hgt[i] = barHeight(c.count, m.max, heightScale);
       }
       months = m.months;
+      const firstActive = m.cells.findIndex((c) => c.count > 0);
+      focusWeek = firstActive < 0 ? 0 : Math.max(0, m.cells[firstActive].week - 2);
       const wf = new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" });
       weekdayRows = [];
       for (let d = 0; d < 7 && d < n; d++) {
@@ -401,7 +541,7 @@ export default function CommitSkyline({
     };
 
     // Projected extent of the scene for camera e, with each bar at its full height or its current one.
-    const extent = (cam: Cam, e: number, full: boolean) => {
+    const extent = (cam: Cam, e: number, full: boolean, fromWeek = 0) => {
       const w = lerp(0.78, 0.9, e);
       const off = (1 - w) / 2;
       let minx = Infinity;
@@ -416,6 +556,7 @@ export default function CommitSkyline({
         if (p[1] > maxy) maxy = p[1];
       };
       for (let i = 0; i < n; i++) {
+        if (wk[i] < fromWeek) continue;
         const x0 = wk[i] + off;
         const y0 = dy[i] + off;
         const z = full ? hgt[i] * e : zs[i];
@@ -427,7 +568,7 @@ export default function CommitSkyline({
         add(x0 + w, y0, 0);
       }
       // room for the month labels that run along the front edge in 3D
-      add(0, 7 + 1.5 * e, 0);
+      add(fromWeek, 7 + 1.5 * e, 0);
       add(weeks, 7 + 1.5 * e, 0);
       return { minx, maxx, miny, maxy };
     };
@@ -439,12 +580,18 @@ export default function CommitSkyline({
       // Narrow stages give the weekday names' column to the grid instead; rows get too tight to label.
       gutter = W < 520 ? 0 : labelW;
       dpr = Math.min(2, window.devicePixelRatio || 1);
-      const b2 = extent(camera(0), 0, true);
-      H2 = 20 + 4 + ((b2.maxy - b2.miny) / (b2.maxx - b2.minx)) * (W - gutter - 4);
-      const b3 = extent(camera(1), 1, true);
-      const natural = ((b3.maxy - b3.miny) / (b3.maxx - b3.minx)) * (W - 40) + 40;
-      H3 = Math.max(Math.min(natural, W * 0.6, 520), Math.min(natural, 240));
-      Hmax = Math.ceil(Math.max(H2, H3));
+      if (scrubbing) {
+        // Pinned, the stage is whatever height the section leaves it, and both views are fitted into it.
+        stage.style.height = "";
+        H2 = H3 = Hmax = Math.max(160, Math.round(stage.clientHeight));
+      } else {
+        const b2 = extent(camera(0), 0, true);
+        H2 = 20 + 4 + ((b2.maxy - b2.miny) / (b2.maxx - b2.minx)) * (W - gutter - 4);
+        const b3 = extent(camera(1), 1, true);
+        const natural = ((b3.maxy - b3.miny) / (b3.maxx - b3.minx)) * (W - 40) + 40;
+        H3 = Math.max(Math.min(natural, W * 0.6, 520), Math.min(natural, 240));
+        Hmax = Math.ceil(Math.max(H2, H3));
+      }
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(Hmax * dpr);
       canvas.style.width = W + "px";
@@ -457,14 +604,25 @@ export default function CommitSkyline({
     const draw = () => {
       if (!W || !n) return;
       const e = easeInOutCubic(t);
-      const cam = camera(e, yaw, elev);
+      const cam = camera(e, yaw + ys, elev + es);
       const Hc = lerp(H2, H3, e);
-      if (Math.abs(Hc - lastH) > 0.2) {
+      if (!scrubbing && Math.abs(Hc - lastH) > 0.2) {
         stage.style.height = Hc.toFixed(1) + "px";
         lastH = Hc;
       }
       for (let i = 0; i < n; i++) zs[i] = riseAt(t, wk[i], weeks, dy[i]) * hgt[i];
-      const b = extent(cam, e, false);
+      // Framing slides between the whole year and the active weeks; the bounds blend, so it never steps.
+      let b = extent(cam, e, false);
+      const k = fz * e;
+      if (k > 0.001 && focusWeek > 0) {
+        const f = extent(cam, e, false, focusWeek);
+        b = {
+          minx: lerp(b.minx, f.minx, k),
+          maxx: lerp(b.maxx, f.maxx, k),
+          miny: lerp(b.miny, f.miny, k),
+          maxy: lerp(b.maxy, f.maxy, k),
+        };
+      }
       const pad = lerp(2, 20, e);
       const left = pad + gutter * (1 - e);
       const top = pad + 20 * (1 - e);
@@ -640,7 +798,16 @@ export default function CommitSkyline({
       last = now;
       let moving = false;
 
-      if (t !== target) {
+      if (scrubbing && !manual) {
+        // Follow the scroll position, eased so a wheel's steps arrive as one motion.
+        const kf = 1 - Math.exp(-dt * SCRUB.follow);
+        const near = (a: number, b: number) => Math.abs(a - b) < 1e-4;
+        t = near(t, tGoal) ? tGoal : t + (tGoal - t) * kf;
+        ys = near(ys, ysGoal) ? ysGoal : ys + (ysGoal - ys) * kf;
+        es = near(es, esGoal) ? esGoal : es + (esGoal - es) * kf;
+        fz = near(fz, fzGoal) ? fzGoal : fz + (fzGoal - fz) * kf;
+        if (t !== tGoal || ys !== ysGoal || es !== esGoal || fz !== fzGoal) moving = true;
+      } else if (t !== target) {
         const step = reduced ? 1 : (dt * 1000) / Math.max(1, cfg.current.duration);
         t = target > t ? Math.min(target, t + step) : Math.max(target, t - step);
         moving = true;
@@ -842,8 +1009,54 @@ export default function CommitSkyline({
       }
     };
 
+    /* Is the section pinned right now? The markup says it CAN pin; the guards in
+     * its styles decide whether it does at this window size, and a static
+     * viewport measures as no pin at all — the same reading trackProgress makes. */
+    const pinnedNow = () => {
+      const vp = track?.querySelector<HTMLElement>("[data-viewport]");
+      return !!vp && getComputedStyle(vp).position === "sticky";
+    };
+
+    const onScroll = () => {
+      if (!scrubbing || !track) return;
+      const p = trackProgress(track);
+      tGoal = Math.min(1, Math.max(0, (p - SCRUB.hold) / (SCRUB.rise - SCRUB.hold)));
+      const turn = easeInOutCubic(Math.min(1, Math.max(0, (p - SCRUB.rise) / (1 - SCRUB.rise))));
+      ysGoal = lerp(SCRUB.yawFrom, SCRUB.yawTo, turn);
+      esGoal = SCRUB.elevDip * Math.sin(Math.PI * turn);
+      fzGoal = turn;
+      manual = false;
+      const v: View = tGoal >= 0.5 ? "3d" : "2d";
+      if (v !== sentView) {
+        sentView = v;
+        cfg.current.setView(v);
+      }
+      kick();
+    };
+
+    const mode = () => {
+      const next = pinnedNow();
+      if (next === scrubbing) return;
+      scrubbing = next;
+      sentView = null;
+      cfg.current.setScrub(next);
+      if (next) {
+        entered = true;
+        onScroll();
+        // Arrive where the scroll already is, rather than animating there from flat.
+        t = tGoal;
+        ys = ysGoal;
+        es = esGoal;
+        fz = fzGoal;
+      } else {
+        ys = es = ysGoal = esGoal = fz = fzGoal = 0;
+      }
+      relayout();
+    };
+
     load();
     theme();
+    mode();
     relayout();
 
     // The 3D view rises out of the flat one the first time it is seen.
@@ -866,12 +1079,20 @@ export default function CommitSkyline({
     io.observe(stage);
 
     const ro = new ResizeObserver(() => {
-      if (Math.round(stage.clientWidth) !== W) relayout();
+      mode();
+      if (Math.round(stage.clientWidth) !== W || (scrubbing && Math.abs(stage.clientHeight - Hmax) > 1)) relayout();
     });
     ro.observe(stage);
+    const onResize = () => {
+      mode();
+      onScroll();
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
 
     const onReduce = () => {
       reduced = reduceMq.matches;
+      onResize();
       kick();
     };
     reduceMq.addEventListener("change", onReduce);
@@ -894,12 +1115,27 @@ export default function CommitSkyline({
         tipW = w;
         draw();
       },
+      reload: () => {
+        load();
+        theme();
+        if (activeIdx >= n) activeIdx = -1;
+        if (pinned >= n) pinned = -1;
+        if (hovered >= n) hovered = -1;
+        relayout();
+        kick();
+      },
+      manual: () => {
+        manual = true;
+        kick();
+      },
     };
 
     return () => {
       if (raf) cancelAnimationFrame(raf);
       io.disconnect();
       ro.disconnect();
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
       reduceMq.removeEventListener("change", onReduce);
       canvas.removeEventListener("pointerdown", onDown);
       canvas.removeEventListener("pointermove", onMove);
@@ -911,9 +1147,15 @@ export default function CommitSkyline({
       canvas.removeEventListener("blur", onBlur);
       engine.current = null;
     };
-    // The loop reads everything else through cfg; it is built once per mount.
+    // The loop reads everything else through cfg; it is built once per mount,
+    // and a live top-up swaps its data in through `reload` without restarting it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locale, model]);
+  }, [locale]);
+
+  const firstModel = React.useRef(model);
+  React.useEffect(() => {
+    if (model !== firstModel.current) engine.current?.reload();
+  }, [model]);
 
   React.useEffect(() => {
     engine.current?.kick();
@@ -932,7 +1174,8 @@ export default function CommitSkyline({
     return f.format(dayMs(a)) + " – " + f.format(dayMs(b));
   };
   const is3d = view === "3d";
-  const corners = width >= 560;
+  // Pinned, the stats stay in their row: corners that come and go would move the section under the reader.
+  const corners = width >= 560 && !scrub;
   const bigSize = Math.round(Math.max(30, Math.min(56, width * 0.058)));
   const statBlocks = [
     {
@@ -967,7 +1210,7 @@ export default function CommitSkyline({
   const hint = hints[is3d && orbit ? 1 : 0];
 
   return (
-    <div ref={rootRef} className="relative w-full" style={{ color: INK }}>
+    <div ref={rootRef} className={"relative w-full" + (scrub ? " flex min-h-0 flex-1 flex-col" : "")} style={{ color: INK }}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <p className="m-0 text-[15px] leading-snug" style={{ color: "var(--body)" }}>
           <span className="tabular-nums" style={{ color: INK }}>
@@ -997,7 +1240,10 @@ export default function CommitSkyline({
               aria-pressed={view === v}
               aria-label={v === "2d" ? "Flat heat map" : "3D skyline"}
               title={v === "2d" ? "Flat heat map" : "3D skyline"}
-              onClick={() => setView(v)}
+              onClick={() => {
+                engine.current?.manual();
+                setView(v);
+              }}
               className="relative z-10 grid h-7 w-8 cursor-pointer place-items-center rounded border-0 bg-transparent p-0 transition-colors duration-500 focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
               style={{ color: view === v ? "var(--on-ink)" : MUTED, outlineColor: INK }}
             >
@@ -1007,11 +1253,19 @@ export default function CommitSkyline({
         </div>
       </div>
 
-      <div className="relative rounded-lg border" style={{ borderColor: LINE, background: "var(--surface-card)" }}>
-        <div className="relative px-3 pt-3 sm:px-4 sm:pt-4">
+      <div
+        className={"relative rounded-lg border" + (scrub ? " flex min-h-0 flex-1 flex-col" : "")}
+        style={{ borderColor: LINE, background: "var(--surface-card)" }}
+      >
+        <div className={"relative px-3 pt-3 sm:px-4 sm:pt-4" + (scrub ? " flex min-h-0 flex-1 flex-col" : "")}>
+          {/* The inline height never changes, so React never re-applies it over the engine's.
+              Pinned, `flex-1` (a zero basis) outranks it and the stage takes what the section leaves. */}
           <div
             ref={stageRef}
-            className="relative w-full overflow-hidden rounded-md outline-offset-4 has-[:focus-visible]:outline-2"
+            className={
+              "relative w-full overflow-hidden rounded-md outline-offset-4 has-[:focus-visible]:outline-2" +
+              (scrub ? " min-h-0 flex-1" : "")
+            }
             style={{ height: 150, outlineColor: INK }}
           >
             <canvas
@@ -1155,6 +1409,18 @@ export default function CommitSkyline({
           </div>
         </div>
       </div>
+
+      {repo && (
+        <p className="mt-2 mb-0" style={{ color: "var(--muted-soft)", fontSize: "var(--text-caption)" }}>
+          Commits to the main branch of {repo},{" "}
+          {liveAt !== null
+            ? "counted live from GitHub at " + tf.format(liveAt)
+            : readAt
+              ? "read from GitHub on " + dfy.format(new Date(readAt))
+              : "read from GitHub"}
+          . Counts only — no names.
+        </p>
+      )}
 
       <p aria-live="polite" className="sr-only">
         {announce}

@@ -16,17 +16,24 @@
  * adapted from one the maintainer supplied; it is drawn here in ink and paper
  * only, in the site's own tokens.
  *
- * NOTHING HERE IS INVENTED. The counts come from GitHub's
- * `stats/commit_activity`, read by scripts/fetch-commit-activity.mjs into
- * src/data/commit-activity.json and refreshed by the social-counts workflow.
- * Only counts are stored: no author, no message. The quiet months at the start
- * of the year are real too — the repository is younger than the year the
- * picture spans, and a skyline that starts flat says so honestly. The caption
- * names the day the numbers were read, as the globe section does for its own.
+ * NOTHING HERE IS INVENTED. The counts are every commit on `main`, counted
+ * per day by scripts/fetch-commit-activity.mjs into
+ * src/data/commit-activity.json and refreshed by the social-counts workflow;
+ * the browser then tops the year up live from GitHub, so the figure is the one
+ * the commit history shows today. Only counts are kept: no author, no message.
+ * The quiet months at the start of the year are real too — the repository is
+ * younger than the year the picture spans. The caption says when the numbers
+ * were read, or that they were read live.
  *
- * IT ADDS NO SCROLL BEHAVIOUR. The globe above is a scroll trap; this is an
- * ordinary bounded band, scrolled past at the reader's pace. The skyline rises
- * once when it first comes into view, and not at all under reduced motion.
+ * IT HOLDS THE READER AND THE SCROLL DRIVES IT (maintainer, 2026-10-19). The
+ * section is a `[data-track]` with a sticky `[data-viewport]`, the same
+ * construction as the globe above — see docs/layout.md § "A section that is
+ * one viewport and still scrolls". Across the pinned span the calendar holds,
+ * rises into the skyline week by week, and the camera turns once round it;
+ * scrolling back runs it backwards. See `SCRUB` in CommitSkyline.tsx. The
+ * marker reads the same `[data-scroll-span]`, so the two agree on how far
+ * through the reader is. Narrow, short and reduced-motion windows drop the pin
+ * and the skyline rises once when it comes into view instead.
  *
  * Widths come from the one Container; no max-width is named here.
  * See docs/layout.md and docs/design.md.
@@ -37,22 +44,13 @@ import CommitSkyline from "@/components/skyline/CommitSkyline";
 import activity from "@/data/commit-activity.json";
 import { REPO } from "@/lib/install";
 
-const readOn = new Date(activity.readAt).toLocaleDateString("en-GB", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  timeZone: "UTC",
-});
-const endDate = activity.readAt.slice(0, 10);
 ---
 
-<section
-  id="built-in-public"
-  aria-labelledby="bip-heading"
-  class="section-full-height flex flex-col"
->
+<section id="built-in-public" aria-labelledby="bip-heading" class="relative">
+  <div data-track data-scroll-span>
+  <div data-viewport class="section-full-height flex flex-col">
   <Container width="content" class="section-inset flex min-h-0 flex-1 flex-col">
-    <div class="section-bounds section-bounds--fill flex flex-col justify-center">
+    <div class="section-bounds section-bounds--fill bip-body flex flex-col justify-center">
       <SectionTrack nested />
 
       <div class="bip-head">
@@ -65,9 +63,10 @@ const endDate = activity.readAt.slice(0, 10);
         </div>
         <div>
           <p class="bip-standfirst">
-            Every commit to the public repository over the last year. The
-            taller the block, the more landed that day. Turn it, hover a day,
-            or flatten it back into a calendar.
+            Every commit to the public repository over the last year, counted
+            live. The taller the block, the more landed that day. Keep
+            scrolling and the calendar rises into a skyline; hover a day for
+            its count.
           </p>
           <a
             class="bip-link"
@@ -80,15 +79,20 @@ const endDate = activity.readAt.slice(0, 10);
         </div>
       </div>
 
+      {/* `client:load`, not `client:visible`: pinned, the chart has to be
+          standing in the right pose before the section scrolls into view. */}
       <div class="bip-stage">
-        <CommitSkyline client:visible data={activity.days} endDate={endDate} />
-        <p class="bip-caption">
-          Commits to the default branch of {activity.repo}, read from GitHub on
-          {" "}{readOn}. Counts only — no names.
-        </p>
+        <CommitSkyline
+          client:load
+          data={activity.days}
+          repo={activity.repo}
+          readAt={activity.readAt}
+        />
       </div>
     </div>
   </Container>
+  </div>
+  </div>
 </section>
 
 <style>
@@ -175,9 +179,48 @@ const endDate = activity.readAt.slice(0, 10);
     margin-top: var(--space-xl);
   }
 
-  .bip-caption {
-    margin-top: var(--space-sm);
-    color: var(--muted-soft);
-    font-size: var(--text-caption);
+  /* The pause. 1.6 screens of pinned scroll: long enough for the rise and
+     the turn to be read, short enough that the page does not feel stuck. */
+  [data-track] {
+    --track: 260svh;
+
+    height: var(--track);
+  }
+
+  /* Pinned under the fixed nav, one section tall — layout.css § "Section
+     heights", the same rule the globe's viewport follows. */
+  [data-viewport] {
+    position: sticky;
+    top: var(--nav-height);
+    height: var(--section-height);
+  }
+
+  .bip-body {
+    padding-block: clamp(1.25rem, 3svh, 3rem);
+  }
+
+  /* While pinned, the chart takes the height the head leaves, so the section
+     is exactly one screen whatever the window. */
+  @media (min-width: 1024px) and (min-height: 752px) and (prefers-reduced-motion: no-preference) {
+    .bip-stage {
+      display: flex;
+      flex: 1 1 0%;
+      flex-direction: column;
+      min-height: 0;
+    }
+  }
+
+  /* Where the pin is dropped: the globe's guards, for the globe's reasons
+     (Stargazers.astro § "WHERE THE PIN IS DROPPED"). The section is then an
+     ordinary full-height block and the skyline rises once on sight. */
+  @media (max-width: 1023px), (max-height: 751px), (prefers-reduced-motion: reduce) {
+    [data-track] {
+      height: auto;
+    }
+
+    [data-viewport] {
+      position: static;
+      height: auto;
+    }
   }
 </style>

@@ -12,8 +12,8 @@
     "coding-agent",
     "computer-use"
   ],
-  "stars": 186,
-  "forks": 70,
+  "stars": 238,
+  "forks": 85,
   "openIssues": 94,
   "lastCommit": {
     "message": "fix(packaging): preserve licenses and correct OAuth disclosures (#491)",

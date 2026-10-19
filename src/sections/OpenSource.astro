@@ -3,9 +3,9 @@
  * Section — Open source: the repository, walked through.
  *
  * It sits directly under "Built in public" and finishes the argument that
- * section opens. That one says development happens on camera and the code lands
- * somewhere public; this one opens the repository and lets a visitor watch
- * someone read it — the root listing, the application package, the installer
+ * section opens. That one shows a year of commits landing in the open; this
+ * one opens the repository they landed in and lets a visitor watch someone
+ * read it — the root listing, the application package, the installer
  * directory, and the first lines of the script the install one-liner pipes into
  * a shell.
  *
@@ -32,9 +32,9 @@
  * 2026-08-29).
  *
  * IT ADDS NO SCROLL BEHAVIOUR, deliberately. Its two neighbours are both scroll
- * traps — the stargazer globe holds the reader for 0.8 of a screen, the install
- * steps for four — and a third pinned section between them would leave the page
- * unable to be scrolled past without three separate stops. This is an ordinary
+ * traps — the commit skyline above holds the reader for 1.6 screens, the install
+ * steps for four — and pinning this one too would leave the page unable to be
+ * scrolled past without three stops in a row. This is an ordinary
  * block: one screen, scrolled past at the reader's own pace. `SectionTrack`
  * derives its rail from document order, so inserting this section re-points the
  * marker for every section below it with nothing to update by hand.
@@ -292,7 +292,7 @@ const WAYS_IN = [
    * the 278px head — eyebrow, two lines of headline, two of standfirst and the
    * action row — and this box's 32px top margin. When one of those changes,
    * re-measure and change THIS number rather than the individual rules, the
-   * same arrangement `--stage-cap` has in BuiltInPublic.astro.
+   * same arrangement the retired video section used for its `--stage-cap`.
    *
    * It is a snapshot at one window, because the head's own height travels with
    * the root font size and no calculation can see it. The error runs the safe

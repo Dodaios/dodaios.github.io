@@ -1,505 +1,126 @@
 ---
 /**
- * Section 6 — "Built in public": the videos and the numbers.
+ * Section — "Built in public": a year of commits, as a skyline.
  *
- * See docs/section-6-youtube.md. Four things in this file are contractual
- * rather than stylistic, and each one is a rule that costs something real when
- * it is broken:
+ * WHAT IT REPLACED. Until 2026-10-19 this anchor held a YouTube gallery of
+ * development videos. Those showed the maintainer's face, and the maintainer
+ * asked to no longer be visible on the internet, so the gallery, its poster
+ * frames and its stat row were removed. The claim the section makes — the
+ * work happens in the open — is now shown through the work itself rather than
+ * through the person doing it. See docs/section-6-skyline.md.
  *
- *  1. THE FACADE. No YouTube iframe exists until the visitor presses play. A
- *     real embed pulls roughly a megabyte of JavaScript from four Google hosts
- *     on page load and takes 20-30 Lighthouse points with it. What ships
- *     instead is a poster frame and a button; the iframe is created in the
- *     click handler.
+ * THE PICTURE. Every day of the last year is a box; its height is the number
+ * of commits that landed on the public repository's default branch that day.
+ * Seen from above it is a heat map, seen from the corner a skyline, and the
+ * camera swings between the two (src/components/skyline/). The component was
+ * adapted from one the maintainer supplied; it is drawn here in ink and paper
+ * only, in the site's own tokens.
  *
- *  2. THE POSTER FRAMES ARE OURS. They live in public/video-thumbs/, fetched
- *     once by scripts/fetch-video-thumbs.mjs. Loading them from i.ytimg.com
- *     would send every visitor's IP address to Google before they consented to
- *     anything — the same disclosure the facade exists to prevent, just
- *     through the image tag instead of the iframe.
+ * NOTHING HERE IS INVENTED. The counts are every commit on `main`, counted
+ * per day by scripts/fetch-commit-activity.mjs into
+ * src/data/commit-activity.json and refreshed by the social-counts workflow;
+ * the browser then tops the year up live from GitHub, so the figure is the one
+ * the commit history shows today. Only counts are kept: no author, no message.
+ * The quiet months at the start of the year are real too — the repository is
+ * younger than the year the picture spans. The caption says when the numbers
+ * were read, or that they were read live.
  *
- *  3. NOTHING HERE IS INVENTED. Every title is the video's real title, read
- *     from YouTube's oEmbed endpoint; every date is its real upload date; every
- *     figure in the stat row is the measured one. A platform we cannot measure
- *     gets no cell at all rather than a guess — that is why there are four
- *     cells and not six.
+ * IT HOLDS THE READER AND THE SCROLL DRIVES IT (maintainer, 2026-10-19). The
+ * section is a `[data-track]` with a sticky `[data-viewport]`, the same
+ * construction as the globe above — see docs/layout.md § "A section that is
+ * one viewport and still scrolls". Across the pinned span the calendar holds,
+ * rises into the skyline week by week, and the camera turns once round it;
+ * scrolling back runs it backwards. See `SCRUB` in CommitSkyline.tsx. The
+ * marker reads the same `[data-scroll-span]`, so the two agree on how far
+ * through the reader is. Narrow, short and reduced-motion windows drop the pin
+ * and the skyline rises once when it comes into view instead.
  *
- *  4. THE SECTION IS ONE SCREEN. `--stage-cap` below is the single number that
- *     holds it there, and everything else in the section gives way to it.
- *
- * The stat row replaced two prose channel cards on 2026-08-29 at the
- * maintainer's explicit instruction. The previous session had judged that
- * showing 12 subscribers and 31 stars would undercut the invitation the
- * section makes and left the cards wordy instead; the maintainer overruled
- * that and asked for the live numbers. The honesty rule survived the reversal
- * intact — the numbers are real, unrounded and unpadded — and only the
- * judgement about whether to show them changed. docs/section-6-youtube.md
- * records the decision and its date.
- *
- * Framework note: the reference implementation in the brief is React, using
- * `useState` and `next/image`. This site is Astro, so the facade is built with
- * a data attribute and fifty lines of vanilla script. The four counters ARE
- * islands, because a number that counts up and then corrects itself against a
- * live endpoint cannot be done without one — see LiveCount.
+ * Widths come from the one Container; no max-width is named here.
+ * See docs/layout.md and docs/design.md.
  */
 import Container from "@/components/Container.astro";
 import SectionTrack from "@/components/SectionTrack.astro";
-import LiveCount from "@/components/counters/LiveCount";
-import { DiscordMark } from "@/components/logos/DiscordMark";
-import { GitHubMark } from "@/components/logos/GitHubMark";
-import { XMark } from "@/components/logos/XMark";
-import { YouTubeMark } from "@/components/logos/YouTubeMark";
-import {
-  SOCIAL_BUILT_READ_AT,
-  SOCIAL_STATS,
-  type SocialId,
-} from "@/lib/socialCounts";
-import type { ComponentType } from "react";
+import CommitSkyline from "@/components/skyline/CommitSkyline";
+import activity from "@/data/commit-activity.json";
+import { REPO } from "@/lib/install";
 
-/**
- * The four videos, in the order the brief fixes.
- *
- * `title` is verbatim from
- * `https://www.youtube.com/oembed?url=https://youtu.be/{id}&format=json`,
- * inconsistent capitalisation and trailing full stops included. They are the
- * author's own titles; smoothing them here would be inventing titles, which
- * docs/section-6-youtube.md forbids.
- *
- * `uploaded` is the `uploadDate` from each video's own watch page, as an ISO
- * date so <time datetime> is honest and the rendered label is derived rather
- * than typed twice.
- *
- * Re-run scripts/fetch-video-thumbs.mjs after changing this list — the poster
- * frames are keyed by id and it reads the same four.
- */
-const VIDEOS = [
-  {
-    id: "3nV-3ygIJ0I",
-    title: "All things you have to know about personal Jarvis V2",
-    uploaded: "2026-08-24",
-  },
-  {
-    id: "BBcwq0jn7_E",
-    title: "Personal Jarvis has now a free and open source AI dictation tool.",
-    uploaded: "2026-08-01",
-  },
-  {
-    id: "0ZrUVxfKFME",
-    title: "Real-time local voice assistant PersonalJarvis MIT license",
-    uploaded: "2026-08-08",
-  },
-  {
-    id: "M5PbmWV8OQc",
-    title: "localDemo of personalJarvis the best Open Source AI Ecosystem.",
-    uploaded: "2026-08-12",
-  },
-];
-
-/** The video on the stage when the page loads; the other three fill the rail. */
-const FEATURED = VIDEOS[0];
-const RAIL = VIDEOS.slice(1);
-
-/**
- * Formatted at build time, not in the browser: the section ships four small
- * islands and nothing else, and pulling Intl into one of them to render four
- * dates would be a worse trade than a string computed here.
- */
-const dateLabel = (iso: string) =>
-  new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-
-/** Same shape, but for a full ISO timestamp rather than a bare date. */
-const stampLabel = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-
-/**
- * The brand mark for each cell, standing where the reference row puts a
- * small square bullet.
- *
- * `XMark`, NOT `XaiMark`. They are different companies whose marks are both a
- * small black shape at this size and whose files sit one letter apart in an
- * alphabetical import list — see docs/LOGOS.md, which says so for the same
- * reason: the wrong one renders perfectly and nobody catches it.
- *
- * Keyed by `SocialId` rather than pushed into `SOCIAL_STATS` itself, because
- * that module is data — it is imported by the fetch script's tests and must
- * not drag four React components in with it.
- */
-const MARKS: Record<SocialId, ComponentType<{ className?: string }>> = {
-  youtube: YouTubeMark,
-  x: XMark,
-  github: GitHubMark,
-  discord: DiscordMark,
-};
-
-/**
- * The platform's name, for the link's accessible text only.
- *
- * On screen the cell reads "12 SUBSCRIBERS" on one line beside a logo, legible
- * because the logo is right there. To a screen reader the logo is
- * `aria-hidden` and the link would announce as "12 Subscribers" — four links
- * on the page that never say where they go. The name is added visually-hidden
- * so the accessible name is "12 YouTube Subscribers".
- */
-const PLATFORM: Record<SocialId, string> = {
-  youtube: "YouTube",
-  x: "X",
-  github: "GitHub",
-  discord: "Discord",
-};
-
-const watchUrl = (id: string) => `https://www.youtube.com/watch?v=${id}`;
 ---
 
-<section
-  id="built-in-public"
-  aria-labelledby="bip-heading"
-  class="section-full-height relative flex flex-col"
-  data-bip
-  data-active={FEATURED.id}
-  data-active-uploaded={FEATURED.uploaded}
-  data-active-meta={dateLabel(FEATURED.uploaded)}
->
-  {/*
-    `.section-inset` holds the band `--section-inset` inside the section's own
-    top and bottom edges, so this section's two rules stand off its edges
-    instead of sitting on them. It is PADDING on the container, never a margin
-    on the band: a margin collapses out through an ordinary block section's top
-    edge and the gap silently becomes the previous section's, leaving the top
-    line exactly where it was.
-
-    The flex chain — `min-h-0` included — is what lets `.section-bounds--fill`
-    take the leftover height. Break one link and the band wraps its content,
-    the bottom rule stops where the text stops, and the frame is no longer a
-    frame. See docs/layout.md § "A section that is one viewport and still
-    scrolls".
-
-    There is no `relative` on the <section> any more. The marker's containing
-    block is the band, not the section, and a stray `relative` here would be a
-    hint that something still tracks the outer box.
-  */}
+<section id="built-in-public" aria-labelledby="bip-heading" class="relative">
+  <div data-track data-scroll-span>
+  <div data-viewport class="section-full-height flex flex-col">
   <Container width="content" class="section-inset flex min-h-0 flex-1 flex-col">
-    {/*
-      The band. Its two hairlines ARE this section's boundary rules — the top
-      one a 1px `::before` inside the padding box, the bottom one a real
-      `border-bottom`, both supplied by `.section-bounds` — and it is the box
-      the marker walks, which is why <SectionTrack /> lives in here rather than
-      on the <section>. SectionTrack measures whatever positioned box it is
-      dropped into, so leaving it outside would put the square an inset above
-      the top line and the same distance below the bottom one.
-
-      `nested`, because this block already sits on the content column: a second
-      `content` Container inside the first applies its gutter AND its max-width
-      a second time and rides the marker 32px inside the rail.
-
-      VERTICAL padding here is free — the track layer is laid against this
-      element's padding box, so the box keeps its full height between the two
-      rules. HORIZONTAL padding or an inline border is not: either one takes
-      the tracked box off the rails and the marker walks down the middle of the
-      section.
-
-      Centred, not top-aligned. The previous version hung the content from a
-      single opening rule and pushed the surplus height to the bottom, because
-      a gap under a lone rule reads as the line having come loose from the
-      section it opens. With a rule closing the band as well, the surplus is
-      inside a frame at both ends and splitting it evenly is what reads as a
-      band; parking all of it against the bottom rule would not.
-    */}
-    <div class="section-bounds section-bounds--fill flex flex-col justify-center">
+    <div class="section-bounds section-bounds--fill bip-body flex flex-col justify-center">
       <SectionTrack nested />
 
-      {/*
-        The eyebrow. Every other section on this page opens with one, and
-        section 6 was the only one that started with a rule and then a large
-        gap before the headline — the gap read as a rendering fault rather than
-        as pacing, which is half of what the maintainer meant by the headline
-        "not being right yet". "On camera" and not "In the open": that is the
-        stargazers section's eyebrow one screen further up.
-      */}
-      <p class="bip-eyebrow">On camera</p>
-
-      {/*
-        Headline and standfirst sit on `content`, not on the `prose` column.
-        The head is CENTRED on that column — eyebrow, headline and standfirst
-        alike — at the maintainer's instruction on 2026-08-29: set flush left it
-        started exactly on the card's own left edge one line below, and reading
-        as stuck to that boundary was the complaint. Centring is a head
-        treatment only; the card and the stat row keep the content column's left
-        edge, which is what stops the section growing a second left margin.
-
-        The column is still `content` and not `prose`, because prose is centred
-        INSIDE content and 300px narrower — a prose head would centre on a
-        different axis than the card it sits over. The standfirst keeps a prose
-        MEASURE instead, through a `ch` limit that is now centred with it, which
-        is what "max prose width" is actually protecting.
-
-        TWO BLOCK SPANS, NOT A `<br />`. The break was hard-coded, which is a
-        layout decision frozen at one width — at the content step the two
-        sentences fit on one line each with room to spare, and on a narrower
-        window the first sentence wrapped on its own and the headline became
-        three ragged lines with the break in an arbitrary place. Blocks put the
-        break at the sentence boundary at every width, and they also fix a
-        quieter defect: the accessible name of this section is computed from
-        the heading, and a `<br />` contributes no separator to it, so the
-        section announced as "...built in public.You can watch...". A block
-        boundary does contribute one.
-
-        The two sentences no longer carry equal weight. The claim is `--ink`,
-        the invitation `--body`. Nothing is added — no second size, no colour
-        that is not already a text token — but the eye is given an order.
-      */}
-      <h2 id="bip-heading" class="bip-headline">
-        <span class="bip-headline__claim">This is being built in public.</span>
-        <span class="bip-headline__invite">You can watch how it happens.</span>
-      </h2>
-
-      <p class="bip-standfirst">
-        Development happens on camera, and the code lands in a public
-        repository anyone can read. Everything published so far is below.
-      </p>
-
-      <div class="bip-card">
-        {/*
-          The card head. The title is the video currently on the stage, and the
-          link points at that same video — both are rewritten when the rail
-          swaps something in, so the link never sends anyone to a video they
-          are not looking at.
-        */}
-        <div class="bip-cardhead">
-          <p class="bip-cardtitle" data-active-title>{FEATURED.title}</p>
+      <div class="bip-head">
+        <div>
+          <p class="bip-eyebrow">Built in public</p>
+          <h2 id="bip-heading" class="bip-headline">
+            <span class="bip-headline__claim">Built in the open, every day.</span>
+            <span class="bip-headline__invite">Each block is a day of work.</span>
+          </h2>
+        </div>
+        <div>
+          <p class="bip-standfirst">
+            Every commit to the public repository over the last year, counted
+            live. The taller the block, the more landed that day. Keep
+            scrolling and the calendar rises into a skyline; hover a day for
+            its count.
+          </p>
           <a
-            class="bip-watch"
-            data-watch
-            href={watchUrl(FEATURED.id)}
+            class="bip-link"
+            href={`${REPO}/commits/main`}
             target="_blank"
             rel="noopener"
           >
-            Watch on YouTube <span aria-hidden="true">&rarr;</span>
+            Read the commit history
           </a>
-        </div>
-
-        <div class="bip-body">
-          {/*
-            The stage. Until the button is pressed this is a local JPEG and
-            nothing else — no iframe, no script, no request to any Google host.
-            The script replaces the button's contents with an iframe in place.
-          */}
-          <div class="bip-stage" data-stage>
-            <button
-              type="button"
-              class="bip-play"
-              data-play
-              aria-label={`Play video: ${FEATURED.title}`}
-            >
-              <img
-                class="bip-poster"
-                data-poster
-                src={`/video-thumbs/${FEATURED.id}.jpg`}
-                alt=""
-                width="1280"
-                height="720"
-                loading="lazy"
-                decoding="async"
-              />
-              <span class="bip-playbadge" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="currentColor" focusable="false">
-                  <path d="M8 5.14v13.72L19 12 8 5.14Z"></path>
-                </svg>
-              </span>
-            </button>
-          </div>
-
-          {/*
-            The rail. Three entries, always — the video on the stage is not one
-            of them. Clicking an entry trades it with whatever is on the stage,
-            so all four stay reachable and the rail never changes length.
-          */}
-          <ol class="bip-rail">
-            {
-              RAIL.map((video) => (
-                <li>
-                  <button
-                    type="button"
-                    class="bip-entry"
-                    data-entry
-                    data-id={video.id}
-                  >
-                    <img
-                      class="bip-entrythumb"
-                      data-entry-thumb
-                      src={`/video-thumbs/${video.id}-sm.jpg`}
-                      alt=""
-                      width="320"
-                      height="180"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    <span class="bip-entrytext">
-                      <span class="bip-entrytitle" data-entry-title>
-                        {video.title}
-                      </span>
-                      <time
-                        class="bip-entrymeta"
-                        data-entry-meta
-                        datetime={video.uploaded}
-                      >
-                        {dateLabel(video.uploaded)}
-                      </time>
-                    </span>
-                  </button>
-                </li>
-              ))
-            }
-          </ol>
         </div>
       </div>
 
-      {/*
-        The one line the brief asks for under the card. It is a disclosure, not
-        a paragraph — a body paragraph here is forbidden, and would not fit in
-        900px of height anyway.
-
-        It carries the counters' provenance too, in the same line rather than a
-        second one, because a second line costs 32px of a budget that decides
-        how big the video is allowed to be. It sits above the row it describes
-        instead of below it, which is the one thing about it that is a
-        compromise: it is where a reader already looks for "how this page
-        behaves", and the alternative was a smaller video.
-
-        The date is `SOCIAL_BUILT_READ_AT` and NOT the JSON file's
-        `generatedAt`. That stamp advances whenever any of the four figures
-        moves, including the two the browser re-checks itself, so on the first
-        day the repo gains a star this sentence would start dating the
-        subscriber and follower counts to that morning — a day on which
-        neither was read. See src/lib/socialCounts.ts.
-      */}
-      <p class="bip-note">
-        Nothing loads from YouTube until you press play. Stars and members
-        update live; subscribers and followers were read on {
-          stampLabel(SOCIAL_BUILT_READ_AT)
-        }.
-      </p>
-
-      {/*
-        The stat row. One horizontal row of equal cells divided by thin
-        vertical hairlines, and the divider is the ONLY chrome: no card, no
-        fill, no border around a cell, no radius. That is the whole styling
-        reference the row takes, and it is also what makes the row cheap
-        enough in height to fit under the card.
-
-        Where the reference puts a small square bullet before the caption, this
-        puts the platform's own mark. It is the same amount of ink and it says
-        which platform without a second word.
-
-        `client:visible` on each counter: the island hydrates when the row
-        reaches the viewport, which is also when the count-up should start. The
-        real figure is in the server-rendered HTML — LiveCount holds the built
-        figure as its initial state and drops to zero in a layout effect — so a
-        crawler and a reader with JavaScript off both see the true number and
-        nothing flickers.
-
-        `live={stat.live}` unconditionally is correct: it is `undefined` on the
-        two cells that cannot be re-checked from a browser, and the component
-        treats that as "no live source" and simply counts up to what it was
-        given. Which two those are, and why, is in src/lib/socialCounts.ts.
-      */}
-      <ul class="bip-stats">
-        {
-          SOCIAL_STATS.map((stat) => {
-            const Mark = MARKS[stat.id];
-            return (
-              <li>
-                <a href={stat.href} target="_blank" rel="noopener">
-                  <span class="bip-statnumber">
-                    <LiveCount client:visible value={stat.value} live={stat.live} />
-                  </span>
-                  <span class="bip-statcaption">
-                    <Mark className={`bip-statmark bip-statmark--${stat.id}`} />
-                    <span class="sr-only">{PLATFORM[stat.id]}&nbsp;</span>
-                    {stat.label}
-                  </span>
-                </a>
-              </li>
-            );
-          })
-        }
-      </ul>
+      {/* `client:load`, not `client:visible`: pinned, the chart has to be
+          standing in the right pose before the section scrolls into view. */}
+      <div class="bip-stage">
+        <CommitSkyline
+          client:load
+          data={activity.days}
+          repo={activity.repo}
+          readAt={activity.readAt}
+        />
+      </div>
     </div>
   </Container>
+  </div>
+  </div>
 </section>
 
-<!--
-  Global rather than scoped: every selector is anchored on [data-bip], so the
-  section still owns all of them, and a global block is what lets one rule
-  reach the iframe the script creates and the <span> the counter island
-  renders — elements Astro's scoping hash never touched, because neither
-  existed at build time.
--->
-<style is:global>
-  /* How tall the featured video is allowed to get.
-   *
-   * The brief budgets 420px for the card at 1440x900 and also asks for a
-   * featured video at 68% of the card width. At this content width those two
-   * numbers cannot both hold — 68% is an 805px video, which is 453px tall on
-   * its own, before the 44px head and the padding. The brief settles it:
-   * "Passt die Karte nicht, wird ihre Höhe reduziert, nicht die Kanal-Karten
-   * weggelassen." So the height leads and the width follows it.
-   *
-   * `434px` is everything else the section owes at that viewport, INSIDE the
-   * two boundary rules: the band's own padding, the eyebrow, the headline, the
-   * standfirst, the card chrome and its new head seam, the disclosure line, the
-   * stat row and the gaps between all of them. It was 465px until the stat row
-   * put its captions beside the figures instead of under them, which took the
-   * row from 64.1px to 39.6px and handed the difference to the video, and 440px
-   * until the caption was set at the figure's own size: a 22px figure on a 22px
-   * line is shorter than a 36px one, so the row measures 33.0px and gives the
-   * video another 6.6px. The breakdown is itemised in
-   * docs/section-6-youtube.md § "The one number to tune"; when one of those
-   * parts changes, re-measure and change THIS number, not the individual rules.
-   *
-   * The inset is subtracted as the token rather than as a number, because
-   * `--section-inset` is itself a clamp on the viewport height: it is 63px per
-   * side at 900px tall and 80px per side above roughly 1143px. Folding a
-   * constant in here would be right at exactly one window size and wrong
-   * everywhere else — which is the same mistake as a hard line break in a
-   * headline, one layer down. */
-  [data-bip] {
-    /* `--section-height` and not `100svh`: this section IS that height, so a
-     * cap measured against the whole window overshoots the box it has to fit
-     * in by `2 x --nav-height` and pushes the closing rule off the screen. See
-     * layout.css § "Section heights". */
-    --stage-cap: clamp(
-      190px,
-      calc(var(--section-height) - 434px - 2 * var(--section-inset)),
-      460px
-    );
+<style>
+  /* The head and the stage stand off the rails by the inset the Agents
+     section uses, so the two share one left edge. */
+  .bip-head,
+  .bip-stage {
+    padding-inline: clamp(0rem, 2.2vw, 2.5rem);
   }
 
-  /* --- The head --------------------------------------------------------- */
-
-  /* The register every other section opens in — see Stargazers, LogoStrip,
-   * VoiceSwitch and Install. It is not shared as a utility because each
-   * section's block is scoped and this one is global; the values are the
-   * tokens either way, so there is one place to change them. */
-  /* The whole head is centred on the content column — see the markup above
-   * for the instruction behind it. One rule for all three parts, so the head
-   * cannot drift into two alignments when one of them is edited later. */
-  [data-bip] .bip-eyebrow,
-  [data-bip] .bip-headline,
-  [data-bip] .bip-standfirst {
-    text-align: center;
+  /* Headline left, standfirst right, on one row — the split the Agents
+     section uses, because what sits below is one object as wide as the
+     column. Sized from the tokens rather than Tailwind's rem utilities, for
+     the reason OpenSource.astro gives. */
+  .bip-head {
+    display: grid;
+    gap: var(--space-base);
+    align-items: end;
   }
 
-  [data-bip] .bip-eyebrow {
+  @media (min-width: 1024px) {
+    .bip-head {
+      grid-template-columns: 7fr 5fr;
+      gap: var(--space-xl);
+    }
+  }
+
+  .bip-eyebrow {
     color: var(--muted);
     font-size: var(--text-caption-upper);
     font-weight: 600;
@@ -507,765 +128,100 @@ const watchUrl = (id: string) => `https://www.youtube.com/watch?v=${id}`;
     text-transform: uppercase;
   }
 
-  /* Sized from the tokens rather than Tailwind's rem utilities: the root font
-   * size grows with the viewport (layout.css), so `text-4xl` would climb past
-   * the display token on a wide screen and this headline would outgrow every
-   * other section head on the page. */
-  [data-bip] .bip-headline {
+  .bip-headline {
     margin-top: var(--space-sm);
     font-size: var(--text-display-lg);
     letter-spacing: var(--tracking-display-lg);
     line-height: 1.2;
   }
 
-  /* One line per sentence, produced by the box and not by a `<br />`. On a
-   * window too narrow to hold a sentence the span wraps like any other block,
-   * and `balance` splits it evenly instead of leaving one word alone on the
-   * second line. */
-  [data-bip] .bip-headline__claim,
-  [data-bip] .bip-headline__invite {
+  .bip-headline__claim,
+  .bip-headline__invite {
     display: block;
     text-wrap: balance;
   }
 
-  [data-bip] .bip-headline__claim {
+  .bip-headline__claim {
     color: var(--ink);
   }
 
-  /* The invitation, a step quieter than the claim. Same size, same tracking,
-   * same centre line — the only difference is the text colour, which is the
-   * smallest instrument this system has for saying "second". */
-  [data-bip] .bip-headline__invite {
+  .bip-headline__invite {
     color: var(--body);
   }
 
-  [data-bip] .bip-standfirst {
-    margin-top: var(--space-base);
-    /* The prose MEASURE, kept without the prose COLUMN — see the markup for
-     * why this section cannot use the column itself. 62ch lands within a few
-     * pixels of the 672px floor at the base font size and, unlike a pixel
-     * value, stays a measure as the type scales. */
-    max-inline-size: 62ch;
-    /* The measure is a BOX, so centring the text inside it is not enough: left
-       unset, the box stays flush left and only its lines centre inside it,
-       which puts the standfirst's centre axis left of the headline's on any
-       window wider than the measure. */
-    margin-inline: auto;
+  .bip-standfirst {
     color: var(--body);
     font-size: var(--text-body);
     line-height: 1.6;
   }
 
-  /* --- The video card --------------------------------------------------- */
-
-  [data-bip] .bip-card {
-    margin-top: var(--space-lg);
-    /* `--rule`, not `--hairline`: the card is as wide as the content column,
-       so its left and right edges stand ON the two rails and are the same
-       line. A hairline here stopped both rails dead for the card's height. */
-    border: 1px solid var(--rule);
-    border-radius: var(--radius-xl);
-    background: var(--surface-card);
-    padding: var(--space-base);
-  }
-
-  /* The head seam — the first of the card's three internal separators.
-   *
-   * All three are `--hairline-strong`, one pixel, and nothing else: no shadow
-   * (the style gate rejects one and this system's depth is hairlines anyway),
-   * no second background, no radius. They mark seams that were previously
-   * implied by spacing alone.
-   *
-   * They shipped at `--hairline-soft` first, on the reasoning that anything
-   * louder would read as three more borders inside an already bordered card.
-   * That reasoning failed on the maintainer's monitor exactly the way
-   * `--hairline` failed for the page rules (see tokens.css § "The page rule"):
-   * the soft hairline sits under one point of separation from `--surface-card`,
-   * so the seams were not there at all. The maintainer asked for them stronger on
-   * 2026-08-29, so they carry the panel-outline token now. It stays a long way
-   * under `--rule`, which is what keeps the card's own edge the loudest line in
-   * the box and the three seams a clear step inside it.
-   *
-   * There is a cautionary tale behind drawing any seam in this repo — commit
-   * 51efb59 removed one from the connection strip, where it struck a line
-   * THROUGH the marks a visitor spends most of their time looking at. The
-   * distinction that makes these three safe is that each one lies in a gap
-   * that already existed, between two regions, and never across content.
-   *
-   * The card's 16px padding keeps this line clear of the 16px corner radius on
-   * its own; it needs no inset of its own. */
-  [data-bip] .bip-cardhead {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-base);
-    block-size: 44px;
-    margin-block-end: var(--space-sm);
-    border-block-end: 1px solid var(--hairline-strong);
-    padding-inline: var(--space-xs);
-  }
-
-  [data-bip] .bip-cardtitle {
-    margin: 0;
-    min-inline-size: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    color: var(--ink);
-    font-size: var(--text-title-sm);
-    font-weight: 600;
-  }
-
-  [data-bip] .bip-watch {
-    flex: none;
-    color: var(--muted);
-    font-size: var(--text-body-sm);
-    text-decoration: none;
-    white-space: nowrap;
-  }
-
-  [data-bip] .bip-watch:hover,
-  [data-bip] .bip-watch:focus-visible {
-    color: var(--ink);
-  }
-
-  /* The featured column is capped by the stage height rather than set to a
-   * flat 68%, so the video keeps its 16:9 ratio instead of being cropped or
-   * letterboxed when the viewport is short. `min()` takes whichever is
-   * smaller: on a tall screen that is the 68% the brief asks for; on a 900px
-   * screen it is whatever height is left. The rail takes the remainder either
-   * way, so no empty gap ever opens up inside the card. */
-  [data-bip] .bip-body {
-    display: grid;
-    grid-template-columns:
-      minmax(0, min(68%, calc(var(--stage-cap) * 16 / 9)))
-      minmax(0, 1fr);
-    gap: var(--space-sm);
-  }
-
-  [data-bip] .bip-stage {
-    position: relative;
-    aspect-ratio: 16 / 9;
-    overflow: hidden;
-    border-radius: var(--radius-lg);
-    background: var(--canvas);
-  }
-
-  /* --- The facade ------------------------------------------------------- */
-
-  [data-bip] .bip-play {
-    position: absolute;
-    inset: 0;
-    display: block;
-    inline-size: 100%;
-    block-size: 100%;
-    border: 0;
-    padding: 0;
-    background: none;
-    cursor: pointer;
-  }
-
-  [data-bip] .bip-poster {
-    inline-size: 100%;
-    block-size: 100%;
-    object-fit: cover;
-    /* Sits a step back until the pointer arrives, so the play badge reads as
-     * the thing to press rather than competing with the artwork behind it. */
-    opacity: 0.82;
-    transition: opacity 0.2s ease, transform 0.4s ease;
-  }
-
-  [data-bip] .bip-play:hover .bip-poster,
-  [data-bip] .bip-play:focus-visible .bip-poster {
-    opacity: 1;
-    transform: scale(1.015);
-  }
-
-  /* Paper on ink, the one action colour this system has — the same treatment
-   * as the primary CTA, because pressing this is the one thing the card asks
-   * for. No shadow: depth here is the ring in the page colour, which is what
-   * keeps the badge readable over a bright or a dark poster alike. */
-  [data-bip] .bip-playbadge {
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    display: grid;
-    place-items: center;
-    inline-size: 64px;
-    block-size: 64px;
-    border-radius: var(--radius-pill);
-    background: var(--ink);
-    color: var(--on-ink);
-    transition: background 0.2s ease, transform 0.2s ease;
-  }
-
-  [data-bip] .bip-playbadge svg {
-    /* Optically centred: a triangle's visual centre is left of its box centre,
-     * so a badge with it geometrically centred reads as leaning backwards. */
-    inline-size: 26px;
-    block-size: 26px;
-    margin-inline-start: 3px;
-  }
-
-  [data-bip] .bip-play:hover .bip-playbadge {
-    transform: scale(1.06);
-  }
-
-  [data-bip] .bip-play:active .bip-playbadge {
-    background: var(--ink-active);
-  }
-
-  /* The iframe the script creates on click. It replaces the button entirely,
-   * so there is nothing to fade between and nothing left that could send a
-   * second request. */
-  [data-bip] .bip-frame {
-    position: absolute;
-    inset: 0;
-    inline-size: 100%;
-    block-size: 100%;
-    border: 0;
-  }
-
-  /* --- The playlist rail ------------------------------------------------ */
-
-  /* The column seam — separator two. It sits at the rail's inline start with
-   * the SAME 12px on either side of it: `--space-sm` of grid gap to its left,
-   * `--space-sm` of padding to its right. A border with the gap only on one
-   * side reads as belonging to the rail rather than as dividing the two
-   * columns.
-   *
-   * `max-block-size: var(--stage-cap)` means the seam is exactly as tall as
-   * the video beside it, which is also what keeps it clear of the card's
-   * corners top and bottom. */
-  [data-bip] .bip-rail {
-    display: grid;
-    grid-template-rows: repeat(3, minmax(0, 1fr));
-    max-block-size: var(--stage-cap);
-    gap: var(--space-xs);
-    margin: 0;
-    border-inline-start: 1px solid var(--hairline-strong);
-    padding: 0 0 0 var(--space-sm);
-    list-style: none;
-  }
-
-  /* Separator three, between the rail's entries, drawn in the middle of the
-   * 8px gap rather than on an entry's edge — a border on the entry would sit
-   * against one neighbour and 8px from the other, and the row would look
-   * mis-set. `inset-inline: var(--space-xs)` stops it short of the column
-   * seam on one side and the card's padding on the other, so no two hairlines
-   * ever meet at a corner. */
-  [data-bip] .bip-rail li {
-    position: relative;
-  }
-
-  [data-bip] .bip-rail li + li::before {
-    content: "";
-    position: absolute;
-    inset-inline: var(--space-xs);
-    inset-block-start: calc(-1 * var(--space-xs) / 2 - 0.5px);
-    block-size: 1px;
-    background: var(--hairline-strong);
-    pointer-events: none;
-  }
-
-  [data-bip] .bip-entry {
-    display: grid;
-    /* A fixed width, not a share of the column. At 40% the thumbnail grew with
-     * the rail, and since it is 16:9 its HEIGHT grew with it too — three rows
-     * then came to more than the video beside them and the rail, not the
-     * stage, decided how tall the card was. */
-    grid-template-columns: minmax(0, 140px) minmax(0, 1fr);
-    align-items: center;
-    gap: var(--space-sm);
-    inline-size: 100%;
-    block-size: 100%;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    background: none;
-    padding: var(--space-xs);
-    text-align: start;
-    cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
-  }
-
-  [data-bip] .bip-entry:hover,
-  [data-bip] .bip-entry:focus-visible {
-    border-color: var(--hairline);
-    background: var(--canvas-soft);
-  }
-
-  [data-bip] .bip-entrythumb {
-    inline-size: 100%;
-    aspect-ratio: 16 / 9;
-    object-fit: cover;
-    border-radius: var(--radius-sm);
-  }
-
-  [data-bip] .bip-entrytext {
-    display: flex;
-    min-inline-size: 0;
-    flex-direction: column;
-    gap: var(--space-xxs);
-  }
-
-  /* Two lines, then an ellipsis. These titles run long and uneven, and a rail
-   * whose rows each pick their own height turns the card into a staircase. */
-  [data-bip] .bip-entrytitle {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden;
-    color: var(--ink);
-    font-size: var(--text-body-sm);
-    font-weight: 500;
-    line-height: 1.35;
-  }
-
-  [data-bip] .bip-entrymeta {
-    color: var(--muted);
-    font-size: var(--text-caption);
-  }
-
-  /* --- The disclosure line ---------------------------------------------- */
-
-  [data-bip] .bip-note {
+  .bip-link {
+    display: inline-block;
     margin-top: var(--space-sm);
-    /* --muted, not --muted-soft. design.md reserves the softer token for
-     * disabled text at 3.7:1 and says never to use it for something a visitor
-     * has to read — and this line is a disclosure about where their data goes
-     * and how old a number is, which is the last thing on the page that should
-     * be hard to read. */
-    color: var(--muted);
-    font-size: var(--text-caption);
-  }
-
-  /* --- The stat row ------------------------------------------------------
-   *
-   * Four equal cells, divided by a hairline and by nothing else. No card, no
-   * fill, no border round a cell, no radius: the row is meant to read as one
-   * measured strip rather than as four more boxes under a boxed card, and the
-   * section has 60px of height for it, not 170px.
-   *
-   * The dividers go on `li + li` rather than as a border on every cell, so no
-   * line is drawn at the outer edges of the row. Those edges are the rails,
-   * and a second hairline a pixel beside a rail is the "rendering fault" this
-   * page's whole chrome is careful to avoid. */
-  [data-bip] .bip-stats {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    margin: var(--space-lg) 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  [data-bip] .bip-stats > li + li {
-    border-inline-start: 1px solid var(--hairline);
-  }
-
-  /* Number and caption sit SIDE BY SIDE, not stacked — the maintainer's
-   * instruction on 2026-08-29: a cell is around 300px wide and the caption was
-   * roughly 110px of it, so the width was there and stacking spent height the
-   * section has to buy back from the video. The caption is now about 215px of
-   * that cell — see `.bip-statnumber` for why both halves are set at one size
-   * and where the width went — so the shape survives but the slack does not.
-   *
-   * `wrap` is the escape hatch rather than a media query. Below the width where
-   * "SUBSCRIBERS" no longer fits beside its figure the caption drops under it
-   * again, which is the old shape and still correct — the row-gap keeps the
-   * `--space-xs` it had when that was the only shape.
-   *
-   * Baselines, not centres: the caption sits ON the figure's baseline, so the
-   * four cells read as one line of type rather than as four labels floating
-   * beside four numbers. */
-  [data-bip] .bip-stats a {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-xs) var(--space-sm);
-    /* Air around the divider, and none at the two ends of the row: the first
-     * number has to start exactly on the same left edge as the card, or the
-     * section grows a third left margin. */
-    padding-inline: var(--space-lg);
-    color: inherit;
-    text-decoration: none;
-  }
-
-  [data-bip] .bip-stats > li:first-child a {
-    padding-inline-start: 0;
-  }
-
-  [data-bip] .bip-stats > li:last-child a {
-    padding-inline-end: 0;
-  }
-
-  /* ONE TYPE SIZE FOR THE WHOLE CELL — `display-sm` for the figure AND for the
-   * caption, at the maintainer's instruction on 2026-08-29. The caption used to
-   * be `caption-upper`, a third of the figure's size, and read as an annotation
-   * hung off a number; asked for "the same size as the 12", the cell now reads
-   * as one line of type in which the figure and its label carry equal weight.
-   *
-   * `display-sm` rather than the old `display-lg` because the row has a width
-   * budget and the caption is the wide half of it. Measured at 2560px, the
-   * point where a cell is narrowest relative to the root size (below 2560 the
-   * content column is pinned at 1280px while the type keeps shrinking, above it
-   * the column grows faster than the type): at `display-sm` the widest cell,
-   * "12 SUBSCRIBERS", uses 253px of 280px. One step up, at 1.5rem, it uses 274px
-   * — six pixels of slack, which is not a margin, it is a coin toss. Raising the
-   * caption without lowering the figure fits at this width too and leaves 2.5px
-   * at 1024px, so it is the same coin toss one breakpoint down.
-   *
-   * The figure stays plain and tabular — set in `tabular-nums` by LiveCount
-   * itself, so a digit changing during the count-up cannot shift the caption
-   * beside it — and it is the only part of the cell in `--ink` at weight 400.
-   * That contrast, not size, is now what makes it read as the number. */
-  [data-bip] .bip-statnumber {
     color: var(--ink);
-    font-size: var(--text-display-sm);
-    letter-spacing: var(--tracking-display-sm);
-    line-height: 1.1;
+    font-size: var(--text-body-sm);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--hairline-strong);
+    transition: text-decoration-color 150ms ease;
   }
 
-  /* `baseline` here as well, and it is doing something different from the rule
-   * on the cell: a flex container hands its own baseline up from the first item
-   * that takes part in baseline alignment. With the mark first and centred, the
-   * caption would hand up the SVG's bottom edge and the label would ride two or
-   * three pixels high against the figure. Aligning the text to the baseline and
-   * centring only the mark inside the line makes the label's own baseline the
-   * one the cell sees. */
-  [data-bip] .bip-statcaption {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-xs);
-    color: var(--muted);
-    font-size: var(--text-display-sm);
-    /* 500, not the 600 it carried at caption size. Weight is what keeps a
-     * small uppercase label from dissolving; at 22px the label has size for
-     * that on its own, and 600 beside a figure set at 400 would make the label
-     * the louder half of the cell — the opposite of what it is. */
-    font-weight: 500;
-    /* The tracking token is unchanged and is now doing a different job by
-     * arithmetic alone: 0.88px was 0.08em against an 11px caption, the wide
-     * spacing small uppercase needs to stay readable; against 22px it is
-     * 0.04em, which is about what uppercase wants at this size. */
-    letter-spacing: var(--tracking-caption-upper);
-    text-transform: uppercase;
-    transition: color 0.15s ease;
+  .bip-link:hover {
+    text-decoration-color: var(--ink);
   }
 
-  /* The whole cell is the link, so the hover has to be visible without a fill
-   * or a border — the caption and the mark move to `--ink` together, which is
-   * the same one-step lift the "Watch on YouTube" link uses. */
-  [data-bip] .bip-stats a:hover .bip-statcaption,
-  [data-bip] .bip-stats a:focus-visible .bip-statcaption {
-    color: var(--ink);
+  .bip-link:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
   }
 
-  /* Per-mark OPTICAL heights, the same method docs/LOGOS.md uses for the
-   * strip: a shared box size makes marks look wrong, because each glyph fills
-   * a different share of its own viewBox. `inline-size: auto` lets the viewBox
-   * set the width — Discord's is 256x199 and forcing it square would squash
-   * the mark. YouTube's glyph is 17 units tall in a 24-unit box, so it takes
-   * the largest number here to end up the same weight on screen as GitHub's,
-   * which fills its box corner to corner.
-   *
-   * In `em`, not pixels, since the caption went to `display-sm`: a mark pinned
-   * at 13px beside 22px of type is a detail that fell off the line, and the
-   * ratios are the whole point of the numbers below — pixels would freeze them
-   * at one root size on a page whose type scales with the viewport. The four
-   * values are the old pixel heights re-expressed against the new caption size
-   * and then eased down a little: a mark reads heavier the larger it gets, and
-   * holding the old ratio exactly would have put a 32px YouTube mark beside a
-   * 22px figure. */
-  [data-bip] .bip-statmark {
-    flex: none;
-    align-self: center;
-    inline-size: auto;
-    block-size: 1em;
+  .bip-stage {
+    margin-top: var(--space-xl);
   }
 
-  [data-bip] .bip-statmark--youtube {
-    block-size: 1.23em;
+  /* The pause. Two screens of pinned scroll: the rise, the close-in and a
+     beat on the busiest day, each long enough to read, short enough that the
+     page does not feel stuck. */
+  [data-track] {
+    --track: 300svh;
+
+    height: var(--track);
   }
 
-  [data-bip] .bip-statmark--x {
-    block-size: 0.92em;
+  /* Pinned under the fixed nav, one section tall — layout.css § "Section
+     heights", the same rule the globe's viewport follows. */
+  [data-viewport] {
+    position: sticky;
+    top: var(--nav-height);
+    height: var(--section-height);
   }
 
-  [data-bip] .bip-statmark--discord {
-    block-size: 0.92em;
+  .bip-body {
+    padding-block: clamp(1.25rem, 3svh, 3rem);
   }
 
-  /* --- Narrow ------------------------------------------------------------
-   * Below 1024px the rail goes under the video and the height cap is released,
-   * as the brief specifies: once the section is allowed to be taller than one
-   * screen, holding the video to a viewport-derived height only makes it small
-   * for no reason. The stat row stays four across here — the content column is
-   * still at least 720px wide, which is 180px a cell. */
-  @media (max-width: 1023px) {
-    [data-bip] {
-      --stage-cap: 100%;
-    }
-
-    [data-bip] .bip-body {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    /* The column seam becomes a row seam: with the rail under the video, a
-     * vertical line down its left edge would divide nothing. */
-    [data-bip] .bip-rail {
-      grid-template-rows: none;
-      grid-auto-rows: minmax(0, auto);
-      border-inline-start: 0;
-      border-block-start: 1px solid var(--hairline-strong);
-      padding: var(--space-sm) 0 0;
-    }
-
-    [data-bip] .bip-entry {
-      grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
-    }
-
-    /* The caption goes back UNDER the figure. Four cells across a window this
-     * narrow are about 165-220px each, which is the width where SOME captions
-     * still fit beside their figure and others do not: "STARS" stayed on the
-     * line while "SUBSCRIBERS" dropped below it, and a row with two cells
-     * stacked and two not reads as a fault rather than as a layout. The row
-     * switches shape together or not at all, and this is the width where it
-     * switches. The `wrap` on the cell stays underneath as a last resort for
-     * a reader who has scaled the type up.
-     *
-     * This breakpoint got tighter when the caption went to `display-sm`, and it
-     * was re-measured rather than assumed: at 1024px, the last width that keeps
-     * the one-line shape, "12 SUBSCRIBERS" uses 186px of the 200px it has. The
-     * root size shrinks faster than the cell does between here and 2560px, so
-     * 14px is the narrowest the margin gets across the whole desktop range —
-     * thin, but it is the same 14px at every width in between, not a cliff. */
-    [data-bip] .bip-stats a {
+  /* While pinned, the chart takes the height the head leaves, so the section
+     is exactly one screen whatever the window. */
+  @media (min-width: 1024px) and (min-height: 752px) and (prefers-reduced-motion: no-preference) {
+    .bip-stage {
+      display: flex;
+      flex: 1 1 0%;
       flex-direction: column;
-      align-items: flex-start;
-      gap: var(--space-xs);
+      min-height: 0;
     }
   }
 
-  /* Below 768px four cells would be about 80px wide each — too narrow for a
-   * 22px figure over an uppercase caption at the same size, and the captions
-   * would wrap into two lines while the figures did not. Two columns keep every
-   * cell legible.
-   *
-   * The dividers stay, because they are the row's only chrome and dropping
-   * them turns it into four floating numbers: cells 2 and 4 keep a vertical
-   * hairline, and the second ROW gets a horizontal one, so the grid still
-   * reads as one divided strip rather than as four cards. `:first-child` and
-   * `:last-child` stop meaning "the ends of the row" at two columns, so the
-   * end padding is re-expressed by column parity. */
-  @media (max-width: 767px) {
-    [data-bip] .bip-stats {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Where the pin is dropped: the globe's guards, for the globe's reasons
+     (Stargazers.astro § "WHERE THE PIN IS DROPPED"). The section is then an
+     ordinary full-height block and the skyline rises once on sight. */
+  @media (max-width: 1023px), (max-height: 751px), (prefers-reduced-motion: reduce) {
+    [data-track] {
+      height: auto;
     }
 
-    [data-bip] .bip-stats > li + li {
-      border-inline-start: 0;
-    }
-
-    [data-bip] .bip-stats > li:nth-child(even) {
-      border-inline-start: 1px solid var(--hairline);
-    }
-
-    [data-bip] .bip-stats > li:nth-child(n + 3) {
-      border-block-start: 1px solid var(--hairline);
-    }
-
-    [data-bip] .bip-stats a {
-      padding-block: var(--space-base);
-    }
-
-    [data-bip] .bip-stats > li:nth-child(odd) a {
-      padding-inline-start: 0;
-    }
-
-    [data-bip] .bip-stats > li:nth-child(even) a {
-      padding-inline-end: 0;
-    }
-
-    [data-bip] .bip-stats > li:nth-child(-n + 2) a {
-      padding-block-start: 0;
-    }
-
-    [data-bip] .bip-stats > li:nth-child(n + 3) a {
-      padding-block-end: 0;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    [data-bip] .bip-poster,
-    [data-bip] .bip-playbadge,
-    [data-bip] .bip-statcaption {
-      transition: none;
-    }
-
-    [data-bip] .bip-play:hover .bip-poster,
-    [data-bip] .bip-play:hover .bip-playbadge {
-      transform: none;
+    [data-viewport] {
+      position: static;
+      height: auto;
     }
   }
 </style>
-
-<script>
-  /*
-   * Two behaviours, and the privacy rule sits between them.
-   *
-   *  - PRESS PLAY: build the iframe. This is the first and only moment a
-   *    request reaches a Google host, and it happens because someone asked
-   *    for it.
-   *
-   *  - PRESS A RAIL ENTRY: trade that video with the one on the stage. This
-   *    must NOT start a connection on its own, so a swap while the facade is
-   *    still up stays on the facade. Once a video IS playing, the visitor has
-   *    already chosen YouTube for this visit, and a swap keeps playing —
-   *    dropping them back to a poster frame mid-session would read as the
-   *    player breaking.
-   *
-   * The stat row is not this script's business. Each cell is its own island;
-   * see src/components/counters/LiveCount.tsx.
-   */
-  interface Video {
-    id: string;
-    title: string;
-    uploaded: string;
-    meta: string;
-  }
-
-  const section = document.querySelector<HTMLElement>("[data-bip]");
-
-  if (section) {
-    const stage = section.querySelector<HTMLElement>("[data-stage]");
-    const headTitle = section.querySelector<HTMLElement>("[data-active-title]");
-    const watchLink = section.querySelector<HTMLAnchorElement>("[data-watch]");
-    const entries = Array.from(
-      section.querySelectorAll<HTMLButtonElement>("[data-entry]"),
-    );
-
-    /* The rail's own DOM is the source of truth for what is in it, so the
-     * markup and the script cannot drift apart the way a second hardcoded
-     * list would. Only the stage's video needs to be held separately. */
-    const read = (entry: HTMLButtonElement): Video => ({
-      id: entry.dataset.id ?? "",
-      title: entry.querySelector("[data-entry-title]")?.textContent?.trim() ?? "",
-      uploaded:
-        entry.querySelector<HTMLTimeElement>("[data-entry-meta]")?.dateTime ?? "",
-      meta: entry.querySelector("[data-entry-meta]")?.textContent?.trim() ?? "",
-    });
-
-    const write = (entry: HTMLButtonElement, video: Video) => {
-      entry.dataset.id = video.id;
-      const thumb = entry.querySelector<HTMLImageElement>("[data-entry-thumb]");
-      const title = entry.querySelector<HTMLElement>("[data-entry-title]");
-      const meta = entry.querySelector<HTMLTimeElement>("[data-entry-meta]");
-      if (thumb) thumb.src = `/video-thumbs/${video.id}-sm.jpg`;
-      if (title) title.textContent = video.title;
-      if (meta) {
-        meta.textContent = video.meta;
-        meta.dateTime = video.uploaded;
-      }
-    };
-
-    let active: Video = {
-      id: section.dataset.active ?? "",
-      title: headTitle?.textContent?.trim() ?? "",
-      /* The stage carries no date of its own — the rail is where dates are
-       * shown — so these travel with the video and come back when it does. */
-      uploaded: "",
-      meta: "",
-    };
-
-    /* Seeded from the markup so the featured video's date survives a swap: it
-     * is the one video whose date is never rendered, and losing it would mean
-     * the rail showing a blank line the moment it came back. */
-    const seed = section.dataset.activeUploaded;
-    if (seed) {
-      active.uploaded = seed;
-      active.meta = section.dataset.activeMeta ?? "";
-    }
-
-    /** The facade, rebuilt for whichever video is on the stage. */
-    const renderFacade = () => {
-      if (!stage) return;
-      stage.innerHTML = "";
-
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "bip-play";
-      button.dataset.play = "";
-      button.setAttribute("aria-label", `Play video: ${active.title}`);
-
-      const poster = document.createElement("img");
-      poster.className = "bip-poster";
-      poster.src = `/video-thumbs/${active.id}.jpg`;
-      poster.alt = "";
-      poster.width = 1280;
-      poster.height = 720;
-      poster.decoding = "async";
-
-      const badge = document.createElement("span");
-      badge.className = "bip-playbadge";
-      badge.setAttribute("aria-hidden", "true");
-      badge.innerHTML =
-        '<svg viewBox="0 0 24 24" fill="currentColor" focusable="false"><path d="M8 5.14v13.72L19 12 8 5.14Z"></path></svg>';
-
-      button.append(poster, badge);
-      stage.append(button);
-    };
-
-    /**
-     * The only place in this file that reaches a Google host, and it runs from
-     * a click and nowhere else.
-     *
-     * `youtube-nocookie.com` is contractual, not a preference: the ordinary
-     * embed domain sets its tracking cookies on arrival, which is a
-     * disclosure the visitor did not agree to by pressing play on a video.
-     */
-    const play = () => {
-      if (!stage) return;
-      const frame = document.createElement("iframe");
-      frame.className = "bip-frame";
-      frame.src = `https://www.youtube-nocookie.com/embed/${active.id}?autoplay=1&rel=0`;
-      frame.allow =
-        "accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture";
-      frame.allowFullscreen = true;
-      frame.title = active.title;
-      stage.innerHTML = "";
-      stage.append(frame);
-    };
-
-    const isPlaying = () => Boolean(stage?.querySelector("iframe"));
-
-    const swap = (entry: HTMLButtonElement) => {
-      const incoming = read(entry);
-      const outgoing = active;
-      active = incoming;
-
-      write(entry, outgoing);
-      section.dataset.active = incoming.id;
-      if (headTitle) headTitle.textContent = incoming.title;
-      if (watchLink) {
-        watchLink.href = `https://www.youtube.com/watch?v=${incoming.id}`;
-      }
-
-      /* Keep playing if we were playing; otherwise stay behind the facade and
-       * make no request at all. */
-      if (isPlaying()) play();
-      else renderFacade();
-    };
-
-    /* Delegated, because the play button is replaced whenever the stage
-     * changes and a listener bound to the original node would be thrown away
-     * with it after the first swap. */
-    stage?.addEventListener("click", (event) => {
-      if ((event.target as HTMLElement).closest("[data-play]")) play();
-    });
-
-    for (const entry of entries) {
-      entry.addEventListener("click", () => swap(entry));
-    }
-  }
-</script>

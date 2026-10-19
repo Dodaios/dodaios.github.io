@@ -57,9 +57,19 @@ jobs:
           X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
         run: node scripts/fetch-social-counts.mjs --verbose
 
+      - name: Fetch commit activity
+        # The year of daily commit counts the "Built in public" skyline draws,
+        # counted from the commit list (~60 pages). The token is what makes
+        # that fit the rate limit; the data itself is public. A failure keeps
+        # yesterday's file instead of failing the run — the browser tops the
+        # year up live either way.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/fetch-commit-activity.mjs || echo "kept the previous commit activity"
+
       - name: Commit if it changed
         run: |
-          if git diff --quiet -- src/data/social-counts.json; then
+          if git diff --quiet -- src/data/social-counts.json src/data/commit-activity.json; then
             echo "no change"
             exit 0
           fi
@@ -70,5 +80,5 @@ jobs:
           # with "pathspec '-m' did not match any file(s)" — which is what the
           # first real run of this workflow did.
           git commit -m "chore(social): refresh the build-in-public counts" \
-            --only -- src/data/social-counts.json
+            --only -- src/data/social-counts.json src/data/commit-activity.json
           git push

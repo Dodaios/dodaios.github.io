@@ -1,0 +1,183 @@
+---
+/**
+ * Section — "Built in public": a year of commits, as a skyline.
+ *
+ * WHAT IT REPLACED. Until 2026-10-19 this anchor held a YouTube gallery of
+ * development videos. Those showed the maintainer's face, and the maintainer
+ * asked to no longer be visible on the internet, so the gallery, its poster
+ * frames and its stat row were removed. The claim the section makes — the
+ * work happens in the open — is now shown through the work itself rather than
+ * through the person doing it. See docs/section-6-skyline.md.
+ *
+ * THE PICTURE. Every day of the last year is a box; its height is the number
+ * of commits that landed on the public repository's default branch that day.
+ * Seen from above it is a heat map, seen from the corner a skyline, and the
+ * camera swings between the two (src/components/skyline/). The component was
+ * adapted from one the maintainer supplied; it is drawn here in ink and paper
+ * only, in the site's own tokens.
+ *
+ * NOTHING HERE IS INVENTED. The counts come from GitHub's
+ * `stats/commit_activity`, read by scripts/fetch-commit-activity.mjs into
+ * src/data/commit-activity.json and refreshed by the social-counts workflow.
+ * Only counts are stored: no author, no message. The quiet months at the start
+ * of the year are real too — the repository is younger than the year the
+ * picture spans, and a skyline that starts flat says so honestly. The caption
+ * names the day the numbers were read, as the globe section does for its own.
+ *
+ * IT ADDS NO SCROLL BEHAVIOUR. The globe above is a scroll trap; this is an
+ * ordinary bounded band, scrolled past at the reader's pace. The skyline rises
+ * once when it first comes into view, and not at all under reduced motion.
+ *
+ * Widths come from the one Container; no max-width is named here.
+ * See docs/layout.md and docs/design.md.
+ */
+import Container from "@/components/Container.astro";
+import SectionTrack from "@/components/SectionTrack.astro";
+import CommitSkyline from "@/components/skyline/CommitSkyline";
+import activity from "@/data/commit-activity.json";
+import { REPO } from "@/lib/install";
+
+const readOn = new Date(activity.readAt).toLocaleDateString("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+const endDate = activity.readAt.slice(0, 10);
+---
+
+<section
+  id="built-in-public"
+  aria-labelledby="bip-heading"
+  class="section-full-height flex flex-col"
+>
+  <Container width="content" class="section-inset flex min-h-0 flex-1 flex-col">
+    <div class="section-bounds section-bounds--fill flex flex-col justify-center">
+      <SectionTrack nested />
+
+      <div class="bip-head">
+        <div>
+          <p class="bip-eyebrow">Built in public</p>
+          <h2 id="bip-heading" class="bip-headline">
+            <span class="bip-headline__claim">Built in the open, every day.</span>
+            <span class="bip-headline__invite">Each block is a day of work.</span>
+          </h2>
+        </div>
+        <div>
+          <p class="bip-standfirst">
+            Every commit to the public repository over the last year. The
+            taller the block, the more landed that day. Turn it, hover a day,
+            or flatten it back into a calendar.
+          </p>
+          <a
+            class="bip-link"
+            href={`${REPO}/commits/main`}
+            target="_blank"
+            rel="noopener"
+          >
+            Read the commit history
+          </a>
+        </div>
+      </div>
+
+      <div class="bip-stage">
+        <CommitSkyline client:visible data={activity.days} endDate={endDate} />
+        <p class="bip-caption">
+          Commits to the default branch of {activity.repo}, read from GitHub on
+          {" "}{readOn}. Counts only — no names.
+        </p>
+      </div>
+    </div>
+  </Container>
+</section>
+
+<style>
+  /* The head and the stage stand off the rails by the inset the Agents
+     section uses, so the two share one left edge. */
+  .bip-head,
+  .bip-stage {
+    padding-inline: clamp(0rem, 2.2vw, 2.5rem);
+  }
+
+  /* Headline left, standfirst right, on one row — the split the Agents
+     section uses, because what sits below is one object as wide as the
+     column. Sized from the tokens rather than Tailwind's rem utilities, for
+     the reason OpenSource.astro gives. */
+  .bip-head {
+    display: grid;
+    gap: var(--space-base);
+    align-items: end;
+  }
+
+  @media (min-width: 1024px) {
+    .bip-head {
+      grid-template-columns: 7fr 5fr;
+      gap: var(--space-xl);
+    }
+  }
+
+  .bip-eyebrow {
+    color: var(--muted);
+    font-size: var(--text-caption-upper);
+    font-weight: 600;
+    letter-spacing: var(--tracking-caption-upper);
+    text-transform: uppercase;
+  }
+
+  .bip-headline {
+    margin-top: var(--space-sm);
+    font-size: var(--text-display-lg);
+    letter-spacing: var(--tracking-display-lg);
+    line-height: 1.2;
+  }
+
+  .bip-headline__claim,
+  .bip-headline__invite {
+    display: block;
+    text-wrap: balance;
+  }
+
+  .bip-headline__claim {
+    color: var(--ink);
+  }
+
+  .bip-headline__invite {
+    color: var(--body);
+  }
+
+  .bip-standfirst {
+    color: var(--body);
+    font-size: var(--text-body);
+    line-height: 1.6;
+  }
+
+  .bip-link {
+    display: inline-block;
+    margin-top: var(--space-sm);
+    color: var(--ink);
+    font-size: var(--text-body-sm);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--hairline-strong);
+    transition: text-decoration-color 150ms ease;
+  }
+
+  .bip-link:hover {
+    text-decoration-color: var(--ink);
+  }
+
+  .bip-link:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  .bip-stage {
+    margin-top: var(--space-xl);
+  }
+
+  .bip-caption {
+    margin-top: var(--space-sm);
+    color: var(--muted-soft);
+    font-size: var(--text-caption);
+  }
+</style>

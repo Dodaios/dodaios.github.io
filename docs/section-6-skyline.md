@@ -19,11 +19,13 @@ Every day of the last year as a box; its height is the number of commits that
 landed on `main` of the public repository that day. Seen from above it is a
 heat map, from the corner a skyline.
 
-The section is pinned (a `[data-track]` of `260svh` with a sticky
+The section is pinned (a `[data-track]` of `300svh` with a sticky
 `[data-viewport]`, like the globe). Across the pinned span the scroll position
 drives the picture — `SCRUB` in CommitSkyline.tsx: the calendar holds, rises
-into the skyline week by week, then the camera turns slightly and closes in on
-the weeks that have commits. Scrolling back runs it backwards. Narrow, short
+into the skyline week by week, then the camera swings toward broadside and
+closes in on the weeks that have commits while the empty months fade, and the
+pause ends on the busiest day called out in the tooltip. Scrolling back runs
+it backwards. Narrow, short
 and reduced-motion windows drop the pin; the skyline then rises once when it
 comes into view. The toggle swings the camera by hand and holds until the next
 scroll.

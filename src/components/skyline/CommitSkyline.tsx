@@ -85,15 +85,17 @@ export interface CommitSkylineProps {
  *
  *   0 → hold       the calendar, flat, so the reader sees what is about to rise
  *   hold → rise    the skyline rises, oldest week first
- *   rise → 1       the camera turns a little and closes in on the weeks that
- *                  have commits, so the finished skyline fills the frame
- *                  instead of sharing it with the empty months before it
+ *   rise → close   the camera swings toward broadside and closes in on the
+ *                  weeks that have commits; the empty months before them fade,
+ *                  so the finished skyline fills the frame on its own
+ *   close → 1      it holds, and the busiest day is called out — the pause
+ *                  ends on a fact, not on a camera move
  *
  * `follow` is how quickly the picture catches the scroll position, per second:
  * a wheel moves in steps, and a picture that jumps with each one reads as
  * broken rather than driven.
  */
-const SCRUB = { hold: 0.1, rise: 0.58, yawFrom: -0.3, yawTo: 0.08, elevDip: -0.08, follow: 9 };
+const SCRUB = { hold: 0.08, rise: 0.5, close: 0.8, callout: 0.84, yawFrom: -0.12, yawTo: -0.4, elevTo: -0.05, follow: 8 };
 
 /** Minutes between live reads while the tab is visible. */
 const LIVE_EVERY_MIN = 5;
@@ -493,6 +495,8 @@ export default function CommitSkyline({
     let fz = 0;
     let fzGoal = 0;
     let focusWeek = 0;
+    let busyIdx = -1;
+    let autoIdx = -1;
     let sentView: View | null = null;
 
     const load = () => {
@@ -519,6 +523,7 @@ export default function CommitSkyline({
       months = m.months;
       const firstActive = m.cells.findIndex((c) => c.count > 0);
       focusWeek = firstActive < 0 ? 0 : Math.max(0, m.cells[firstActive].week - 2);
+      busyIdx = m.stats.busiest.date ? m.cells.findIndex((c) => c.date === m.stats.busiest.date) : -1;
       const wf = new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" });
       weekdayRows = [];
       for (let d = 0; d < 7 && d < n; d++) {
@@ -625,7 +630,8 @@ export default function CommitSkyline({
       }
       const pad = lerp(2, 20, e);
       const left = pad + gutter * (1 - e);
-      const top = pad + 20 * (1 - e);
+      // Pinned, the 3D view keeps a tooltip's height free above the tallest bar for the callout.
+      const top = pad + 20 * (1 - e) + (scrubbing ? 18 * e : 0);
       const aw = W - left - pad;
       const ah = Hc - top - pad;
       const bw = Math.max(1e-6, b.maxx - b.minx);
@@ -650,6 +656,8 @@ export default function CommitSkyline({
       const ex = col[0];
       const ey = col[1];
       const ez = col[2];
+      // how far the empty months before the first commit have faded out
+      const gone = fz * e;
 
       for (let k = 0; k < n; k++) {
         const i = order[k];
@@ -693,6 +701,7 @@ export default function CommitSkyline({
         if (tall > 0.35 && w * sn * s > 0.35) f |= 2;
         faces[i] = f;
 
+        ctx.globalAlpha = wk[i] < focusWeek ? 1 - 0.88 * gone : 1;
         const L = lv[i] * 3;
         let r = col[L];
         let g = col[L + 1];
@@ -738,6 +747,8 @@ export default function CommitSkyline({
         }
       }
 
+      ctx.globalAlpha = 1;
+
       // Labels: along the top and left flat, along the front edge in 3D. They fade, never pop.
       const muted = mixRGB(bg, fg, 0.55);
       ctx.font = font;
@@ -768,7 +779,10 @@ export default function CommitSkyline({
         let edge = -Infinity;
         for (const m of months) {
           const x = px(m.week + 0.5, 7.3);
-          if (x < edge || x + ctx.measureText(m.label).width > W) continue;
+          if (x < 0 || x < edge || x + ctx.measureText(m.label).width > W) continue;
+          const fade = m.week < focusWeek ? 1 - gone : 1;
+          if (fade < 0.02) continue;
+          ctx.fillStyle = mutedAt(a3 * fade);
           ctx.fillText(m.label, x, py(m.week + 0.5, 7.3, 0) + 2);
           edge = x + ctx.measureText(m.label).width + 10;
         }
@@ -852,7 +866,7 @@ export default function CommitSkyline({
 
     // The active day is the hovered one, else the pinned one (tap, click or keyboard).
     const refreshActive = () => {
-      const next = hovered >= 0 ? hovered : pinned;
+      const next = hovered >= 0 ? hovered : pinned >= 0 ? pinned : autoIdx;
       if (next === activeIdx) return;
       activeIdx = next;
       cfg.current.setActive(next);
@@ -1021,10 +1035,15 @@ export default function CommitSkyline({
       if (!scrubbing || !track) return;
       const p = trackProgress(track);
       tGoal = Math.min(1, Math.max(0, (p - SCRUB.hold) / (SCRUB.rise - SCRUB.hold)));
-      const turn = easeInOutCubic(Math.min(1, Math.max(0, (p - SCRUB.rise) / (1 - SCRUB.rise))));
+      const turn = easeInOutCubic(Math.min(1, Math.max(0, (p - SCRUB.rise) / (SCRUB.close - SCRUB.rise))));
       ysGoal = lerp(SCRUB.yawFrom, SCRUB.yawTo, turn);
-      esGoal = SCRUB.elevDip * Math.sin(Math.PI * turn);
+      esGoal = SCRUB.elevTo * turn;
       fzGoal = turn;
+      const call = p >= SCRUB.callout ? busyIdx : -1;
+      if (call !== autoIdx) {
+        autoIdx = call;
+        refreshActive();
+      }
       manual = false;
       const v: View = tGoal >= 0.5 ? "3d" : "2d";
       if (v !== sentView) {
@@ -1050,6 +1069,8 @@ export default function CommitSkyline({
         fz = fzGoal;
       } else {
         ys = es = ysGoal = esGoal = fz = fzGoal = 0;
+        autoIdx = -1;
+        refreshActive();
       }
       relayout();
     };
@@ -1168,6 +1189,10 @@ export default function CommitSkyline({
   }, [active, model]);
 
   const { stats } = model;
+  // The tooltip keeps its last day while it fades out, rather than collapsing to an empty chip.
+  const lastTip = React.useRef(-1);
+  if (active >= 0) lastTip.current = active;
+  const tipDay = active >= 0 ? active : lastTip.current;
   const range = (a: string | null, b: string | null, withYear = false) => {
     if (!a || !b) return "—";
     const f = withYear ? dfy : df;
@@ -1327,14 +1352,15 @@ export default function CommitSkyline({
             className="pointer-events-none absolute top-3 left-3 z-20 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[12px] leading-none transition-opacity duration-150 sm:top-4 sm:left-4 motion-reduce:transition-none"
             style={{ opacity: active >= 0 ? 1 : 0, background: INK, color: "var(--on-ink)" }}
           >
-            {active >= 0 && model.cells[active] ? (
+            {tipDay >= 0 && model.cells[tipDay] ? (
               <>
+                {model.cells[tipDay].date === stats.busiest.date && <span className="opacity-75">Busiest day · </span>}
                 <strong className="font-semibold">
-                  {model.cells[active].count
-                    ? nf.format(model.cells[active].count) + " " + noun(model.cells[active].count)
+                  {model.cells[tipDay].count
+                    ? nf.format(model.cells[tipDay].count) + " " + noun(model.cells[tipDay].count)
                     : "No " + PLURAL}
                 </strong>
-                <span className="opacity-75"> on {dfy.format(dayMs(model.cells[active].date))}</span>
+                <span className="opacity-75"> on {dfy.format(dayMs(model.cells[tipDay].date))}</span>
               </>
             ) : (
               " "

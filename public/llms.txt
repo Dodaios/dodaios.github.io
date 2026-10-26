@@ -1,10 +1,10 @@
 # Dodaios
 
-> Dodaios (called Personal Jarvis until October 2026) is a free, open-source (Apache 2.0) desktop app for Windows, macOS and Linux that turns your computer into an AI agent. You talk to it by chat or by voice; it can use the browser and desktop, run coding agents, call connected tools, and bring the result back to one workspace. It works with any single model provider key or with local models through Ollama.
+> Dodaios is an open-source agent OS for your desktop: it runs your coding agents, browser and apps by voice or chat, on your own machine. It was called Personal Jarvis until October 2026. It is free and open source (Apache 2.0) and runs on Windows, macOS and Linux. You talk to it by chat or by voice; it can use the browser and desktop, run coding agents, call connected tools, and bring the result back to one workspace. It works with any single model provider key or with local models through Ollama.
 
 - Source code, install commands and documentation: https://github.com/Dodaios/Dodaios
 - Releases: https://github.com/Dodaios/Dodaios/releases
-- Python package: https://pypi.org/project/personal-jarvis/
+- Python package: https://pypi.org/project/dodaios/
 
 ## What it does
 

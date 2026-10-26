@@ -1,0 +1,60 @@
+/*
+ * States and motion for the "Code by talking" demo.
+ *
+ * Only what needs a keyframe; everything static is an inline design-pixel
+ * value in TalkView.tsx, against the 1440x1340 canvas.
+ */
+
+.talk-pane {
+  transition: border-color 220ms ease-out;
+}
+
+/* The brief lands in the pane: a short rise, so the eye follows the sentence
+   from the voice bar up into the pane that was named. */
+.talk-brief {
+  animation: talk-rise 320ms ease-out;
+}
+
+.talk-receipt {
+  animation: talk-fade 260ms ease-out;
+}
+
+.talk-dot--pulse {
+  animation: talk-pulse 1100ms ease-in-out infinite;
+}
+
+.talk-mic--live {
+  animation: talk-pulse 900ms ease-in-out infinite;
+}
+
+@keyframes talk-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes talk-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes talk-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .talk-pane {
+    transition: none;
+  }
+
+  .talk-brief,
+  .talk-receipt,
+  .talk-dot--pulse,
+  .talk-mic--live {
+    animation: none;
+  }
+}

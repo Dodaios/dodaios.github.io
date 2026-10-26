@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 252,
-  "forks": 92,
-  "placed": 49,
-  "stated": 61,
-  "generatedAt": "2026-10-25T18:28:10.717Z",
+  "count": 255,
+  "forks": 94,
+  "placed": 51,
+  "stated": 63,
+  "generatedAt": "2026-10-26T03:00:19.937Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -161,6 +161,13 @@
       "count": 1
     },
     {
+      "lat": 5.06,
+      "lon": -75.52,
+      "label": "Manizales",
+      "country": "Colombia",
+      "count": 1
+    },
+    {
       "lat": 44.982,
       "lon": -93.254,
       "label": "Minnesota",
@@ -179,6 +186,13 @@
       "lon": 11.573,
       "label": "Munich",
       "country": "Germany",
+      "count": 1
+    },
+    {
+      "lat": 40.752,
+      "lon": -73.982,
+      "label": "New York",
+      "country": "United States",
       "count": 1
     },
     {

@@ -35,7 +35,7 @@
  * first.
  *
  * NOTHING HERE IS INVENTED. Every step is provable from README.md ("Install",
- * "Run it") or from jarvis.toml.example; see the comment on each one.
+ * "Run it") or from dodaios.toml.example; see the comment on each one.
  *
  * Type sizes live in the style block, not in `text-[…]` utilities. A Tailwind
  * arbitrary value holding a bare custom property is ambiguous and resolves as
@@ -60,7 +60,7 @@ const steps = [
   {
     title: "Pick a wake word",
     // README § Install: "the app walks you through a one-time setup for
-    // language, wake word, and API keys". jarvis.toml.example
+    // language, wake word, and API keys". dodaios.toml.example
     // [trigger.wake_word]: "no wake word ships with the product";
     // [persona]: the name is derived from the phrase you choose.
     body: "The app walks you through language, wake word and keys once. Nothing is preset — you type any phrase you like, and the assistant takes its name from it.",
@@ -77,10 +77,10 @@ const steps = [
   },
   {
     title: "Say it",
-    // README § Run it: `jarvis` is the full desktop with voice and the Orb
-    // overlay; `jarvis serve` is the headless server whose full experience,
+    // README § Run it: `dodaios` is the full desktop with voice and the Orb
+    // overlay; `dodaios serve` is the headless server whose full experience,
     // microphone included, lives in the browser.
-    body: "`jarvis` opens the desktop window with voice and the Orb overlay. On a server, `jarvis serve` runs the same assistant in a browser tab, microphone and all.",
+    body: "`dodaios` opens the desktop window with voice and the Orb overlay. On a server, `dodaios serve` runs the same assistant in a browser tab, microphone and all.",
     cta: false,
   },
 ];

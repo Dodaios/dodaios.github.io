@@ -16,7 +16,7 @@
 - Plugins, skills and MCP
 - Memory and a personal knowledge wiki
 - Run agents on other computers over SSH, such as a VPS or a local VM
-- A `jarvis` command line interface for scripting the app
+- A `dodaios` command line interface for scripting the app
 
 ## Install
 
@@ -30,5 +30,5 @@
 - [Plugins](https://dodaios.ai/plugins/)
 - [Skills](https://dodaios.ai/skills/)
 - [Blog](https://dodaios.ai/blog/)
-- [Dodaios Verse launch post](https://dodaios.ai/blog/jarvis-verse/)
+- [Dodaios Verse launch post](https://dodaios.ai/blog/dodaios-verse/)
 - [The rename from Personal Jarvis, and how to update an old install](https://dodaios.ai/renamed/)

@@ -271,8 +271,8 @@ site's.
 components, then run both scripts against a fresh app build:
 
 ```
-node scripts/gen-app-icons.mjs <app>/jarvis/ui/web/frontend
-node scripts/sync-app-ui.mjs   <app>/jarvis/ui/web/dist/assets
+node scripts/gen-app-icons.mjs <app>/dodaios/ui/web/frontend
+node scripts/sync-app-ui.mjs   <app>/dodaios/ui/web/dist/assets
 ```
 
 ### Size

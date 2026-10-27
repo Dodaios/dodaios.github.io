@@ -108,7 +108,7 @@ const blobUrl = (file: string) => `/${REPO}/blob/${BRANCH}/${file}`;
  * as four screenshots.
  *
  * ONE TRANSITION IS ELIDED, and it is in the middle on purpose. Getting from
- * `jarvis/` to `install/` is two clicks — up to the root, then down again — and
+ * `dodaios/` to `install/` is two clicks — up to the root, then down again — and
  * the pointer on beat two rests on the breadcrumb that makes the first of them.
  * Spending a whole beat on the root a second time would buy nothing but
  * literalism. It sits in the middle rather than at the end because the last
@@ -116,12 +116,12 @@ const blobUrl = (file: string) => `/${REPO}/blob/${BRANCH}/${file}`;
  * because it is the only frame with something to READ.
  */
 export const FRAMES: Frame[] = [
-  { view: "tree", page: "root", hover: "jarvis", path: treeUrl(""), duration: 3400 },
+  { view: "tree", page: "root", hover: "dodaios", path: treeUrl(""), duration: 3400 },
   {
     view: "tree",
-    page: "jarvis",
+    page: "dodaios",
     hoverCrumb: true,
-    path: treeUrl("jarvis"),
+    path: treeUrl("dodaios"),
     duration: 3200,
   },
   {

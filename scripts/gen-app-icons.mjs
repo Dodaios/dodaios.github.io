@@ -2,7 +2,7 @@
 /**
  * Generate the hero demo's icons from the app's own icon sources.
  *
- *   node scripts/gen-app-icons.mjs <path-to-app>/jarvis/ui/web/frontend
+ *   node scripts/gen-app-icons.mjs <path-to-app>/dodaios/ui/web/frontend
  *
  * Writes two files into src/components/demo/app/:
  *
@@ -39,7 +39,7 @@ const ICONS = [
 
 const app = process.argv[2];
 if (!app) {
-  console.error("usage: node scripts/gen-app-icons.mjs <app>/jarvis/ui/web/frontend");
+  console.error("usage: node scripts/gen-app-icons.mjs <app>/dodaios/ui/web/frontend");
   process.exit(2);
 }
 

@@ -24,7 +24,7 @@ import { FRONT_TURN, type FrontFrame } from "./frontPageScript";
 
 type PetState = "idle" | "listening" | "talking" | "working";
 
-/** The rows of jarvis/ui/pets/builtin/gigi/pet.json the demo plays. */
+/** The rows of dodaios/ui/pets/builtin/gigi/pet.json the demo plays. */
 const GIGI: Record<PetState, { row: number; frames: number; fps: number; swing?: boolean }> = {
   idle: { row: 0, frames: 7, fps: 6 },
   listening: { row: 1, frames: 6, fps: 8 },

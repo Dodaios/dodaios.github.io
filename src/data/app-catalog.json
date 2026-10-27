@@ -2,9 +2,9 @@
   "generator": "scripts/extract-app-catalog.mjs",
   "generated": "2026-08-29",
   "sources": {
-    "plugins": "jarvis/marketplace/seed_catalog.json",
-    "clis": "jarvis/clis/catalog/seed_catalog.json",
-    "skills": "jarvis/skills/builtin/*/SKILL.md"
+    "plugins": "dodaios/marketplace/seed_catalog.json",
+    "clis": "dodaios/clis/catalog/seed_catalog.json",
+    "skills": "dodaios/skills/builtin/*/SKILL.md"
   },
   "plugins": [
     {
@@ -90,7 +90,7 @@
     {
       "id": "discord",
       "name": "Discord",
-      "description": "Chat with Jarvis from Discord (your bot)",
+      "description": "Chat with Dodaios from Discord (your bot)",
       "category": "Messaging",
       "auth": "pat_paste",
       "longevity": "permanent",
@@ -100,7 +100,7 @@
     {
       "id": "telegram",
       "name": "Telegram",
-      "description": "Chat with Jarvis from Telegram (your bot)",
+      "description": "Chat with Dodaios from Telegram (your bot)",
       "category": "Messaging",
       "auth": "pat_paste",
       "longevity": "permanent",
@@ -937,52 +937,52 @@
       ]
     },
     {
-      "id": "jarvisctl",
-      "name": "Jarvis Control CLI",
-      "description": "Control this running Jarvis via its own CLI: switch the brain / sub-agent provider, read or change config, search the wiki, list missions / sessions / outputs, manage skills. Reads run free; destructive / recursive commands (dispatch, restart, delete, outbound, …) are blocked.",
+      "id": "dodaiosctl",
+      "name": "Dodaios Control CLI",
+      "description": "Control this running Dodaios via its own CLI: switch the brain / sub-agent provider, read or change config, search the wiki, list missions / sessions / outputs, manage skills. Reads run free; destructive / recursive commands (dispatch, restart, delete, outbound, …) are blocked.",
       "category": "self",
-      "binary": "jarvisctl",
-      "homepage": "https://github.com/PersonalJarvis/PersonalJarvis",
+      "binary": "dodaiosctl",
+      "homepage": "https://github.com/Dodaios/Dodaios",
       "install": "pip",
       "auth": "none",
       "risk": {
         "tier": "monitor",
         "blocked": [
-          "jarvisctl * delete *",
-          "jarvisctl * delete*",
-          "jarvisctl auth *",
-          "jarvisctl api * secrets*",
-          "jarvisctl api * keys*",
-          "jarvisctl * dispatch*",
-          "jarvisctl * restart*",
-          "jarvisctl * kill*",
-          "jarvisctl * rerun*",
-          "jarvisctl * cancel*",
-          "jarvisctl * outbound*"
+          "dodaiosctl * delete *",
+          "dodaiosctl * delete*",
+          "dodaiosctl auth *",
+          "dodaiosctl api * secrets*",
+          "dodaiosctl api * keys*",
+          "dodaiosctl * dispatch*",
+          "dodaiosctl * restart*",
+          "dodaiosctl * kill*",
+          "dodaiosctl * rerun*",
+          "dodaiosctl * cancel*",
+          "dodaiosctl * outbound*"
         ],
         "allowed": [
-          "jarvisctl version*",
-          "jarvisctl --version*",
-          "jarvisctl * status*",
-          "jarvisctl * list*",
-          "jarvisctl * show*",
-          "jarvisctl * get*",
-          "jarvisctl config get*",
-          "jarvisctl wiki recall*",
-          "jarvisctl wiki page*",
-          "jarvisctl wiki tree*",
-          "jarvisctl docs *",
-          "jarvisctl * pending*",
-          "jarvisctl * --dry-run*"
+          "dodaiosctl version*",
+          "dodaiosctl --version*",
+          "dodaiosctl * status*",
+          "dodaiosctl * list*",
+          "dodaiosctl * show*",
+          "dodaiosctl * get*",
+          "dodaiosctl config get*",
+          "dodaiosctl wiki recall*",
+          "dodaiosctl wiki page*",
+          "dodaiosctl wiki tree*",
+          "dodaiosctl docs *",
+          "dodaiosctl * pending*",
+          "dodaiosctl * --dry-run*"
         ]
       },
       "examples": [
-        "jarvisctl brain status",
-        "jarvisctl brain switch openai",
-        "jarvisctl brain subagent-switch openai",
-        "jarvisctl --json missions list",
-        "jarvisctl config get brain.primary",
-        "jarvisctl wiki recall \"insurance policy\""
+        "dodaiosctl brain status",
+        "dodaiosctl brain switch openai",
+        "dodaiosctl brain subagent-switch openai",
+        "dodaiosctl --json missions list",
+        "dodaiosctl config get brain.primary",
+        "dodaiosctl wiki recall \"insurance policy\""
       ]
     }
   ],
@@ -1010,8 +1010,8 @@
     {
       "name": "control-api",
       "version": "1.0.0",
-      "description": "Change Jarvis's own configuration through the local Control API instead of\nclicking the desktop UI or driving Computer-Use. Lets a local coding agent\n(Codex CLI, Claude Code) read and change settings, switch brain/STT/TTS\nproviders, switch the reply language, and rotate API keys — all over HTTP on\nthe loopback interface.",
-      "whenToUse": "Use when a coding agent must change a Jarvis setting on this machine — switch a provider, change the reply language, adjust TTS speed, or rotate an API key — without driving the desktop UI.",
+      "description": "Change Dodaios's own configuration through the local Control API instead of\nclicking the desktop UI or driving Computer-Use. Lets a local coding agent\n(Codex CLI, Claude Code) read and change settings, switch brain/STT/TTS\nproviders, switch the reply language, and rotate API keys — all over HTTP on\nthe loopback interface.",
+      "whenToUse": "Use when a coding agent must change a Dodaios setting on this machine — switch a provider, change the reply language, adjust TTS speed, or rotate an API key — without driving the desktop UI.",
       "category": "meta",
       "tags": [
         "self-config",
@@ -1068,10 +1068,10 @@
       "state": "enabled"
     },
     {
-      "name": "jarvis-doc-author",
+      "name": "dodaios-doc-author",
       "version": "1.0.0",
-      "description": "Authoritative skill for writing internal Personal-Jarvis docs under ``docs/`` and sibling directories. Enforces a Diataxis-compliant classification (concept/how-to/tutorial/reference/troubleshooting/adr), a uniform YAML frontmatter schema, a style canon (active voice, imperative instructions, English prose), and hard anti-patterns (no quadrant mixing, no filler intros, no \"Click here\"). Use when writing or fundamentally reworking any Markdown doc under ``docs/``.",
-      "whenToUse": "Use when the user or a worker creates a new Jarvis doc, reworks an existing one, writes an ADR, or produces a phase/test report — even without the word \"doc\" (\"dokumentier mal X\", \"schreib eine Anleitung\", \"fass das als ADR zusammen\", \"write me a Phase 7 report\"). Not for code comments, commit messages, PR descriptions, memory entries, or skill authoring (skill-creator owns that).",
+      "description": "Authoritative skill for writing internal Dodaios docs under ``docs/`` and sibling directories. Enforces a Diataxis-compliant classification (concept/how-to/tutorial/reference/troubleshooting/adr), a uniform YAML frontmatter schema, a style canon (active voice, imperative instructions, English prose), and hard anti-patterns (no quadrant mixing, no filler intros, no \"Click here\"). Use when writing or fundamentally reworking any Markdown doc under ``docs/``.",
+      "whenToUse": "Use when the user or a worker creates a new Dodaios doc, reworks an existing one, writes an ADR, or produces a phase/test report — even without the word \"doc\" (\"dokumentier mal X\", \"schreib eine Anleitung\", \"fass das als ADR zusammen\", \"write me a Phase 7 report\"). Not for code comments, commit messages, PR descriptions, memory entries, or skill authoring (skill-creator owns that).",
       "category": "meta",
       "tags": [
         "meta",
@@ -1667,7 +1667,7 @@
     {
       "name": "skill-creator",
       "version": "1.2.0",
-      "description": "Creates a new Jarvis skill from the user's description — the assistant writes\nthe whole skill (name, trigger phrase, schedule, steps, spoken answer format)\nand files it as a draft. Use when the user wants to build a new skill,\nroutine or automation (\"erstell mir einen Skill, der …\" / \"create a skill\nthat …\" / \"mach aus diesem Workflow einen Skill\").",
+      "description": "Creates a new Dodaios skill from the user's description — the assistant writes\nthe whole skill (name, trigger phrase, schedule, steps, spoken answer format)\nand files it as a draft. Use when the user wants to build a new skill,\nroutine or automation (\"erstell mir einen Skill, der …\" / \"create a skill\nthat …\" / \"mach aus diesem Workflow einen Skill\").",
       "whenToUse": "Use when the user asks to create, build, or set up a new skill, routine, or recurring automation — including when the request names other services that are the CONTENT of the new skill, not commands to run now.",
       "category": "meta",
       "tags": [
@@ -1700,7 +1700,7 @@
   ],
   "exampleSkill": {
     "name": "morning-routine",
-    "source": "jarvis/skills/builtin/morning-routine/SKILL.md",
+    "source": "dodaios/skills/builtin/morning-routine/SKILL.md",
     "frontmatter": "schema_version: \"1\"\nname: morning-routine\nversion: \"2.0.0\"\ndescription: >-\n  Delivers the user's spoken morning briefing: today's calendar, unread\n  email summary, weather, and anything urgent. Use when the user asks for\n  a morning briefing or day overview, says good morning, starts their day,\n  or asks \"what's on today\" / \"wie sieht mein Tag aus\".\nwhen_to_use: >-\n  Use when the user says \"starte die Morgenroutine\", \"guten Morgen\",\n  \"good morning\", \"morning briefing\", \"Tagesueberblick\", \"what's my day\n  looking like\", or asks for their schedule first thing in the day.\ncategory: productivity\ntags: [daily, routine, mail, calendar, weather]\nauthor: builtin\nlicense: Apache-2.0\ntriggers:\n  - type: voice\n    pattern: \"(morgenroutine|morgen[-\\\\s]?briefing|morning routine|morning briefing|start day|tages(ue|ü)berblick)\"\n    language: [de, en]\n  - type: voice\n    pattern: \"^(guten morgen|good morning)[.!\\\\s]*$\"\n    language: [de, en]\n  - type: schedule\n    cron: \"0 7 * * *\"\n    language: [de, en]\nrequires_tools: []\nrisk_policy:\n  default_tier: monitor\nconfig:\n  email_limit: 5\n  calendar_days_ahead: 1\n  weather_location: \"Berlin\"\n  weather_format: metric\ntoken_budget_estimate: 3000\nexecution: inline",
     "body": "# Morning Routine\n\nDeliver a short spoken morning briefing — an overview of the day in under\n30 seconds. No walls of text, no reading out 20 emails. Work through the\nsteps below with the tools you actually have; skip a step gracefully\n(one short clause, e.g. \"calendar is not connected yet\") when its\nintegration is unavailable. Never invent data.\n\n## Steps\n\n1. **Calendar.** If a calendar plugin or tool is connected (e.g. a\n   `google-calendar/...` tool), fetch today's events\n   ({{ config.calendar_days_ahead }} day ahead).\n   - 0 events: say the calendar is free today.",
     "bodyLines": 38

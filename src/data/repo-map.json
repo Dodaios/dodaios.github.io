@@ -12,15 +12,15 @@
     "coding-agent",
     "computer-use"
   ],
-  "stars": 238,
-  "forks": 85,
-  "openIssues": 94,
+  "stars": 263,
+  "forks": 100,
+  "openIssues": 33,
   "lastCommit": {
-    "message": "fix(packaging): preserve licenses and correct OAuth disclosures (#491)",
-    "sha": "bdaa4f2",
-    "date": "2026-10-12T15:30:20Z"
+    "message": "fix(verse): a desk monitor fills its whole screen with the pane (#986)",
+    "sha": "fb1af5e",
+    "date": "2026-10-27T16:34:15Z"
   },
-  "readAt": "2026-10-12T16:23:44.706Z",
+  "readAt": "2026-10-27T16:56:55.276Z",
   "pages": {
     "root": {
       "path": "",
@@ -70,6 +70,10 @@
           "type": "file"
         },
         {
+          "name": ".opencode",
+          "type": "dir"
+        },
+        {
           "name": ".pre-commit-config.yaml",
           "type": "file"
         },
@@ -79,10 +83,6 @@
         },
         {
           "name": "CHANGELOG.md",
-          "type": "file"
-        },
-        {
-          "name": "CODE_OF_CONDUCT.md",
           "type": "file"
         },
         {
@@ -99,10 +99,6 @@
         },
         {
           "name": "NOTICE",
-          "type": "file"
-        },
-        {
-          "name": "PersonalJarvisDesignDesign.md.md",
           "type": "file"
         },
         {
@@ -166,27 +162,19 @@
           "type": "dir"
         },
         {
-          "name": "homebrew-tap",
+          "name": "dodaios.spec",
+          "type": "file"
+        },
+        {
+          "name": "dodaios.toml.example",
+          "type": "file"
+        },
+        {
+          "name": "dodaios",
           "type": "dir"
         },
         {
           "name": "install",
-          "type": "dir"
-        },
-        {
-          "name": "jarvis.spec",
-          "type": "file"
-        },
-        {
-          "name": "jarvis.toml.example",
-          "type": "file"
-        },
-        {
-          "name": "jarvis",
-          "type": "dir"
-        },
-        {
-          "name": "keyproxy",
           "type": "dir"
         },
         {
@@ -206,10 +194,6 @@
           "type": "file"
         },
         {
-          "name": "qa",
-          "type": "dir"
-        },
-        {
           "name": "requirements.in",
           "type": "file"
         },
@@ -226,14 +210,6 @@
           "type": "file"
         },
         {
-          "name": "run-mascot.bat",
-          "type": "file"
-        },
-        {
-          "name": "run-orb.bat",
-          "type": "file"
-        },
-        {
           "name": "run.bat",
           "type": "file"
         },
@@ -242,20 +218,12 @@
           "type": "file"
         },
         {
-          "name": "scoop-bucket",
-          "type": "dir"
-        },
-        {
           "name": "scripts",
           "type": "dir"
         },
         {
-          "name": "skillbook",
-          "type": "dir"
-        },
-        {
-          "name": "src",
-          "type": "dir"
+          "name": "setup.py",
+          "type": "file"
         },
         {
           "name": "tests",
@@ -276,26 +244,6 @@
         {
           "name": "uv.lock",
           "type": "file"
-        },
-        {
-          "name": "verify-wave6.sh",
-          "type": "file"
-        },
-        {
-          "name": "video",
-          "type": "dir"
-        },
-        {
-          "name": "videos",
-          "type": "dir"
-        },
-        {
-          "name": "voice.bat",
-          "type": "file"
-        },
-        {
-          "name": "wiki-video",
-          "type": "dir"
         },
         {
           "name": "wiki",
@@ -353,11 +301,15 @@
         {
           "name": "uninstall.sh",
           "type": "file"
+        },
+        {
+          "name": "update-contract.json",
+          "type": "file"
         }
       ]
     },
-    "jarvis": {
-      "path": "jarvis",
+    "dodaios": {
+      "path": "dodaios",
       "entries": [
         {
           "name": "__init__.py",
@@ -366,6 +318,10 @@
         {
           "name": "__main__.py",
           "type": "file"
+        },
+        {
+          "name": "_legacy_alias",
+          "type": "dir"
         },
         {
           "name": "admin",
@@ -552,7 +508,15 @@
           "type": "dir"
         },
         {
+          "name": "dodaiosx",
+          "type": "dir"
+        },
+        {
           "name": "friends",
+          "type": "dir"
+        },
+        {
+          "name": "games",
           "type": "dir"
         },
         {
@@ -572,11 +536,11 @@
           "type": "dir"
         },
         {
-          "name": "intent",
+          "name": "i18n",
           "type": "dir"
         },
         {
-          "name": "jarvisx",
+          "name": "intent",
           "type": "dir"
         },
         {
@@ -645,6 +609,10 @@
         },
         {
           "name": "screen_context",
+          "type": "dir"
+        },
+        {
+          "name": "self_build",
           "type": "dir"
         },
         {
@@ -735,19 +703,19 @@
       "#   irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 | iex",
       "#",
       "# This bootstrap is intentionally small. It:",
-      "#   1. Verifies Python 3.11+ and git are available.",
-      "#   2. Offers to install either missing prerequisite, then re-checks in place.",
+      "#   1. Uses Python 3.11+ and git when they are installed.",
+      "#   2. Otherwise fetches private, checksum-pinned copies (uv-managed Python,",
+      "#      MinGit) into %LOCALAPPDATA%\\Dodaios\\tools - no admin rights, no",
+      "#      prompt - and offers WinGet only when that download fails.",
       "#   3. Checks for Node.js 18+ (optional - a missing Node never blocks the install).",
-      "#   4. Clones (or updates) personal-jarvis into ~\\.personal-jarvis.",
+      "#   4. Clones (or updates) Dodaios into ~\\.dodaios (an update moves an install",
+      "#      made under the earlier name ~\\.personal-jarvis there).",
       "#   5. Creates a Python venv, installs `rich` + `packaging`.",
       "#   6. Hands control to install/installer.py (the Stage 2 orchestrator).",
       "#",
       "# All heavy logic lives in installer.py so it can be unit-tested and",
-      "# kept cross-platform. The shell-native prerequisite block is delimited so it",
-      "# can be tested directly even on machines where Python is not installed yet.",
-      "#",
-      "# SOURCE-ENCODING RULE: this file is served BOM-less (a BOM breaks"
+      "# kept cross-platform. The shell-native prerequisite block is delimited so it"
     ],
-    "totalLines": 841
+    "totalLines": 1253
   }
 }

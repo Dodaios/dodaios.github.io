@@ -20,11 +20,11 @@
  *
  * ## What it reads
  *
- *   jarvis/marketplace/seed_catalog.json     the plugin catalog
- *   jarvis/clis/catalog/seed_catalog.json    the command-line tool catalog
- *   jarvis/skills/builtin/<name>/SKILL.md    one file per built-in skill
+ *   dodaios/marketplace/seed_catalog.json     the plugin catalog
+ *   dodaios/clis/catalog/seed_catalog.json    the command-line tool catalog
+ *   dodaios/skills/builtin/<name>/SKILL.md    one file per built-in skill
  *
- * The application checkout is found at `--repo <path>`, then `$JARVIS_REPO`,
+ * The application checkout is found at `--repo <path>`, then `$DODAIOS_REPO` (or the older `$JARVIS_REPO`),
  * then the parent directory of this one — which is where it sits in the
  * maintainer's working copy.
  *
@@ -47,17 +47,17 @@ import { load as parseYaml } from "js-yaml";
 const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const OUT = join(ROOT, "src", "data", "app-catalog.json");
 
-const PLUGIN_CATALOG = join("jarvis", "marketplace", "seed_catalog.json");
-const CLI_CATALOG = join("jarvis", "clis", "catalog", "seed_catalog.json");
-const SKILLS_DIR = join("jarvis", "skills", "builtin");
+const PLUGIN_CATALOG = join("dodaios", "marketplace", "seed_catalog.json");
+const CLI_CATALOG = join("dodaios", "clis", "catalog", "seed_catalog.json");
+const SKILLS_DIR = join("dodaios", "skills", "builtin");
 
 /**
  * The two plugins that are a way IN rather than a way out.
  *
  * They carry neither an `mcp_server` block nor a `native_tool`, because nothing
  * about them is a tool the assistant calls: connecting one gives you a bot you
- * can message, and Jarvis answers there. Nothing in the catalog file says so —
- * the application names them in `jarvis/ui/web/marketplace_routes.py`
+ * can message, and Dodaios answers there. Nothing in the catalog file says so —
+ * the application names them in `dodaios/ui/web/marketplace_routes.py`
  * (`_CHANNEL_PLUGIN_IDS`), and that is the only place the fact is written down,
  * so this list is a copy of that one and has to move with it.
  */
@@ -80,6 +80,7 @@ function bail(reason) {
 function findRepo() {
   const candidates = [
     repoFlag >= 0 ? argv[repoFlag + 1] : undefined,
+    process.env.DODAIOS_REPO,
     process.env.JARVIS_REPO,
     join(ROOT, ".."),
   ].filter(Boolean);
@@ -305,7 +306,7 @@ function main() {
   const repo = findRepo();
   if (!repo) {
     bail(
-      "no application checkout found. Pass --repo <path> or set JARVIS_REPO; " +
+      "no application checkout found. Pass --repo <path> or set DODAIOS_REPO; " +
         `it is the directory containing ${PLUGIN_CATALOG}.`,
     );
   }

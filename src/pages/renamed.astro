@@ -8,7 +8,7 @@
  * address, so releases up to `LAST_OLD_UPDATER_VERSION` do not see newer ones.
  *
  * Every statement is checkable. The update check of 3.1.1 is
- * `_fetch_latest_release` in the app's `jarvis/ui/web/update_routes.py`: it
+ * `_fetch_latest_release` in the app's `dodaios/ui/web/update_routes.py`: it
  * asks api.github.com for the latest release under the old repository name,
  * GitHub answers 301 since the move, and the check treats anything but 200 as
  * "no update". The install lines come from
@@ -66,7 +66,9 @@ import { FORMER_NAME, LAST_OLD_UPDATER_VERSION } from "@/lib/rename";
       still <code>jarvis</code>, the settings file is still <code>jarvis.toml</code>,
       the Python package is still <code>personal-jarvis</code>, and the
       installer files still start with <code>PersonalJarvis</code>. They all
-      work as they are.
+      work as they are. Newer versions add a <code>dodaios</code> command
+      (and <code>dodaiosctl</code>), which is now the one to use;
+      <code>jarvis</code> keeps working.
     </li>
   </ul>
 

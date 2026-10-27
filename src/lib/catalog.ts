@@ -9,7 +9,7 @@
  *
  *   - the three sign-in modes are `AUTH_MODE_LABEL` in `PluginsView.tsx`
  *   - the three sign-in lifetimes are its `LONGEVITY_LABEL`
- *   - the four risk tiers are `RiskTier` in `jarvis/clis/spec.py`
+ *   - the four risk tiers are `RiskTier` in `dodaios/clis/spec.py`
  *
  * That matters more than it looks. A visitor who reads this page and then
  * installs the product should find the same words on the same rows; a site that
@@ -107,7 +107,7 @@ export const ROUTE_WORDING: Record<PluginRoute, Wording> = {
  * Command-line tools
  * ------------------------------------------------------------------------ */
 
-/** `RiskTier` in `jarvis/clis/spec.py`. `safe` and `block` are never a CLI's
+/** `RiskTier` in `dodaios/clis/spec.py`. `safe` and `block` are never a CLI's
  *  DEFAULT — they are what a matched pattern resolves a single command to. */
 export type RiskTier = "safe" | "monitor" | "ask" | "block";
 

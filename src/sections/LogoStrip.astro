@@ -2,6 +2,12 @@
 /**
  * The connection strip — every service Dodaios talks to, in one row.
  *
+ * Every mark here is a service the app really connects to (a plugin, a
+ * coding-CLI integration or a model/voice provider in the app's catalogs). The
+ * caption under the row says the marks only identify those services: no
+ * partnership, affiliation or endorsement. Keep it whenever the strip shows
+ * third-party marks.
+ *
  * Layout follows the bar under the hero in the design reference: equal cells
  * in a single row, 10px apart, no ornament beyond a hairline.
  * See docs/LOGOS.md.
@@ -71,9 +77,9 @@ const cellOffset = (c: number) => (c * SLOT_S) / CELLS;
 const startAt = (c: number, r: number) => -(r * SLOT_S + cellOffset(c) + SLOT_S / 2);
 
 // The marks list is alphabetical, and the cells run nearly in phase, so a
-// straight fill puts Slack, Spotify, Stripe and Supabase on screen together —
-// which reads as a sorted directory rather than a set of partners. Walking the
-// list in strides instead scatters neighbours apart. The stride is coprime
+// straight fill puts neighbouring names (Slack, Spotify, Stripe, Supabase) on
+// screen at the same moment and the row looks like it repeats itself. Walking
+// the list in strides instead scatters neighbours apart. The stride is coprime
 // with the list length, so it visits every mark exactly once, and it is fixed
 // rather than random: the same build must produce the same strip.
 const STRIDE = 23;
@@ -156,6 +162,10 @@ const visibility = [
           ))
         }
       </ul>
+      <p class="disclaimer">
+        Integrations shown for identification only. No affiliation or
+        endorsement implied. All marks belong to their owners.
+      </p>
     </div>
   </Container>
 </section>
@@ -219,6 +229,13 @@ const visibility = [
     font-weight: 600;
     letter-spacing: var(--tracking-caption-upper);
     text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .disclaimer {
+    margin-top: 1rem;
+    text-align: center;
+    font-size: var(--text-caption-upper);
     color: var(--muted);
   }
 

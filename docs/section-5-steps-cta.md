@@ -43,7 +43,7 @@ naming what proves it.
 | # | Step | Source |
 |---|------|--------|
 | 1 | One command | README "Install" |
-| 2 | Pick a wake word | README "Install", `jarvis.toml.example` |
+| 2 | Pick a wake word | README "Install", `dodaios.toml.example` |
 | 3 | Add a key, or skip it | README "Install", "Runs on your own hardware" |
 | 4 | Say it | README "Run it" |
 

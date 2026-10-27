@@ -124,6 +124,12 @@ permissive licence on an SVG settles the copyright in the drawing; it grants no
 trademark rights, and nothing here claims otherwise. If you own a mark shown
 here and want it removed, open an issue and it will be taken out.
 
+The strip says so on the page as well: a caption under the row reads
+"Integrations shown for identification only. No affiliation or endorsement
+implied." Keep it, and add a mark only for a service the app really connects
+to (a plugin, a coding-CLI integration or a model or voice provider in the
+app's catalogs).
+
 ---
 
 ## How the optical heights were derived
@@ -225,8 +231,8 @@ gets the same job done with the row standing still, and needs no such rule.
   board.
 - **The order is strided, not alphabetical.** `marks.ts` is sorted by name and
   the cells run nearly in phase, so a straight fill put Slack, Spotify, Stripe
-  and Supabase on screen together — a sorted directory rather than a set of
-  partners. The stride is coprime with the list length, so it still visits
+  and Supabase on screen together, and the row looked like it repeated itself.
+  The stride is coprime with the list length, so it still visits
   every mark exactly once, and it is fixed rather than random.
 - **Spare slots are padded from half a cycle back.** Fifty marks do not fill
   fifty-six slots, so six marks appear twice per cycle. Padding from the start

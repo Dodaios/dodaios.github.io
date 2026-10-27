@@ -16,7 +16,7 @@
  *  - "Target:" as a label on the CLI picker. No such string exists.
  *
  * Everything below — binary, commands, auth mode, tier, blocked and allowed
- * patterns, the example call — is verbatim from jarvis/clis/catalog/seed_catalog.json.
+ * patterns, the example call — is verbatim from dodaios/clis/catalog/seed_catalog.json.
  * The connection statuses are this machine's runtime state, not catalog facts.
  */
 
@@ -72,9 +72,9 @@ const VENDOR: Record<string, [file: string, mono: boolean]> = {
 
 /**
  * The whole catalog, in the order the API sorts it: by category, then display
- * name. Twenty-two entries, verbatim from jarvis/clis/catalog/seed_catalog.json.
+ * name. Twenty-two entries, verbatim from dodaios/clis/catalog/seed_catalog.json.
  *
- * jarvisctl is the one with no vendor — it is this project's own control CLI,
+ * dodaiosctl is the one with no vendor — it is this project's own control CLI,
  * and the app draws a category glyph for it rather than inventing a mark.
  */
 const CATALOG_ROWS: Array<[id: string, name: string, category: string]> = [
@@ -98,7 +98,7 @@ const CATALOG_ROWS: Array<[id: string, name: string, category: string]> = [
   ["vercel", "Vercel CLI", "paas"],
   ["stripe", "Stripe CLI", "payments"],
   ["twilio", "Twilio CLI", "payments"],
-  ["jarvisctl", "Jarvis Control CLI", "self"],
+  ["dodaiosctl", "Dodaios Control CLI", "self"],
   ["gws", "Google Workspace CLI", "workspace"],
 ];
 

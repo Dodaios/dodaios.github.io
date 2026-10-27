@@ -42,7 +42,7 @@ things follow, and all three are binding:
 2. **A label the application prints is the application's.** The sign-in modes
    (`One-Click`, `Browser Login`, `Access Token`), the sign-in lifetimes and the
    four risk tiers are copied from the running views and from
-   `jarvis/clis/spec.py`. A visitor who reads this page and then installs the
+   `dodaios/clis/spec.py`. A visitor who reads this page and then installs the
    product must find the same word on the same row. Where a label needs
    explaining, the site adds a sentence beside it — it never rewrites the label.
    The one set of words that IS ours is the CLI category names, because the
@@ -54,7 +54,7 @@ things follow, and all three are binding:
    fresher.
 
 Refreshing after a product change is `npm run data:app-catalog`. The script
-finds the application at `--repo`, then `$JARVIS_REPO`, then the parent
+finds the application at `--repo`, then `$DODAIOS_REPO`, then the parent
 directory. It never writes a partial catalog: a run that cannot read the
 application leaves the committed file alone and exits non-zero, because half a
 listing is worse than a month-old one — the page cannot tell the reader which

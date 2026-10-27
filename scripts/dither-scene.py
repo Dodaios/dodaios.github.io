@@ -3,9 +3,9 @@
 
 Run from the repo root with the two source photographs beside it:
 
-    python scripts/dither-scene.py <manual-src.png> <jarvis-src.png>
+    python scripts/dither-scene.py <manual-src.png> <voice-src.png>
 
-It writes src/assets/scene/manual.png and jarvis.png at the dither grid's own
+It writes src/assets/scene/manual.png and voice.png at the dither grid's own
 resolution. They are NOT scaled up here: the page draws them onto a canvas with
 smoothing off, so one source dot lands on a whole number of device pixels
 instead of being resampled into mush.
@@ -13,7 +13,7 @@ instead of being resampled into mush.
 THE TWO FRAMES ARE INVERSES OF EACH OTHER, and that is the whole design.
 
   manual  daylight  -> dark dots on paper   (ground --ink,    dots --canvas)
-  jarvis  night     -> light dots on ink    (ground --canvas, dots --ink)
+  voice   night     -> light dots on ink    (ground --canvas, dots --ink)
 
 The page floor is the second ground. So the wipe between them does not merely
 swap two pictures: it settles the section onto the colour the rest of the site
@@ -388,7 +388,7 @@ def to_png(
 #: still carries its contract — regenerate that photograph and re-measure it.
 FRAMES = (
     ("manual", 1, True, INK, CANVAS, False),
-    ("jarvis", 2, False, CANVAS, INK, True),
+    ("voice", 2, False, CANVAS, INK, True),
 )
 
 

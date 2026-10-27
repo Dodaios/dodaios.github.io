@@ -3,7 +3,7 @@
  * Copy the app's own stylesheet into the hero demo, cut down to what the demo
  * uses.
  *
- *   node scripts/sync-app-ui.mjs <path-to-app>/jarvis/ui/web/dist/assets
+ *   node scripts/sync-app-ui.mjs <path-to-app>/dodaios/ui/web/dist/assets
  *
  * The hero demo (src/components/demo/app/) is a clone of the app built from
  * the app's own markup — the same elements and the same class names as its
@@ -32,7 +32,7 @@ const OUT = join(CLONE_DIR, "app.css");
 
 const assets = process.argv[2];
 if (!assets) {
-  console.error("usage: node scripts/sync-app-ui.mjs <app>/jarvis/ui/web/dist/assets");
+  console.error("usage: node scripts/sync-app-ui.mjs <app>/dodaios/ui/web/dist/assets");
   process.exit(2);
 }
 

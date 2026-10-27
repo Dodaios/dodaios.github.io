@@ -38,7 +38,7 @@ export interface DemoPlugin {
 }
 
 /**
- * The catalog, verbatim from jarvis/marketplace/seed_catalog.json — ids, names,
+ * The catalog, verbatim from dodaios/marketplace/seed_catalog.json — ids, names,
  * categories and order.
  *
  * No mark here is drawn as a mask. The bundled files are the light-on-dark set

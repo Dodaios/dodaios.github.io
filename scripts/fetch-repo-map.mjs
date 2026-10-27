@@ -21,7 +21,7 @@
  *
  *   GET /repos/{repo}                      description, topics, licence, counts
  *   GET /repos/{repo}/contents/            the root listing
- *   GET /repos/{repo}/contents/jarvis      the application package
+ *   GET /repos/{repo}/contents/dodaios     the application package
  *   GET /repos/{repo}/contents/install     the installer directory
  *   GET /repos/{repo}/contents/install/install.ps1   the head of one file
  *   GET /repos/{repo}/commits?per_page=1   the tip commit, for the listing head
@@ -61,7 +61,7 @@ const UA = "dodaios-website (repo map)";
 const PAGES = [
   { key: "root", path: "" },
   { key: "install", path: "install" },
-  { key: "jarvis", path: "jarvis" },
+  { key: "dodaios", path: "dodaios" },
 ];
 
 /**

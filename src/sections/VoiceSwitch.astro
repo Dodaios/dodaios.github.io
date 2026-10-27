@@ -62,10 +62,10 @@ import SectionTrack from "@/components/SectionTrack.astro";
  * `?url` rather than astro:assets: these are one-bit dither, and the build's
  * image pipeline would re-encode them. Every dot carries tone here.
  *
- * Regenerate with `python scripts/dither-scene.py <manual-src> <jarvis-src>`.
+ * Regenerate with `python scripts/dither-scene.py <manual-src> <voice-src>`.
  * The palette is baked in, so a token change means re-running that script.
  */
-import jarvisFrame from "@/assets/scene/jarvis.png?url";
+import jarvisFrame from "@/assets/scene/voice.png?url";
 import manualFrame from "@/assets/scene/manual.png?url";
 
 /**
@@ -120,7 +120,7 @@ const figures = [
     value: "32",
     label: "Providers",
     // 12 brain + 8 speech-to-text + 8 text-to-speech + 4 realtime voice,
-    // counted from the jarvis.* entry points in the app's pyproject.toml.
+    // counted from the dodaios.* entry points in the app's pyproject.toml.
     note: "Brain, voice in, voice out",
   },
   { value: "3", label: "Platforms", note: "Windows, macOS, Linux" },

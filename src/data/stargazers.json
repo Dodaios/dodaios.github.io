@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 291,
-  "forks": 106,
-  "placed": 56,
-  "stated": 69,
-  "generatedAt": "2026-10-28T12:07:49.232Z",
+  "count": 296,
+  "forks": 109,
+  "placed": 59,
+  "stated": 72,
+  "generatedAt": "2026-10-28T22:33:17.488Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -19,6 +19,13 @@
       "label": "India",
       "country": "India",
       "count": 3
+    },
+    {
+      "lat": 12.972,
+      "lon": 77.558,
+      "label": "Bengaluru",
+      "country": "India",
+      "count": 2
     },
     {
       "lat": 13.092,
@@ -42,6 +49,13 @@
       "count": 2
     },
     {
+      "lat": 56.157,
+      "lon": 10.211,
+      "label": "Århus",
+      "country": "Denmark",
+      "count": 1
+    },
+    {
       "lat": -36.848,
       "lon": 174.763,
       "label": "Auckland",
@@ -53,13 +67,6 @@
       "lon": 4.8,
       "label": "Belgium",
       "country": "Belgium",
-      "count": 1
-    },
-    {
-      "lat": 12.972,
-      "lon": 77.558,
-      "label": "Bengaluru",
-      "country": "India",
       "count": 1
     },
     {
@@ -144,6 +151,13 @@
       "lon": -86.172,
       "label": "Indianapolis",
       "country": "United States",
+      "count": 1
+    },
+    {
+      "lat": 44.732,
+      "lon": 11.077,
+      "label": "Italy",
+      "country": "Italy",
       "count": 1
     },
     {

@@ -1,10 +1,10 @@
 {
   "repo": "Dodaios/Dodaios",
-  "count": 324,
-  "forks": 117,
-  "placed": 67,
-  "stated": 80,
-  "generatedAt": "2026-11-04T06:02:19.764Z",
+  "count": 328,
+  "forks": 119,
+  "placed": 68,
+  "stated": 81,
+  "generatedAt": "2026-11-04T19:45:52.663Z",
   "clusters": [
     {
       "lat": -12.099,
@@ -42,6 +42,13 @@
       "count": 2
     },
     {
+      "lat": 39.538,
+      "lon": -97.483,
+      "label": "United States",
+      "country": "United States",
+      "count": 2
+    },
+    {
       "lat": 56.157,
       "lon": 10.211,
       "label": "Århus",
@@ -60,13 +67,6 @@
       "lon": 4.8,
       "label": "Belgium",
       "country": "Belgium",
-      "count": 1
-    },
-    {
-      "lat": 52.524,
-      "lon": 13.4,
-      "label": "Berlin",
-      "country": "Germany",
       "count": 1
     },
     {
@@ -231,6 +231,13 @@
       "count": 1
     },
     {
+      "lat": 55.754,
+      "lon": 37.614,
+      "label": "Moscow",
+      "country": "Russia",
+      "count": 1
+    },
+    {
       "lat": 48.132,
       "lon": 11.573,
       "label": "Munich",
@@ -382,13 +389,6 @@
       "lon": 101.073,
       "label": "Thailand",
       "country": "Thailand",
-      "count": 1
-    },
-    {
-      "lat": 39.538,
-      "lon": -97.483,
-      "label": "United States",
-      "country": "United States",
       "count": 1
     },
     {

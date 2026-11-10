@@ -67,6 +67,10 @@ const groups = [
       // tab. This site must never ship a /blog route of its own: the blog's
       // Pages site takes that path and would hide it.
       { label: "Blog", href: "/blog/" },
+      // The marketplace storefront is rendered by the registry repository
+      // (Dodaios/marketplace), which GitHub Pages publishes under this domain
+      // at /marketplace/. Same rule as the blog: this site ships no route there.
+      { label: "Marketplace", href: "/marketplace/" },
       { label: "Security", href: `${REPO}/blob/main/SECURITY.md` },
       // The project was renamed in October 2026. The notice bar can be
       // closed for good, so this is the link that stays for anyone who

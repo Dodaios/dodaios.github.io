@@ -79,11 +79,15 @@ import { REPO } from "@/lib/install";
         </div>
       </div>
 
-      {/* `client:load`, not `client:visible`: pinned, the chart has to be
-          standing in the right pose before the section scrolls into view. */}
+      {/* Hydrated two screens early rather than at load. Pinned, the chart
+          has to be standing in the right pose before the section scrolls into
+          view, and the margin is what guarantees that. `client:load` did too,
+          but it also made every visitor fetch the chart and a 63 kB answer
+          from the GitHub API during the first paint of a page whose twelfth
+          section this is. */}
       <div class="bip-stage">
         <CommitSkyline
-          client:load
+          client:visible={{ rootMargin: "2000px" }}
           data={activity.days}
           repo={activity.repo}
           readAt={activity.readAt}

@@ -145,7 +145,10 @@ const stars = new Intl.NumberFormat("en-US").format(counts.platforms.github.valu
       ratio gives it — the stage scales on width, and nothing above shrinks it.
     -->
     <Container width="content" class="hero__stage">
-      <DemoStage client:load />
+      {/* `client:idle`: the headline paints first, then the window comes alive.
+          At `client:load` the window's 100 kB of script competed with the first
+          paint for the connection and the processor. */}
+      <DemoStage client:idle />
     </Container>
   </div>
 </section>

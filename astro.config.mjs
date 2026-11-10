@@ -11,6 +11,15 @@ export default defineConfig({
   site: "https://dodaios.ai",
   integrations: [react(), sitemap()],
 
+  // The stylesheet travels inside the page instead of beside it.
+  //
+  // As two linked files (26 kB compressed together) it was two more round
+  // requests before anything could be painted. Lighthouse on a simulated phone
+  // connection put the first paint at 1.51 s with the links and at 1.36 s with
+  // the rules inline (2026-11-10, same build otherwise). The cost is that a
+  // second route sends them again; most visits here read one page.
+  build: { inlineStylesheets: "always" },
+
   // ONE dev server for this site, at a fixed address: http://127.0.0.1:4399.
   //
   // Astro's default is to take the next free port when 4321 is busy, so a

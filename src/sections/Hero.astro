@@ -1,198 +1,319 @@
 ---
 /**
- * The hero — one viewport tall, with everything inside it.
- * See docs/hero.md.
+ * The hero — the definition of the product, one action, and the app itself to
+ * try. See docs/hero.md.
  *
- * Vertical structure is a two-row grid, not a flex column with justify-end:
- * flex pushed the whole block to the bottom and left a dead field above the
- * headline. The rows are copy / stage, and only the stage row flexes, so the
- * copy keeps its position near the top at any viewport height. There used to be
- * a third row above them for the nav; the nav is fixed over the whole document
- * now (SiteNav.astro) and the box pays for it in padding instead.
+ * It reads top to bottom as three things: what this is (the headline and the
+ * one line under it), what to do (the download button, with the source one
+ * click away), and the proof (a working clone of the app's window). The window
+ * is as wide as the `content` column and as tall as its own ratio makes it, so
+ * the hero is taller than the screen on purpose: the first screen shows the
+ * whole argument and the top of the window, and the window goes on below the
+ * fold. Until 2026-11-10 the hero was held to one viewport and the window was
+ * shrunk to whatever height was left; a window small enough to fit was too
+ * small to press, and pressing it is the point now.
  *
- * The stage row is `minmax(0, 1fr)` and the frame inside it is `h-full`, so the
- * stage takes exactly the height that is left over and never a pixel more. The
- * hero used to crop the stage against the section's bottom edge as a scroll
- * cue; the maintainer retired that on 2026-08-29 — the whole hero has to be
- * readable in one viewport, with clear air under the frame.
- *
- * Spacing above the copy is in `svh`, so the proportions hold on a short laptop
- * screen and a tall monitor alike.
+ * Around the headline float the marks of services the app drives. They are
+ * decoration here and identification in the strip directly below, which
+ * carries the caption that they imply no partnership or endorsement.
  */
-import { Image } from "astro:assets";
 import Container from "@/components/Container.astro";
 import DemoStage from "@/components/demo/DemoStage";
 import DownloadCta from "@/components/DownloadCta.astro";
 import SectionTrack from "@/components/SectionTrack.astro";
+import { AnthropicMark } from "@/components/logos/AnthropicMark";
+import { GeminiMark } from "@/components/logos/GeminiMark";
+import { GitHubMark } from "@/components/logos/GitHubMark";
+import { OllamaMark } from "@/components/logos/OllamaMark";
+import { OpenAiMark } from "@/components/logos/OpenAiMark";
+import { XaiMark } from "@/components/logos/XaiMark";
+import counts from "@/data/social-counts.json";
+import { REPO } from "@/lib/install";
 import { DOCS_URL, TOP_ID } from "@/lib/nav";
-import backdrop from "@/assets/hero/stage-backdrop.webp";
 
-// The frame is the `content` step, so on a wide screen the backdrop only
-// ever needs that column's width. Kept out of the markup because the style
-// gate reads `width:` in a media condition as a content width.
-const backdropSizes = "(min-width: 1400px) 1280px, 100vw"; // layout-allow: an <img sizes> fetch hint, not a layout width
+/**
+ * Six tiles, three a side. `at` is the tile's place in the band beside the
+ * copy, `turn` its tilt and `wait` the offset of its drift, so no two move
+ * together. `big` marks the one tile per side that sits furthest out.
+ */
+const tiles = [
+  { Mark: AnthropicMark, side: "left", at: "t1", turn: "-8deg", wait: "0s", big: false },
+  { Mark: OllamaMark, side: "left", at: "t2", turn: "7deg", wait: "-2.4s", big: true },
+  { Mark: GitHubMark, side: "left", at: "t3", turn: "-5deg", wait: "-4.1s", big: false },
+  { Mark: OpenAiMark, side: "right", at: "t1", turn: "9deg", wait: "-1.2s", big: false },
+  { Mark: GeminiMark, side: "right", at: "t2", turn: "-6deg", wait: "-3.3s", big: true },
+  { Mark: XaiMark, side: "right", at: "t3", turn: "5deg", wait: "-5s", big: false },
+] as const;
+
+const stars = new Intl.NumberFormat("en-US").format(counts.platforms.github.value);
 ---
 
 <!--
-  ONE VIEWPORT MINUS A TAIL, NOT EXACTLY ONE.
-
-  The hero closes on its own stage frame — the box under the headline draws a
-  bottom rule like every other section's band does. At exactly `100svh` that
-  line lands on the fold's own pixel row and the window edge eats it, so the
-  first screen opened with a rule under the nav and had nothing to answer it at
-  the bottom: the page just ran out from under the reader.
-
-  Holding the section one `--section-inset` short pulls the line up into the
-  screen with air beneath it — and it is `--section-inset` rather than the
-  `--space-xxl` it used to be so that the tail matches what every section below
-  spends on the same job. The joint with the logo strip is then the standard
-  one: this section's closing line, `2 x --section-inset` of air, that band's
-  opening line. See docs/layout.md § "One boundary, one shape".
-
   THE HERO HAS NO EDGES OF ITS OWN, and that is the point of this screen. There
   is no rule across the top and no rails down the sides: the page chrome is held
   at nothing while the hero owns the screen and arrives as the reader scrolls
   out of it — see layout.css § "The page chrome arrives". A framed field is a
   form; the first screen is meant to read as open ground.
--->
-<section
-  id={TOP_ID}
-  class="relative grid min-h-[calc(100svh_-_var(--section-inset))] grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)] overflow-hidden"
->
-  <!--
-    ONE EXPLICIT COLUMN, `minmax(0, 1fr)`, on this grid and the one inside it.
-    Left implicit, the column is `auto`, and an auto track is never narrower
-    than its content's own idea of its width: the headline's longest line and
-    the stage wrapper's aspect ratio (a 444px-tall frame asks for ~780px) both
-    outrank a 390px phone. The track then grows past the viewport, the
-    percentage widths in layout.css resolve against that oversized track, and
-    the first screen runs off the right edge of the phone — the maintainer's
-    report on 2026-09-02 was a demo "cut off to the half". A `0` minimum lets
-    the track shrink to the screen; `1fr` still fills it, so a desktop viewport
-    lays out exactly as before.
 
+  `overflow-hidden` holds the backdrop's fade inside the section. Nothing the
+  reader needs is cut by it: the window closes inside the section, with the
+  starters and a band of air under it.
+-->
+<section id={TOP_ID} class="hero relative overflow-hidden">
+  <!--
+    The ground: a faint grid that fades out from behind the headline. `full`
+    width, as layout.md allows for a background, and never under text that has
+    to be read against it — it is at a few percent of the ink.
+  -->
+  <div class="hero__grid" aria-hidden="true"></div>
+
+  <!--
     THE HERO'S OWN BOX. It stays a separate element from the `<section>` — the
     section is what the reader scrolls past, this is what they look at — and it
-    is what `SectionTrack` measures, since the track measures the box it is
-    dropped into.
+    is what `SectionTrack` measures. It pays for the fixed nav itself, in
+    padding (SiteNav.astro is out of the flow).
 
-    IT PAYS FOR THE NAV ITSELF, in padding. Until 2026-08-29 the nav was a row
-    of this section's own grid, so the hero's content began under it for free.
-    The nav is fixed over the whole document now (SiteNav.astro) and is out of
-    the flow entirely, so without this the headline would start behind it. The
-    figure is the same `--nav-height` the row used to be, which is what keeps
-    every proportion in docs/hero.md exactly where it was.
-
-    `open`, because NOTHING RAIL-TO-RAIL IS DRAWN AT THIS BOX'S BOTTOM EDGE.
-    What closes the hero is its own stage frame, and that is a rounded card
-    75px higher up — the section spends its last `--section-inset` on the tail
-    that pulls the card's line clear of the fold. Closed, the square turned off
-    the rail at the bottom of this box and ran across bare ground to the other
-    one; the maintainer's report on 2026-08-29 was that it "is not quite on the
-    line". Open, it comes down the rail and carries straight on into the logo
-    strip's opening rule, which is the next line that actually exists.
+    `open`, because nothing rail-to-rail is drawn at this box's bottom edge:
+    the square comes down the rail and carries on into the logo strip's opening
+    rule, which is the next line that actually exists.
   -->
-  <div
-    class="relative grid min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] pt-[var(--nav-height)]"
-  >
+  <div class="relative pt-[var(--nav-height)]">
     <SectionTrack open />
 
-    <div class="pt-[5svh]">
+    <div class="hero__copy">
+      <!--
+        The floating marks live in the `content` column so they can stand in
+        the two bands the `prose` column leaves free beside the headline. Below
+        `lg` there are no such bands and the tiles are not drawn at all.
+      -->
+      <Container width="content" class="hero__tiles">
+        <div class="hero__tiles-band" aria-hidden="true">
+          {
+            tiles.map(({ Mark, side, at, turn, wait, big }) => (
+              <span
+                class:list={["hero__tile", `hero__tile--${side}`, `hero__tile--${at}`, big && "hero__tile--big"]}
+                style={`--turn: ${turn}; --wait: ${wait}`}
+              >
+                <Mark className="hero__tile-mark" />
+              </span>
+            ))
+          }
+        </div>
+      </Container>
+
       <Container width="prose">
         <!--
-          Capped well below the old 6rem: the headline is the one element that
-          decides whether the stage still has room, and three lines of it is the
-          shape the maintainer asked for (2026-08-29).
+          A definition, not a slogan: the reader should be able to repeat what
+          the product is after reading this one line.
         -->
         <h1
-          class="text-center text-balance leading-[1.08] tracking-[-1.5px]"
-          style="font-size: clamp(1.875rem, 1.3rem + 1.5vw, 3.25rem)"
+          class="text-center text-balance leading-[1.04] tracking-[-0.03em]"
+          style="font-size: clamp(2.375rem, 1.5rem + 3vw, 4.5rem)"
         >
-          Speak to your computer and it does the work
+          The open-source agent OS for your desktop
         </h1>
 
-        <div class="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+        <p class="hero__sub text-center text-balance">
+          Dodaios runs your coding agents, browser and apps by voice or chat, on your own machine. Bring your own
+          subscription.
+        </p>
+
+        <div class="mt-8 flex flex-col items-center gap-4">
           {/*
-            THE LABEL NAMES THE READER'S OWN MACHINE. It read "Download for
-            Windows" on every screen until 2026-09-01 — a lie to most of the
-            people who saw it, and a button that dropped a Mac visitor onto a
-            PowerShell line. The component holds the detection, the three
-            labels and the link to the matching command; this file keeps only
-            the pill, because the shape is the hero's business and the words
-            are not. See DownloadCta.astro and docs/hero.md § "CTAs".
+            THE LABEL NAMES THE READER'S OWN MACHINE. The component holds the
+            detection, the three labels and the link to the matching command;
+            this file keeps only the pill, because the shape is the hero's
+            business and the words are not. See DownloadCta.astro.
           */}
-          <DownloadCta class="inline-flex min-h-[44px] items-center justify-center rounded-full bg-ink px-6 text-[15px] font-medium text-on-ink transition-colors hover:bg-ink-active" />
-          {/*
-            This used to point at `#docs`, an id no element on this page has
-            ever carried — the button scrolled nowhere. The docs live in the
-            repository until this site grows a route of its own; the URL is a
-            constant in src/lib/nav.ts so there is one place to change it then.
-          */}
-          <a
-            href={DOCS_URL}
-            class="inline-flex min-h-[44px] items-center justify-center rounded-full border border-hairline-strong bg-card px-6 text-[15px] font-medium text-ink transition-colors hover:border-ink"
-          >
-            Read the docs
-          </a>
+          <DownloadCta class="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-ink px-7 text-[15px] font-medium text-on-ink transition-colors hover:bg-ink-active sm:w-auto" />
+
+          <p class="hero__links">
+            <a href={REPO} class="hero__link">
+              <GitHubMark className="hero__link-mark" />
+              <span>Star on GitHub</span>
+              <span class="hero__count">{stars}</span>
+            </a>
+            <span aria-hidden="true" class="hero__dot">·</span>
+            <a href={DOCS_URL} class="hero__link">Read the docs</a>
+          </p>
         </div>
       </Container>
     </div>
 
     <!--
-      The stage row. `min-h-0` lets the row shrink past its content's intrinsic
-      height — without it the grid track grows to fit the board and the hero
-      spills past the fold again.
-
-      The padding is 6svh and not the 10svh it was, because the band under the
-      frame is now built from two pieces rather than one: this padding, then the
-      section's 48px tail below the closing rule. Together they come to the same
-      distance the old single padding did, so the frame keeps the height it had
-      — the band beneath it simply gained a line partway down.
+      The window. It takes the whole `content` column and the height its own
+      ratio gives it — the stage scales on width, and nothing above shrinks it.
     -->
-    <Container width="content" class="min-h-0 pt-6 pb-[6svh]">
-      <!--
-        `hairline-strong`, not the usual hairline (kept from 09943cb): the frame
-        now holds a pale painting on a near-black page, and the stronger edge is
-        what stops that bright rectangle from bleeding into the floor around it.
-        The reason has changed with the backdrop; the choice has not.
-      -->
-      <div
-        class="hero-frame relative h-full min-h-[300px] overflow-hidden rounded-2xl border border-hairline-strong"
-      >
-        <!--
-          The backdrop. An original painting generated for this site, so there is
-          no third-party licence attached to it — see docs/hero.md, "Backdrop".
-          Eager and above the fold; `object-cover` because the frame's own ratio
-          moves with the viewport height.
-        -->
-        <Image
-          src={backdrop}
-          alt=""
-          widths={[1280, 1920, 2560]}
-          sizes={backdropSizes}
-          loading="eager"
-          class="pointer-events-none absolute inset-0 h-full w-full object-cover"
-        />
-        <DemoStage client:load className="relative h-full" />
-      </div>
+    <Container width="content" class="hero__stage">
+      <DemoStage client:load />
     </Container>
   </div>
 </section>
 
-<style is:global>
+<style>
+  .hero__grid {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 46rem;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, var(--hairline-soft) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--hairline-soft) 1px, transparent 1px);
+    background-size: 4rem 4rem;
+    background-position: center top;
+    mask-image: radial-gradient(ellipse 60% 70% at 50% 30%, #000 0%, transparent 100%); /* layout-allow: a mask's opaque stop, not a colour on the page */
+  }
+
+  /* Air above the headline in `svh`, so a short laptop and a tall monitor keep
+     the same proportion; the floor stops a phone from pressing it to the nav. */
+  .hero__copy {
+    position: relative;
+    padding-top: max(2.5rem, 9svh);
+  }
+
+  .hero__sub {
+    margin-top: 1.5rem;
+    font-size: clamp(1rem, 0.95rem + 0.3vw, 1.1875rem);
+    line-height: 1.55;
+    color: var(--body);
+  }
+
+  .hero__links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  .hero__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2rem;
+    color: var(--body);
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+
+  .hero__link:hover,
+  .hero__link:focus-visible {
+    color: var(--ink);
+  }
+
+  .hero__link :global(.hero__link-mark) {
+    height: 1rem;
+    aspect-ratio: 1;
+  }
+
+  .hero__count {
+    padding: 0.0625rem 0.5rem;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+
+  .hero__dot {
+    color: var(--muted-soft);
+  }
+
+  /* `:global`, because the class lands on the Container's own element, which
+     never carries this component's scope attribute. */
+  .hero :global(.hero__stage) {
+    padding-top: clamp(2.75rem, 7svh, 5rem);
+    padding-bottom: var(--section-pad);
+  }
+
   /*
-   * `<astro-island>` is an unknown element, so it computes to `display: inline`
-   * and carries no height of its own. The stage inside it asks for
-   * `height: 100%`, which against an inline parent resolves to auto — the stage
-   * then falls back to its own aspect ratio and stops fitting the frame. On a
-   * short viewport that puts the bottom of the window outside the frame, which
-   * is the one thing this hero is built to prevent.
-   *
-   * `is:global` because the wrapper is generated by the hydration runtime and
-   * never carries this component's scope attribute.
+   * The floating marks. The band they stand in is the `content` column laid
+   * over the copy; each tile is placed against that band's own edges, so the
+   * arrangement keeps its shape as the column widens.
    */
-  .hero-frame > astro-island {
-    display: block;
+  .hero :global(.hero__tiles) {
+    position: absolute;
+    inset: 0;
+    display: none;
+    pointer-events: none;
+  }
+
+  @media (min-width: 1024px) {
+    .hero :global(.hero__tiles) {
+      display: block;
+    }
+  }
+
+  .hero__tiles-band {
+    position: relative;
     height: 100%;
+  }
+
+  .hero__tile {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    height: 3.5rem;
+    aspect-ratio: 1;
+    border: 1px solid var(--hairline);
+    border-radius: 1rem;
+    background: var(--surface-card);
+    color: var(--ink);
+    rotate: var(--turn);
+    animation: hero-drift 7s ease-in-out infinite;
+    animation-delay: var(--wait);
+  }
+
+  .hero__tile--big {
+    height: 4.25rem;
+    border-radius: 1.2rem;
+  }
+
+  .hero__tile :global(.hero__tile-mark) {
+    height: 46%;
+    aspect-ratio: 1;
+  }
+
+  .hero__tile--left.hero__tile--t1 {
+    left: 15%;
+    top: 22%;
+  }
+  .hero__tile--left.hero__tile--t2 {
+    left: 5%;
+    top: 46%;
+  }
+  .hero__tile--left.hero__tile--t3 {
+    left: 13%;
+    top: 78%;
+  }
+  .hero__tile--right.hero__tile--t1 {
+    right: 15%;
+    top: 20%;
+  }
+  .hero__tile--right.hero__tile--t2 {
+    right: 5%;
+    top: 44%;
+  }
+  .hero__tile--right.hero__tile--t3 {
+    right: 13%;
+    top: 76%;
+  }
+
+  @keyframes hero-drift {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    50% {
+      translate: 0 -0.5rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero__tile {
+      animation: none;
+    }
   }
 </style>

@@ -610,8 +610,8 @@ nothing at that joint to cross. The two blocks above it close on
 `.section-run-rule` and are ordinary closed sections.
 
 `Hero.astro` is the other: nothing rail-to-rail is drawn at the hero's
-bottom edge, because what closes it is its own stage frame, a rounded card
-75px higher up. Both of them turn the corner all the same — on the opening
+bottom edge, because what closes it is the app window and the row of starters
+under it, both well above that edge. Both of them turn the corner all the same — on the opening
 rule of the section below, which is the line the reader sees at that joint.
 
 **A section that draws a rule must not be `open`**, or the square turns on

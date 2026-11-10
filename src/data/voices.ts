@@ -13,6 +13,8 @@
  *   server that needs an invite.
  * - **Third parties only.** Never the maintainer, never a bot, never a
  *   generated article.
+ * - **Their own picture.** An `avatar` is the image on the author's public
+ *   profile, unchanged apart from being scaled down.
  * - **Removable.** Anyone quoted here can ask to be taken out; open an issue
  *   and the entry goes.
  *
@@ -28,6 +30,13 @@ export interface Voice {
   source: VoiceSource;
   text: string;
   url: string;
+  /**
+   * The person's own profile picture, saved under public/media/voices/ as a
+   * 96 px WebP. Copied from the profile once, not hotlinked, so the page
+   * makes no request to the source site. Without one the card shows the
+   * first letter of the name.
+   */
+  avatar?: string;
 }
 
 export const voices: readonly Voice[] = [
@@ -36,12 +45,14 @@ export const voices: readonly Voice[] = [
     source: "X",
     text: "Running multiple coding agents shouldn't mean juggling multiple windows.",
     url: "https://x.com/DanKornas/status/2111015273943715911",
+    avatar: "/media/voices/dankornas.webp",
   },
   {
     author: "Idee-Wird-App",
     source: "GitHub",
     text: "I think it is remarkable how much functionality and potential this project already offers, especially considering that it is made available to users free of charge.",
     url: "https://github.com/Dodaios/Dodaios/pull/844",
+    avatar: "/media/voices/idee-wird-app.webp",
   },
   {
     author: "u/Helpful_Jelly5486",
@@ -54,6 +65,7 @@ export const voices: readonly Voice[] = [
     source: "GitHub",
     text: "… congrats on the great implementation. Keep up the good work!",
     url: "https://github.com/Dodaios/Dodaios/pull/509#issuecomment-6171844411",
+    avatar: "/media/voices/martiroca06.webp",
   },
   {
     author: "u/Spare_Penalty_9209",
@@ -72,6 +84,7 @@ export const voices: readonly Voice[] = [
     source: "GitHub",
     text: "… o app e muito bom obrigado",
     url: "https://github.com/Dodaios/Dodaios/discussions/461",
+    avatar: "/media/voices/pedrobettiol2025-collab.webp",
   },
   {
     author: "u/Blues520",
@@ -84,5 +97,6 @@ export const voices: readonly Voice[] = [
     source: "GitHub",
     text: "Thank you to the Dodaios maintainers and contributors for building and sharing the foundation that makes this project possible.",
     url: "https://github.com/IanOliverU/PRTS#readme",
+    avatar: "/media/voices/ianoliveru.webp",
   },
 ];

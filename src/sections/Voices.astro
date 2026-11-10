@@ -56,9 +56,21 @@ const PACE = [70, 84];
                       >
                         <blockquote class="voices-card__text">{voice.text}</blockquote>
                         <span class="voices-card__by">
-                          <span class="voices-card__initial" aria-hidden="true">
-                            {voice.author.replace(/^u\//, "").charAt(0).toUpperCase()}
-                          </span>
+                          {voice.avatar ? (
+                            <img
+                              class="voices-card__avatar"
+                              src={voice.avatar}
+                              alt=""
+                              width="28"
+                              height="28"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <span class="voices-card__initial" aria-hidden="true">
+                              {voice.author.replace(/^u\//, "").charAt(0).toUpperCase()}
+                            </span>
+                          )}
                           <span class="voices-card__name">{voice.author}</span>
                           <span class="voices-card__source">on {voice.source}</span>
                         </span>
@@ -199,6 +211,16 @@ const PACE = [70, 84];
     background: var(--surface-strong);
     font-weight: 600;
     color: var(--body);
+  }
+
+  .voices-card__avatar {
+    flex: none;
+    block-size: 1.75rem;
+    inline-size: 1.75rem;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    background: var(--surface-strong);
+    object-fit: cover;
   }
 
   .voices-card__name {

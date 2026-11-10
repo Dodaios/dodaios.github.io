@@ -1,5 +1,5 @@
 /*
- * The hero demo's window edge.
+ * The hero demo's window edge, and the row of starters under it.
  *
  * Everything inside the window is the app's own markup under the app's own
  * stylesheet (src/components/demo/app/). The window itself is the one thing
@@ -8,8 +8,58 @@
  * everywhere on this site.
  */
 .demo-window {
+  /* The height of a window held at the stage's smallest scale (MIN_SCALE in
+     DemoStage.tsx: 758 x 0.46). On a phone the ratio alone would give less,
+     and the stage would jump to this height when it hydrates. */
+  min-height: 349px;
   border-radius: 12px;
   border: 1px solid var(--hairline-strong);
   overflow: hidden;
   background: var(--app-bg);
+}
+
+/*
+ * The starters. They belong to the page and not to the window: the app has no
+ * such row, and a clone of the app may not grow one. Each starts an errand in
+ * the window above, so a visitor who would not think to type into a picture
+ * of an app still finds out that it answers.
+ */
+.demo-try {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.demo-try__label {
+  margin-right: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.demo-try__chip {
+  min-height: 2.25rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--surface-card);
+  font-size: 0.8125rem;
+  color: var(--body);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.demo-try__chip:hover,
+.demo-try__chip:focus-visible {
+  border-color: var(--hairline-strong);
+  color: var(--ink);
+}
+
+.demo-try__chip:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }

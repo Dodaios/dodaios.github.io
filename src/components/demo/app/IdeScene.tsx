@@ -1069,11 +1069,11 @@ function ProjectRow({ project }: { project: TreeProject }) {
  * (IdeProjectTree). Drop it into the sidebar's
  * `flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-jarvis` region.
  */
-export function IdeNav(): ReactNode {
+export function IdeNav({ onBack }: { onBack?: () => void } = {}): ReactNode {
   return (
     <>
       <nav aria-label="IDE navigation" className="px-2 pt-2">
-        <button type="button" tabIndex={-1}
+        <button type="button" tabIndex={-1} onClick={onBack}
           className="flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <ChevronLeft aria-hidden className="h-3.5 w-3.5 shrink-0" />
           <span>Back to Dodaios</span>

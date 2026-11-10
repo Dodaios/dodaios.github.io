@@ -32,10 +32,13 @@ html,body{height:100%;overflow:hidden}
 export function AppFrame({
   width,
   height,
+  onInteract,
   children,
 }: {
   width: number;
   height: number;
+  /** Called whenever the visitor presses, types or scrolls inside the window. */
+  onInteract?: () => void;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
@@ -51,6 +54,19 @@ export function AppFrame({
     doc.close();
     setBody(doc.body);
   }, []);
+
+  // The frame is a document of its own, so its events never reach the page:
+  // the stage has to be told from in here that someone took the window over.
+  const interact = useRef(onInteract);
+  interact.current = onInteract;
+  useEffect(() => {
+    const doc = ref.current?.contentDocument;
+    if (!doc || !body) return;
+    const notify = () => interact.current?.();
+    const events = ["pointerdown", "keydown", "wheel"] as const;
+    events.forEach((name) => doc.addEventListener(name, notify, { passive: true }));
+    return () => events.forEach((name) => doc.removeEventListener(name, notify));
+  }, [body]);
 
   return (
     <>

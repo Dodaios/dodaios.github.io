@@ -109,10 +109,11 @@ filtered frame is shorter still — so on the dark page that flat floor read as 
 hole punched in the card rather than as a background. The maintainer asked for
 the hero's treatment here too (2026-08-29).
 
-It is the **same painting as the hero**, at a smaller size:
-`src/assets/hero/stage-backdrop-well.webp`, 1280×720, because these wells render
-at roughly 600px wide against the hero frame's 1216. Same source image, so the
-two surfaces cannot drift apart.
+It is the painting the hero's frame carried until 2026-11-10, when the hero's
+window moved onto the open page: `src/assets/hero/stage-backdrop-well.webp`,
+1280×720, sized for wells that render at roughly 600px wide. Its licence is
+recorded with the commit that added it (generated for this site, nothing
+third-party attached).
 
 - It lives in `window-demo/Stage.tsx`, so all three feature cards get it from
   one place and a fourth would too. It is not a prop and must not become one —

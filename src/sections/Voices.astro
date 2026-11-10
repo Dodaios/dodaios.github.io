@@ -1,0 +1,235 @@
+---
+/**
+ * Voices — what people have said about the project in public.
+ *
+ * Two lanes of cards drift past each other, one each way. Every card is a
+ * link to the place the sentence was written, so a reader can check any of
+ * them; the rules for what may appear here are in src/data/voices.ts.
+ *
+ * It sits directly under the connection strip: the hero says what the product
+ * is, the strip what it reaches, and this band that other people have used
+ * it — before the page starts explaining features.
+ *
+ * The whole thing is CSS. No JavaScript reaches the browser, a lane stops
+ * while the pointer or the keyboard is on it, and `prefers-reduced-motion`
+ * gets two still rows that scroll by hand instead.
+ *
+ * Each lane holds its cards twice. The second copy is what lets the track
+ * slide by exactly one copy's length and start over without a seam; it is
+ * hidden from assistive technology and taken out of the tab order, so every
+ * quote is announced and reached once.
+ */
+import Container from "@/components/Container.astro";
+import SectionTrack from "@/components/SectionTrack.astro";
+import { voices, type Voice } from "@/data/voices";
+
+/** Split so both lanes carry a mix of sources and a similar amount of text. */
+const lanes: Voice[][] = [voices.filter((_, i) => i % 2 === 0), voices.filter((_, i) => i % 2 === 1)];
+
+/** Seconds for one full pass. The second lane is slower, so the two never lock. */
+const PACE = [70, 84];
+---
+
+<section id="voices" aria-labelledby="voices-heading" class="relative flex flex-col">
+  <Container width="content" class="section-inset flex min-h-0 flex-1 flex-col">
+    <div class="section-bounds">
+      <SectionTrack nested />
+
+      <p class="voices-eyebrow">In their words</p>
+      <h2 id="voices-heading" class="voices-headline">What people say about Dodaios</h2>
+      <p class="voices-standfirst">Public comments, quoted as written. Every card opens its source.</p>
+
+      <div class="voices-lanes">
+        {
+          lanes.map((lane, n) => (
+            <div class:list={["voices-lane", n % 2 === 1 && "voices-lane--back"]} style={`--pace:${PACE[n]}s`}>
+              {[false, true].map((copy) => (
+                <ul class="voices-track" aria-hidden={copy ? "true" : undefined}>
+                  {lane.map((voice) => (
+                    <li class="voices-card">
+                      <a
+                        class="voices-card__link"
+                        href={voice.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        tabindex={copy ? -1 : undefined}
+                      >
+                        <blockquote class="voices-card__text">{voice.text}</blockquote>
+                        <span class="voices-card__by">
+                          <span class="voices-card__initial" aria-hidden="true">
+                            {voice.author.replace(/^u\//, "").charAt(0).toUpperCase()}
+                          </span>
+                          <span class="voices-card__name">{voice.author}</span>
+                          <span class="voices-card__source">on {voice.source}</span>
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ))}
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </Container>
+</section>
+
+<style>
+  .voices-eyebrow {
+    text-align: center;
+    font-size: var(--text-caption-upper);
+    font-weight: 600;
+    letter-spacing: var(--tracking-caption-upper);
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .voices-headline {
+    margin-top: var(--space-sm);
+    text-align: center;
+    text-wrap: balance;
+    font-size: var(--text-display-lg);
+    letter-spacing: var(--tracking-display-lg);
+    line-height: 1.2;
+  }
+
+  .voices-standfirst {
+    margin-top: var(--space-base);
+    text-align: center;
+    text-wrap: balance;
+    color: var(--body);
+    font-size: var(--text-body);
+    line-height: 1.6;
+  }
+
+  .voices-lanes {
+    display: grid;
+    gap: 1rem;
+    margin-top: var(--space-xl);
+  }
+
+  /*
+   * A lane is a window onto a track twice as long as its cards. The mask
+   * fades both ends out, so a card arrives and leaves instead of being cut by
+   * the column's edge — and so the lane never draws a hard line across the
+   * page's rails, which run down exactly those two edges.
+   */
+  .voices-lane {
+    display: flex;
+    overflow: hidden;
+    mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent); /* layout-allow: a mask's opaque stop, not a colour on the page */
+  }
+
+  .voices-track {
+    display: flex;
+    flex: none;
+    gap: 1rem;
+    padding-inline-end: 1rem;
+    animation: voices-drift var(--pace) linear infinite;
+  }
+
+  .voices-lane--back .voices-track {
+    animation-direction: reverse;
+  }
+
+  .voices-lane:hover .voices-track,
+  .voices-lane:focus-within .voices-track {
+    animation-play-state: paused;
+  }
+
+  @keyframes voices-drift {
+    to {
+      translate: -100% 0;
+    }
+  }
+
+  .voices-card {
+    display: flex;
+    flex: 0 0 22rem;
+  }
+
+  .voices-card__link {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: 1.125rem 1.25rem;
+    border: 1px solid var(--hairline);
+    border-radius: 0.75rem;
+    background: var(--surface-card);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 150ms ease;
+  }
+
+  .voices-card__link:hover,
+  .voices-card__link:focus-visible {
+    border-color: var(--hairline-strong);
+  }
+
+  .voices-card__link:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: -2px;
+  }
+
+  .voices-card__text {
+    font-size: var(--text-body-sm);
+    line-height: 1.55;
+    color: var(--ink);
+  }
+
+  .voices-card__by {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-inline-size: 0;
+    font-size: var(--text-caption);
+  }
+
+  .voices-card__initial {
+    display: grid;
+    flex: none;
+    place-items: center;
+    block-size: 1.75rem;
+    aspect-ratio: 1;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    background: var(--surface-strong);
+    font-weight: 600;
+    color: var(--body);
+  }
+
+  .voices-card__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--body);
+  }
+
+  .voices-card__source {
+    flex: none;
+    margin-inline-start: auto;
+    color: var(--muted);
+  }
+
+  /*
+   * Without motion the lanes hold still and scroll by hand. The second copy
+   * of each lane exists only for the loop, so it is not drawn at all.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .voices-lane {
+      overflow-x: auto;
+      mask-image: none;
+    }
+
+    .voices-track {
+      animation: none;
+    }
+
+    .voices-track[aria-hidden="true"] {
+      display: none;
+    }
+  }
+</style>

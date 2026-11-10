@@ -35,6 +35,10 @@ const ICONS = [
   "Sparkles", "Square", "SquareTerminal", "Sun", "Terminal", "Wrench", "X",
   // The Agentic IDE scene (IdeScene.tsx).
   "Building2", "CheckCheck", "Eye", "FileDiff", "FolderTree", "Maximize2", "Minimize2", "PanelRightClose",
+  // The shell, the conversation, the thread layout, Agents and Plugins.
+  "Archive", "ArrowUp", "Captions", "ChevronUp", "CircleDot", "Clock", "Diff", "FolderGit2", "FolderPlus",
+  "Hand", "House", "LayoutDashboard", "MessageCircle", "MessagesSquare", "MicOff", "PanelBottom", "PhoneOff",
+  "RefreshCw", "Send", "Server", "Settings2", "ShieldAlert", "SlidersHorizontal", "SquarePen", "Users",
 ];
 
 const app = process.argv[2];

@@ -11,7 +11,7 @@
  * does, and a restyle of the app reaches the demo by running this script
  * again rather than by someone redrawing it by eye.
  *
- * The full sheet is ~285 KB. Only rules whose classes all appear somewhere in
+ * The app's sheets come to ~500 KB together. Only rules whose classes all appear somewhere in
  * the clone's source are kept, plus every rule that names no class at all
  * (the theme variables, the base element rules) and the keyframes those kept
  * rules animate with. @font-face is dropped: the demo ships its own two font
@@ -21,7 +21,7 @@
  * clone is not in the cut-down sheet until this runs.
  */
 
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import postcss from "postcss";
@@ -36,15 +36,31 @@ if (!assets) {
   process.exit(2);
 }
 
-// The app's main sheet is the largest index-*.css in its build output.
-const sheet = readdirSync(assets)
-  .filter((n) => /^index-.*\.css$/.test(n))
-  .map((n) => ({ n, size: statSync(join(assets, n)).size }))
-  .sort((a, b) => b.size - a.size)[0];
-if (!sheet) {
-  console.error(`no index-*.css in ${resolve(assets)}`);
+// The app's entry sheet is the one its index.html links. A build folder that
+// has been rebuilt in place keeps older index-*.css files beside it, so the
+// name is read from the page instead of guessed from the sizes.
+const html = readFileSync(join(assets, "..", "index.html"), "utf8");
+const entry = /assets\/(index-[\w-]+\.css)/.exec(html)?.[1];
+if (!entry || !existsSync(join(assets, entry))) {
+  console.error(`no entry stylesheet linked from ${resolve(assets, "..", "index.html")}`);
   process.exit(1);
 }
+
+// The app splits the styles of its lazy views into sheets of their own
+// (WorkTrace, AgentTimeline, SocietyView, ...). The clone copies markup from
+// those views too, so every such sheet is read after the entry sheet. Where a
+// rebuild left two files of one view behind, the newer one wins. The editor,
+// the game and the arcade are never cloned and are skipped for their size.
+const SKIP = /^(index|monacoRuntime|Verse|ArcadeCabinet|RetroArcade)/;
+const chunks = new Map();
+for (const n of readdirSync(assets)) {
+  if (!n.endsWith(".css") || SKIP.test(n)) continue;
+  const stem = n.replace(/-[\w-]{8}\.css$/, "");
+  const mtime = statSync(join(assets, n)).mtimeMs;
+  if (!chunks.has(stem) || chunks.get(stem).mtime < mtime) chunks.set(stem, { n, mtime });
+}
+const sheets = [entry, ...[...chunks.values()].map((c) => c.n).sort()];
+const sheet = { n: sheets.join(", "), size: sheets.reduce((sum, n) => sum + statSync(join(assets, n)).size, 0) };
 
 // Every token the clone's source could be naming as a class. Over-inclusive
 // on purpose: a stray word that happens to be a class name costs one rule, a
@@ -75,7 +91,7 @@ function selectorWanted(selector) {
   return classesOf(selector).every((c) => c === "dark" || used.has(c));
 }
 
-const root = postcss.parse(readFileSync(join(assets, sheet.n), "utf8"));
+const root = postcss.parse(sheets.map((n) => readFileSync(join(assets, n), "utf8")).join("\n"));
 const animations = new Set();
 
 root.walkRules((rule) => {

@@ -75,7 +75,7 @@ export const DEMO_AGENTS: DemoAgent[] = [
           { p: "Three mails need you today:" },
           {
             ol: [
-              "**Kessler GmbH** asks for the signed offer by Friday.",
+              "**Acme Corp** asks for the signed offer by Friday.",
               "**Your accountant** needs two receipts from March.",
               "**Mira** moved the design review to 14:00.",
             ],
@@ -171,7 +171,7 @@ const MAIL_REPLY: LeadReply = {
   thought: "A question about mail. Atlas reads the inbox every morning, so I take its list and check it against the inbox.",
   steps: [{ text: "Gmail", detail: "Unread since yesterday: 44 mails", logo: "gmail" }],
   bubbles: [
-    "Three mails need you: Kessler GmbH wants the signed offer by Friday, your accountant needs two receipts, and Mira moved the design review to **14:00**.",
+    "Three mails need you: Acme Corp wants the signed offer by Friday, your accountant needs two receipts, and Mira moved the design review to **14:00**.",
     "The other 41 are newsletters and notifications. Atlas left them unread.",
   ],
   seconds: 5,

@@ -268,12 +268,19 @@ export function DemoStage({
 
           Lazy, because all of these sit below the fold; `alt=""` and the
           well's own `aria-hidden` keep it out of the accessibility tree.
+
+          Three widths on offer. On a phone the well is the column inside
+          the container's 24px of padding a side, and it is never wider than
+          the content column, so a phone takes the 768px copy and a desktop
+          the master it always had.
         */}
         <img
-          src={wellBackdrop.src}
+          src={wellBackdrop.master.src}
+          srcSet={wellBackdrop.srcSet}
+          sizes="(min-width: 1024px) 1280px, calc(100vw - 48px)" // layout-allow: tells the browser how wide the well is drawn so it can pick a file; it sets no width
           alt=""
-          width={wellBackdrop.width}
-          height={wellBackdrop.height}
+          width={wellBackdrop.master.width}
+          height={wellBackdrop.master.height}
           loading="lazy"
           decoding="async"
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
@@ -299,7 +306,18 @@ export function DemoStage({
               transformOrigin: "top left",
             }}
           >
-            {children}
+            {/*
+              The window's contents exist only once it has a size.
+
+              Until the observer has measured, the window is hidden, so the
+              server's copy of the contents was never seen: it was a third of
+              the page's HTML (180 kB across the five demos) that every visitor
+              downloaded, parsed and laid out for nothing, and that React then
+              walked a second time to hydrate. The scale is 0 on the server and
+              on the first client render alike, so both produce the same empty
+              window and hydration has nothing to disagree about.
+            */}
+            {scale > 0 ? children : null}
           </div>
         </div>
       </div>

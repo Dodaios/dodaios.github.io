@@ -11,15 +11,20 @@ visible Chrome so the scene is drawn by the real graphics card.
 
 | | Phone profile (slow 4G, 4x slower processor) | Desktop profile |
 | --- | --- | --- |
-| Performance score | 98 to 100 (median 100, five runs) | 100 (three runs) |
-| First paint | 1.2 to 1.6 s | 0.35 s |
-| Largest paint | 1.2 to 1.7 s | 0.4 s |
-| Blocking time | 0 to 54 ms | 0 ms |
+| Performance score | 100 (three runs) | 100 (two runs) |
+| First paint | 1.2 to 1.3 s | 0.4 s |
+| Largest paint | 1.3 to 1.4 s | 0.5 s |
+| Blocking time | 25 to 40 ms | 0 ms |
 | Layout shift | 0 | 0 |
-| Downloaded with the scene | about 0.8 MB in 17 requests | about 1.0 MB in 17 requests |
+| Downloaded with the whole room | about 2.4 MB in 51 requests | about 3.5 MB in 51 requests |
 
 Accessibility, best practices and SEO: 100 each. `/plugins`: 99 on the phone
 profile.
+
+These are the figures of the room (the second version of the scene, the same
+day). Its first version, a desk with a few objects around it, weighed 0.8 MB;
+the room is a whole interior in six pieces, each with its light in two states,
+and it arrives after the first paint, one piece at a time.
 
 For comparison, the first working version of the scene ran on the page's own
 thread and scored 62 to 78 on the phone profile, with about a second of
@@ -43,8 +48,10 @@ so compare runs taken back to back.
   every request that starts before the largest paint against it, which is why
   this order matters more than the bytes.
 - **The scene's downloads ask for low priority** and arrive in pieces: first
-  the desk, the mascot and the night textures; then, one piece per idle moment,
-  the agent pods, the orbit rings, the morning textures and the wireframe.
+  the room's shell, the desk, the mascot and their night textures; then, one
+  piece per idle moment and in the order the tour visits them, the agents wall,
+  the lounge with the hologram, the window, the whiteboard corner, the morning
+  textures and the wireframe.
 - **The baked light comes in two sizes.** A phone, and every route that only
   shows a still view, gets the half-size textures.
 - **The canvas draws fewer pixels when frames run long** (`watchSpeed` in
@@ -52,10 +59,18 @@ so compare runs taken back to back.
   once the reader has scrolled into the text.
 - **The stylesheet is inside the page** (`build.inlineStylesheets` in
   `astro.config.mjs`). No request stands between the HTML and the first paint.
-- **The app window's script arrives when the reader does.** `DemoStage` is
-  `client:visible` in the second chapter. No island is `client:load`.
+- **The app window is on the first screen and still costs the first paint
+  nothing.** `DemoStage` is `client:idle`: its script starts when the page's
+  thread is free. No island is `client:load`.
+- **The room's text is drawn off the page's thread.** The signs, the
+  whiteboard and the terminals are canvases the worker draws; a terminal
+  redraws at most one pane per frame.
 - **The chapters' layout is decided in the `<head>`** (`world-on`), so nothing
   moves after the first paint: layout shift is 0.
+- **Nothing large is painted when the room arrives.** A chapter shows its copy
+  and its row until then; at that instant they leave the picture without a
+  fade (`world-settled` in `docs/world.md`). A fade there once made an unseen
+  row of small print the page's largest paint, 2.4 s late.
 
 ## Measuring
 

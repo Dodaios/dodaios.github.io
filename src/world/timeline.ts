@@ -37,6 +37,12 @@ export interface Shot {
   wide: Box;
   /** Where it sits in a portrait window. */
   tall: Box;
+  /**
+   * The farthest the camera may stand from `target`, in metres. The scene is a
+   * room: a subject that needs more distance than the room has (a narrow
+   * phone, a wide subject) gets a wider lens instead of a camera in the wall.
+   */
+  reach?: number;
 }
 
 /** A shot resolved for one window: everything the camera needs, as numbers. */
@@ -57,8 +63,8 @@ export interface Pose {
 export interface Channels {
   /** 0 night, 1 morning. */
   dawn: number;
-  /** How many agent pods are lit, 0..POD_COUNT. */
-  pods: number;
+  /** How many screens of the agents wall are awake, 0..AGENT_COUNT. */
+  agents: number;
   /** The orbit rings are present. */
   rings: number;
   /** Which ring is lit: 1 plugins, 2 skills, 3 command-line tools. 0 none. */
@@ -75,7 +81,7 @@ export interface Channels {
 
 export const CHANNELS_AT_REST: Channels = {
   dawn: 0,
-  pods: 0,
+  agents: 0,
   rings: 0,
   ring: 0,
   wire: 0,
@@ -133,6 +139,7 @@ export interface DockTarget {
 }
 
 export const DOCK_FOV = 30;
+const MAX_FOV = 72;
 
 const DEG = Math.PI / 180;
 
@@ -194,7 +201,15 @@ export function resolveShot(shot: Shot, viewport: Viewport): Pose {
   const halfH = box.y1 - box.y0;
   const tan = Math.tan((shot.fov * DEG) / 2);
   // The sphere has to fit the box both ways; the tighter side decides.
-  const dist = shot.fit / (tan * Math.max(0.05, Math.min(halfH, halfW * aspect)));
+  const tight = Math.max(0.05, Math.min(halfH, halfW * aspect));
+  let dist = shot.fit / (tan * tight);
+  let fov = shot.fov;
+  if (shot.reach !== undefined && dist > shot.reach) {
+    // No room to step back: open the lens until the subject fits, up to a limit
+    // past which the room would start to bend.
+    dist = shot.reach;
+    fov = Math.min(MAX_FOV, (2 * Math.atan(shot.fit / (dist * tight))) / DEG);
+  }
   return {
     tx: shot.target[0],
     ty: shot.target[1],
@@ -202,7 +217,7 @@ export function resolveShot(shot: Shot, viewport: Viewport): Pose {
     az: shot.az,
     el: shot.el,
     dist,
-    fov: shot.fov,
+    fov,
     sx: box.x0 + box.x1 - 1,
     sy: 1 - (box.y0 + box.y1),
   };
@@ -231,24 +246,50 @@ export function resolveDock(dock: DockTarget, viewport: Viewport): Pose {
   };
 }
 
-export function lerpPose(a: Pose, b: Pose, t: number): Pose {
+/** The pose of a camera that stands at `eye` and looks at `target`. */
+export function poseLooking(
+  eye: readonly [number, number, number],
+  target: readonly [number, number, number],
+  lens: Pick<Pose, "fov" | "sx" | "sy">,
+): Pose {
+  const dx = eye[0] - target[0];
+  const dy = eye[1] - target[1];
+  const dz = eye[2] - target[2];
+  const dist = Math.max(1e-4, Math.hypot(dx, dy, dz));
   return {
-    tx: lerp(a.tx, b.tx, t),
-    ty: lerp(a.ty, b.ty, t),
-    tz: lerp(a.tz, b.tz, t),
-    az: lerp(a.az, b.az, t),
-    el: lerp(a.el, b.el, t),
-    dist: lerp(a.dist, b.dist, t),
-    fov: lerp(a.fov, b.fov, t),
-    sx: lerp(a.sx, b.sx, t),
-    sy: lerp(a.sy, b.sy, t),
+    tx: target[0],
+    ty: target[1],
+    tz: target[2],
+    az: Math.atan2(dx, dz) / DEG,
+    el: Math.asin(Math.max(-1, Math.min(1, dy / dist))) / DEG,
+    dist,
+    fov: lens.fov,
+    sx: lens.sx,
+    sy: lens.sy,
   };
+}
+
+/**
+ * Between two poses the camera goes straight from where it stands to where it
+ * will stand, and what it looks at goes straight from one subject to the next.
+ * The room is convex, so a straight line between two places inside it stays
+ * inside; turning the angle and the distance instead would swing the camera
+ * around a moving target, and across the room that arc passes through a wall.
+ */
+export function lerpPose(a: Pose, b: Pose, t: number): Pose {
+  const from = cameraPosition(a);
+  const to = cameraPosition(b);
+  return poseLooking(
+    [lerp(from[0], to[0], t), lerp(from[1], to[1], t), lerp(from[2], to[2], t)],
+    [lerp(a.tx, b.tx, t), lerp(a.ty, b.ty, t), lerp(a.tz, b.tz, t)],
+    { fov: lerp(a.fov, b.fov, t), sx: lerp(a.sx, b.sx, t), sy: lerp(a.sy, b.sy, t) },
+  );
 }
 
 export function lerpChannels(a: Channels, b: Channels, t: number): Channels {
   return {
     dawn: lerp(a.dawn, b.dawn, t),
-    pods: lerp(a.pods, b.pods, t),
+    agents: lerp(a.agents, b.agents, t),
     rings: lerp(a.rings, b.rings, t),
     ring: lerp(a.ring, b.ring, t),
     wire: lerp(a.wire, b.wire, t),
@@ -308,7 +349,7 @@ export function sample(
 
 /** Used only if a dock beat is sampled before the page has told us where the screen goes. */
 const FALLBACK_SHOT: Shot = {
-  target: [0, 1.06, -0.6],
+  target: [0, 1.16, -2.38],
   az: 0,
   el: 0,
   fit: 0.45,

@@ -36,9 +36,17 @@ export interface Context {
 export const TOKEN_NAMES = [
   "--canvas",
   "--ink",
+  "--muted",
+  "--accent",
+  "--success",
+  "--error",
   "--surface-card",
+  "--surface-strong",
+  "--hairline",
   "--hairline-strong",
   "--app-bg",
+  "--world-accent",
+  "--world-gold",
   "--world-lamp",
   "--world-screen",
   "--world-dawn",
@@ -71,6 +79,27 @@ export function tokenLookup(tokens: Tokens): (name: string) => Color {
     if (!value) throw new Error(`the page did not hand over the token ${name}`);
     return new Color(value);
   };
+}
+
+/**
+ * The app's two typefaces, for text drawn in the scene (labels, terminals).
+ * A worker has its own font set, so they are loaded here and not by the page.
+ * Without them the drawing falls back to the system's fonts.
+ */
+export async function loadFonts(faces: readonly { family: string; url: string; weight: string }[]): Promise<void> {
+  const set = (globalThis as unknown as { fonts?: { add(face: FontFace): void } }).fonts;
+  if (!set || typeof FontFace === "undefined") return;
+  await Promise.all(
+    faces.map(async ({ family, url, weight }) => {
+      try {
+        const face = new FontFace(family, `url(${url})`, { weight });
+        await face.load();
+        set.add(face);
+      } catch {
+        // The system's font draws the text instead.
+      }
+    }),
+  );
 }
 
 /** A 2D canvas to draw a texture on, in a worker or on the page. */

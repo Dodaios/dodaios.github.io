@@ -144,7 +144,12 @@ export function ToolMark({ logo, size = 16 }: { logo: ToolLogo; size?: number })
   return (
     <span
       className="tool-identity inline-flex shrink-0"
-      style={{ "--tool-ink-light": "#181717", "--tool-ink-dark": "#f0f6fc" } as CSSProperties}
+      style={
+        {
+          "--tool-ink-light": "#181717",
+          "--tool-ink-dark": "#f0f6fc",
+        } as CSSProperties
+      }
     >
       <span className="tool-choice-icon" data-plate="false" style={{ width: size, height: size }} aria-hidden>
         {mono ? (
@@ -227,6 +232,22 @@ export function usePlayhead(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, playing, last]);
   return step;
+}
+
+/** `traceDuration` (agentchat/traceEntries.ts): "4.2s", "41s", "1m 02s". */
+export function traceDuration(ms: number): string {
+  const seconds = Math.max(0, ms) / 1000;
+  if (seconds < 10) return `${seconds.toFixed(1)}s`;
+  if (seconds < 60) return `${Math.floor(seconds)}s`;
+  return `${Math.floor(seconds / 60)}m ${String(Math.floor(seconds % 60)).padStart(2, "0")}s`;
+}
+
+/** `formatTokens` (agentchat/toolView.ts): "812", "48.2k", "1.2M". */
+export function formatTokens(n: number): string {
+  const trim = (s: string) => (s.endsWith(".0") ? s.slice(0, -2) : s);
+  if (n < 1000) return String(Math.round(n));
+  if (n < 1_000_000) return `${trim((n / 1000).toFixed(1))}k`;
+  return `${trim((n / 1_000_000).toFixed(1))}M`;
 }
 
 /** Whole seconds since mount, for a "Working for 12s" line. */

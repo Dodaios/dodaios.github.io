@@ -43,7 +43,7 @@
   min-height: 2.25rem;
   padding: 0 0.875rem;
   border: 1px solid var(--hairline);
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   background: var(--surface-card);
   font-size: 0.8125rem;
   color: var(--body);
@@ -62,4 +62,18 @@
 .demo-try__chip:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
+}
+
+/* In the room the reader starts seated at the monitor: say that there is more
+ * behind them. Decoration only; the chapter's copy says it in words. */
+@media (min-width: 1024px) {
+  html.world-on .demo-try::after {
+    content: "or scroll to look around the room \2193";
+    margin-left: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
 }

@@ -32,10 +32,10 @@
    * from the nav to the footer, and nothing paints a second near-black under
    * itself — see the note where the section tones used to be.
    */
-  --canvas: #060605;
-  --canvas-soft: #21201c;
-  --surface-card: #191815;
-  --surface-strong: #282620;
+  --canvas: #0a0a0a;
+  --canvas-soft: #1f1f1f;
+  --surface-card: #171717;
+  --surface-strong: #262626;
 
   /* --- Section tone: RETIRED, AND NOT TO BE REBUILT ----------------------
    * There were three grounds here — `--tone-deep` #060605, `--tone-floor`
@@ -66,12 +66,12 @@
    * CTA is paper on ink, which is why this system needs no borrowed accent
    * hue. `--on-ink` is the floor again, because a pale CTA needs dark type.
    */
-  --ink: #f7f7f4;
-  --ink-active: #e0dfd8;
-  --body: #b4b1a7;
-  --muted: #9a978c;
-  --muted-soft: #6d6a62;
-  --on-ink: #060605;
+  --ink: #fafafa;
+  --ink-active: #e0e0e0;
+  --body: #c2c2c2;
+  --muted: #ababab;
+  --muted-soft: #8a8a8a;
+  --on-ink: #0a0a0a;
 
   /* --- Hairlines ---------------------------------------------------------
    * All depth in this system comes from 1px lines and the small step between
@@ -80,9 +80,9 @@
    * "Strong" still means more contrast, which on this ground means lighter.
    * The three keep their light-theme order; only the direction flipped.
    */
-  --hairline: #2b2925;
-  --hairline-soft: #201f1b;
-  --hairline-strong: #46433b;
+  --hairline: #262626;
+  --hairline-soft: #1c1c1c;
+  --hairline-strong: #383838;
 
   /* --- The page rule -----------------------------------------------------
    * The colour of the page's own boundaries: the two rails, and the line
@@ -108,7 +108,7 @@
    * jobs: raised to this value it turns every card and every logo cell into
    * a wireframe; lowered to the hairline value the page loses its structure.
    */
-  --rule: #a8a59b;
+  --rule: #a3a3a3;
 
   /* --- Agent timeline ----------------------------------------------------
    * The one place colour is allowed to carry meaning, mirroring the stages
@@ -206,8 +206,8 @@
    * muddy on this floor: #1f8a65 lands at 2.4:1 against a card, which is not
    * readable. These clear 5:1 and keep the same hues.
    */
-  --success: #3fb98d;
-  --error: #ea5e7e;
+  --success: #22c35e;
+  --error: #df3a3a;
 
   /* --- Type --------------------------------------------------------------
    *
@@ -288,11 +288,27 @@
  * values the renderer adds on top at run time.
  */
 :root {
-  --world-lamp: #ffb975;        /* the desk lamp, warm tungsten            */
-  --world-screen: #f2f1ec;      /* the monitor's glow, paper white         */
+  --world-lamp: #ffd2a1;        /* the desk lamp, warm tungsten            */
+  --world-screen: #f2f2f2;      /* the monitor's glow, paper white         */
   --world-dawn: #ffd3a1;        /* low morning sun                         */
-  --world-sky: #9fb4cc;         /* the cool fill opposite the lamp         */
-  --world-cloth: #2a2824;       /* the mascot's cloak when no texture came */
-  --world-face: #0b0a09;        /* the void inside the hood                */
-  --world-star: #fff4e0;        /* a stargazer's light                     */
+  --world-sky: #a9bbd3;         /* the cool fill opposite the lamp         */
+  --world-cloth: #262626;       /* the mascot's cloak when no texture came */
+  --world-face: #080808;        /* the void inside the hood                */
+  --world-star: #f4f7ff;        /* a stargazer's light                     */
+  --world-accent: #3d8bff;      /* the one accent, as light: LED lines     */
+  --world-gold: #e2b964;        /* the wordmark's bloom                    */
+}
+
+/* --- The brand's one accent ------------------------------------------------
+ * The app's own (docs/BRAND.md in the app's repository): the only hue that
+ * means "interactive or selected": links, focus rings, the current item. It
+ * never fills a primary button; that stays paper on ink.
+ *
+ * THE PALETTE ABOVE IS THE APP'S, AS OF 2026-11-11: neutral in every surface,
+ * rim and ink (r = g = b), a cool-black room with objects one step lighter
+ * each. It was a warm near-black with cream ink until then, from the app's
+ * earlier theme. The token names kept their old meaning; only the values moved.
+ */
+:root {
+  --accent: #3d8bff;
 }

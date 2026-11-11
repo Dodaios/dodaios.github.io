@@ -99,8 +99,25 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       the plain page outright (docs/world.md, "Without the scene").
     */}
     <script is:inline>
-      if ("WebGL2RenderingContext" in window && !/[?&]world=off/.test(location.search))
-        document.documentElement.classList.add("world-on");
+      (function () {
+        var html = document.documentElement;
+        // A window too low to hold one pinned screen (a phone held sideways)
+        // gets the plain page.
+        if (!("WebGL2RenderingContext" in window) || /[?&]world=off/.test(location.search) || window.innerHeight < 600) return;
+        html.classList.add("world-on");
+        // The scene's script answers for this layout from the moment it runs
+        // (`world-ready`). If it never arrives (a blocked or a stale file), the
+        // page goes back to being the plain page instead of a row of empty screens.
+        window.addEventListener("load", function () {
+          setTimeout(function () {
+            if (html.classList.contains("world-ready")) return;
+            html.classList.remove("world-on");
+            // The chapters just became far shorter: keep the reader where the link sent them.
+            var target = location.hash.length > 1 && document.getElementById(location.hash.slice(1));
+            if (target) target.scrollIntoView();
+          }, 4000);
+        });
+      })();
     </script>
   </head>
   <body>

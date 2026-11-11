@@ -45,7 +45,9 @@ const POINT_VERTEX = /* glsl */ `
     vec4 world = modelMatrix * vec4(p, 1.0);
     vec4 view = viewMatrix * world;
     float twinkle = 0.72 + 0.28 * sin(uTime * (0.6 + aSeed * 1.7) + aSeed * 90.0);
-    float lamp = uLampReach > 0.0 ? 2.2 * exp(-distance(world.xyz, uLamp) / uLampReach) : 1.0;
+    // Dust is only seen where the lamp's light is: the falloff is steep on purpose.
+    float away = distance(world.xyz, uLamp) / max(uLampReach, 0.0001);
+    float lamp = uLampReach > 0.0 ? 1.6 * exp(-away * away) : 1.0;
     vLevel = twinkle * lamp;
     float size = aSize * (uAttenuate > 0.5 ? uProject / max(0.1, -view.z) : 1.0);
     // A point smaller than a pixel flickers; hold the size and lower the light instead.
@@ -186,7 +188,7 @@ export function createSky(ctx: Context, lampBulb: Vector3, stargazers: number): 
   });
 
   // The stargazers: one light for each person who starred the repository, in
-  // a slow wheel above the desk.
+  // a slow wheel in the night sky, seen through the room's window.
   const gazerCount = Math.max(1, Math.min(stargazers, 4000));
   const gazerPositions = new Float32Array(gazerCount * 3);
   const gazerSizes = new Float32Array(gazerCount);
@@ -195,7 +197,7 @@ export function createSky(ctx: Context, lampBulb: Vector3, stargazers: number): 
     const arm = Math.floor(random() * 3) * ((Math.PI * 2) / 3);
     const angle = arm + radius * 0.7 + (random() - 0.5) * 1.0;
     gazerPositions.set([Math.cos(angle) * radius, (random() - 0.5) * 0.7 * (1.3 - radius / 5), Math.sin(angle) * radius], i * 3);
-    gazerSizes[i] = 0.06 + random() * 0.08;
+    gazerSizes[i] = 0.035 + random() * 0.055;
   }
   const gazers = makePoints({
     positions: gazerPositions,
@@ -204,15 +206,19 @@ export function createSky(ctx: Context, lampBulb: Vector3, stargazers: number): 
     attenuate: true,
     seed: 23,
   });
+  // The wheel stands upright outside the left wall, facing the window, and
+  // turns about its own axis.
   const wheel = new Group();
-  wheel.position.set(0, 5.9, -1.4);
-  wheel.rotation.set(0.22, 0, 0.1);
-  wheel.add(gazers);
+  wheel.position.set(-13.5, 4.2, 0.5);
+  wheel.rotation.set(0, 0, Math.PI / 2 - 0.3);
+  const turning = new Group();
+  turning.add(gazers);
+  wheel.add(turning);
 
   // Dust: what makes the lamp's light visible as light.
-  const dustCount = small ? 110 : 260;
-  const boxMin = new Vector3(-2.4, 0.15, -1.0);
-  const boxSize = new Vector3(4.8, 2.5, 3.6);
+  const dustCount = small ? 90 : 180;
+  const boxMin = new Vector3(-1.7, 0.74, -2.7);
+  const boxSize = new Vector3(2.4, 1.5, 1.5);
   const dustPositions = new Float32Array(dustCount * 3);
   const dustSizes = new Float32Array(dustCount);
   for (let i = 0; i < dustCount; i++) {
@@ -220,7 +226,7 @@ export function createSky(ctx: Context, lampBulb: Vector3, stargazers: number): 
       [boxMin.x + random() * boxSize.x, boxMin.y + random() * boxSize.y, boxMin.z + random() * boxSize.z],
       i * 3,
     );
-    dustSizes[i] = 0.008 + random() * 0.014;
+    dustSizes[i] = 0.003 + random() * 0.005;
   }
   const dust = makePoints({
     positions: dustPositions,
@@ -229,7 +235,7 @@ export function createSky(ctx: Context, lampBulb: Vector3, stargazers: number): 
     attenuate: true,
     drift: new Vector3(0.012, 0.03, 0.006),
     box: { min: boxMin, size: boxSize },
-    lamp: { at: lampBulb, reach: 0.42 },
+    lamp: { at: lampBulb, reach: 0.55 },
     seed: 37,
   });
 
@@ -268,12 +274,12 @@ export function createSky(ctx: Context, lampBulb: Vector3, stargazers: number): 
       }
       const shown = Math.min(1, Math.max(0, (reveal - 0.2) / 0.8));
       far.material.uniforms.uLevel.value = shown * (0.34 + 0.5 * ch.stars) * (1 - 0.75 * ch.dawn);
-      gazers.material.uniforms.uLevel.value = ch.stars * (1 - 0.6 * ch.dawn);
-      gazers.visible = ch.stars > 0.003;
-      dust.material.uniforms.uLevel.value = shown * 0.9 * (1 - 0.55 * ch.dawn) * (1 - ch.dock) * (1 - 0.7 * ch.wire);
-      if (!calm) wheel.rotation.y = time * 0.02;
+      gazers.material.uniforms.uLevel.value = Math.max(ch.stars, 0.35 * shown) * (1 - 0.9 * ch.dawn);
+      gazers.visible = shown > 0.003;
+      dust.material.uniforms.uLevel.value = shown * 0.7 * (1 - 0.55 * ch.dawn) * (1 - ch.dock) * (1 - 0.7 * ch.wire);
+      if (!calm) turning.rotation.y = time * 0.02;
 
-      const level = Math.max(ch.voice * 0.04, listening * 0.55) * (1 - ch.dock);
+      const level = listening * 0.5 * ch.voice * (1 - ch.dock);
       voice.visible = level > 0.004;
       if (voice.visible) {
         away.copy(face).sub(camera.position).normalize();

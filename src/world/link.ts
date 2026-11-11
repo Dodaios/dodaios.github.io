@@ -15,6 +15,11 @@
  * position and posts one small message per frame. See docs/performance.md.
  */
 import { TOKEN_NAMES, type Tier, type Tokens } from "./kit";
+import interUrl from "@/assets/app/inter-latin-wght-normal.woff2?url";
+import monoUrl from "@/assets/app/jetbrains-mono-latin-400-normal.woff2?url";
+import monoMediumUrl from "@/assets/app/jetbrains-mono-latin-500-normal.woff2?url";
+
+import type { LabelTexts } from "./parts/labels";
 import type { RingData } from "./parts/rings";
 import type { Extras, FrameInput, FrameOutput, WorldOptions } from "./World";
 
@@ -30,10 +35,16 @@ export interface WorldLink {
   /** The visitor pressed the scene; resolves with what was under the pointer. */
   press(): Promise<FrameOutput["hot"]>;
   setListening(on: boolean): void;
+  /** Change the words of one label in the room. */
+  setLabel(id: string, lines: readonly string[]): void;
+  /** Something happened on the page that the room acts out. */
+  act(name: string): void;
   setPaused(on: boolean): void;
   extend(extras: Partial<Extras>): Promise<void>;
   /** Called once if the graphics context is lost for good. */
   onLost(callback: () => void): void;
+  /** The scene is over: stop drawing, stop asking, let its thread go. */
+  dispose(): void;
   /** What the line knows about itself, for `?world=debug`. */
   debug(): Record<string, unknown>;
 }
@@ -41,6 +52,7 @@ export interface WorldLink {
 export interface OpenOptions {
   tier: Tier;
   stargazers: number;
+  labels: LabelTexts;
 }
 
 /** The values of the scene's colour tokens, read from the page's stylesheet. */
@@ -85,11 +97,14 @@ async function openLocal(canvas: HTMLCanvasElement, shared: Shared): Promise<Wor
     setPointer: (point) => world.setPointer(point),
     press: () => Promise.resolve(world.press()),
     setListening: (on) => world.setListening(on),
+    setLabel: (id, lines) => world.setLabel(id, lines),
+    act: (name) => world.act(name),
     setPaused: (on) => world.setPaused(on),
     extend: (extras) => world.extend(extras),
     onLost: (callback) => {
       lost = callback;
     },
+    dispose: () => world.stop(),
     debug: () => ({ frames: world.frames }),
   };
 }
@@ -104,6 +119,7 @@ function openThreaded(canvas: HTMLCanvasElement, shared: Shared): Promise<WorldL
     let lost: (() => void) | null = null;
     let paused = false;
     let settled = false;
+    let closed = false;
     const seen = { posted: 0, pulses: 0, frames: 0, received: 0, pulseAt: 0, messages: 0 };
 
     const ask = <T>(message: Record<string, unknown>, transfer: Transferable[] = []): Promise<T> =>
@@ -117,9 +133,12 @@ function openThreaded(canvas: HTMLCanvasElement, shared: Shared): Promise<WorldL
       if (settled) {
         // The worker broke after it had started. Nobody may be left waiting
         // for an answer, and the page has to learn that the scene is gone.
-        for (const done of waiting.values()) done({ hot: null });
+        for (const done of waiting.values()) done({ hot: null, error: "the scene is gone" });
         waiting.clear();
-        lost?.();
+        // Told once: a second error must not hand the page back a second time.
+        const tell = lost;
+        lost = null;
+        tell?.();
         return;
       }
       settled = true;
@@ -146,6 +165,7 @@ function openThreaded(canvas: HTMLCanvasElement, shared: Shared): Promise<WorldL
             onCut = cut;
             // The page keeps the clock: one small message per frame, nothing else.
             const tick = () => {
+              if (closed) return;
               requestAnimationFrame(tick);
               if (paused) return;
               const input = getFrame();
@@ -160,16 +180,27 @@ function openThreaded(canvas: HTMLCanvasElement, shared: Shared): Promise<WorldL
           setPointer: (point) => worker.postMessage({ type: "pointer", point }),
           press: () => ask<{ hot: FrameOutput["hot"] }>({ type: "press" }).then((answer) => answer.hot),
           setListening: (on) => worker.postMessage({ type: "listening", on }),
+          setLabel: (id, lines) => worker.postMessage({ type: "label", id, lines }),
+          act: (name) => worker.postMessage({ type: "act", name }),
           setPaused(on) {
             paused = on;
             worker.postMessage({ type: "paused", on });
           },
           extend(extras) {
             const sheet = (extras.rings as RingData | null | undefined)?.sheet;
-            return ask<void>({ type: "extend", extras }, sheet ? [sheet] : []);
+            return ask<{ error?: string }>({ type: "extend", extras }, sheet ? [sheet] : []).then((answer) => {
+              if (answer?.error) throw new Error(answer.error);
+            });
           },
           onLost(callback) {
             lost = callback;
+          },
+          dispose() {
+            closed = true;
+            lost = null;
+            for (const done of waiting.values()) done({ hot: null, error: "the scene is gone" });
+            waiting.clear();
+            worker.terminate();
           },
           debug: () => ({ ...seen, paused, sincePulse: Math.round(performance.now() - seen.pulseAt) }),
         });
@@ -181,7 +212,11 @@ function openThreaded(canvas: HTMLCanvasElement, shared: Shared): Promise<WorldL
       } else if (message.type === "failed") fail(new Error(String(message.message)));
       else if (message.type === "frame") onFrame?.(message.out as FrameOutput);
       else if (message.type === "cut") onCut?.();
-      else if (message.type === "lost") lost?.();
+      else if (message.type === "lost") {
+        const tell = lost;
+        lost = null;
+        tell?.();
+      }
       else if (message.type === "extended" || message.type === "pressed") {
         const done = waiting.get(message.id as number);
         waiting.delete(message.id as number);
@@ -206,6 +241,13 @@ export async function openWorld(
   const shared: Shared = {
     tier: options.tier,
     stargazers: options.stargazers,
+    labels: options.labels,
+    // The app's own two typefaces (SIL OFL), the files its clone already loads.
+    fonts: [
+      { family: "Inter", url: interUrl, weight: "100 900" },
+      { family: "JetBrains Mono", url: monoUrl, weight: "400" },
+      { family: "JetBrains Mono", url: monoMediumUrl, weight: "500" },
+    ],
     tokens: readTokens(),
     width: Math.max(1, canvas.clientWidth),
     height: Math.max(1, canvas.clientHeight),

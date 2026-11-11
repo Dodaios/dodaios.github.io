@@ -1,6 +1,6 @@
 /**
  * The mascot: the hooded figure from the logo, sitting on the desk beside the
- * monitor. It is the one thing in the scene that is lit at run time, so that
+ * monitor (anchor `MascotAnchor` of the room's desk zone). It is the one thing in the scene that is lit at run time, so that
  * it can move: it breathes, blinks, follows the pointer with its eyes, hops
  * when it is pressed and leans in when it listens.
  *
@@ -16,7 +16,6 @@ import {
   PointLight,
   SphereGeometry,
   Vector3,
-  type Object3D,
   type PerspectiveCamera,
 } from "three";
 
@@ -48,7 +47,7 @@ export interface Mascot {
 
 export async function createMascot(
   ctx: Context,
-  anchor: Object3D,
+  anchor: { position: Vector3; yaw: number },
   lampBulb: Vector3,
   screenCenter: Vector3,
 ): Promise<Mascot> {
@@ -56,9 +55,8 @@ export async function createMascot(
   const calm = ctx.tier.calm;
 
   const group = new Group();
-  anchor.updateWorldMatrix(true, false);
-  anchor.getWorldPosition(group.position);
-  const restYaw = Math.atan2(anchor.matrixWorld.elements[8], anchor.matrixWorld.elements[10]);
+  group.position.copy(anchor.position);
+  const restYaw = anchor.yaw;
 
   // `turn` carries the look-around, `body` the breath and the jump.
   const turn = new Group();

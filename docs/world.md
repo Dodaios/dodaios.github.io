@@ -1,11 +1,11 @@
 # The 3D world
 
-The site stands in one real-time 3D scene: a desk at night, the mascot on it,
-the agents around it, and everything the app reaches in orbit. On the front
-page the scroll position moves a camera through that scene; every other route
-shows one still view of it behind its text.
+The site is one room: a developer's room at night, modelled in full, with the
+app running on the monitor. On the front page the scroll position moves a
+camera through that room, from the chair at the desk once around and back. Every
+other route shows one still view of the room behind its text.
 
-Read this before changing anything under `src/world/`, `src/sections/world/`,
+Read this before changing anything under `src/world/`, `src/sections/room/`,
 `src/styles/world.css` or `art/`.
 
 Related: [`hero.md`](hero.md) for the first screen and the app window,
@@ -16,40 +16,68 @@ Related: [`hero.md`](hero.md) for the first screen and the app window,
 
 ## The idea
 
-The page tells one story, and the scene is that story:
+The visitor is in the room from the first frame, seated at the desk, and the
+monitor in front of them is the working app. Scrolling rolls the chair back and
+takes them round the room. Each station of the tour is one thing the product
+does, and what the page says about it is written on an object that stands
+there:
 
-| Chapter | `data-chapter` | What the scene does |
-|---|---|---|
-| The desk at night | `hero` | One lamp, one monitor, an empty chair, the mascot beside the screen. |
-| Sit down | `try` | The camera takes the chair. The monitor becomes the working app. |
-| Voice | `talk` | Face to face with the mascot. It leans in when it listens. |
-| Agents | `agents` | The camera pulls back: eight agent pods light up around the desk. |
-| Plugins, Skills, CLIs | `plugins`, `skills`, `clis` | Three rings of tiles orbit the desk, one lit at a time. |
-| Stars | `stars` | One light for each person who starred the repository. |
-| Open source | `open` | The set dims and shows the lines it is built from. |
-| Install | `install` | Night turns to morning. |
+| Station | `data-chapter` | What stands there | Where its words are |
+|---|---|---|---|
+| The desk | `hero` | The monitor is the app, and it can be used at once. | An LED bar above the monitor (`Text_hero`). |
+| Voice | `talk` | The mascot at its microphone; the second monitor runs what was said. | A small lightbox on the desk (`Text_voice`). |
+| Agents | `agents` | Six screens on the right wall, each a coding agent at work in a terminal. | Lettering on the wall above them (`Text_agents`). |
+| Plugins, Skills, CLIs | `plugins`, `skills`, `clis` | A hologram of three rings over the table in the lounge. | A cinema lightbox on the wall behind (`Text_reach`). |
+| Stars | `stars` | One light outside the window for each person who starred the repository; the corkboard beside it holds what people wrote. | A counter on the sill (`Text_stars`), cards on the board (`Text_quote1..3`). |
+| Open source | `open` | A blueprint of the room on the wall; the room shows the lines it is built from. | The blueprint (`Text_open`). |
+| Install | `install` | The whiteboard, at first light; then the whole room in the morning. | The whiteboard (`Text_install`). |
 
-The visitor can use the product inside the scene: in "Sit down" the monitor's
-screen is the working clone of the app (`hero.md`).
+### Text in the room, and text in the page
+
+Every word of the page is in the page's markup (`src/sections/room/`), where it
+can be searched, translated and read aloud. With the scene running, that copy is
+moved out of sight (it stays in the accessibility tree and appears when it takes
+the keyboard focus), and the same words are drawn on the room's objects. Both
+read them from data: `src/data/room.ts` for the signs and boards,
+`src/data/sessions.ts` for what the terminals show. One source feeds both, so
+they cannot drift apart.
+
+What stays on the glass is the HUD: one row at the foot of the window with the
+chapter's controls (a button, a link, the command to copy). A press on the
+object in the room does the same as its control in the HUD: the whiteboard
+copies the command, the blueprint opens the repository.
+
+Every chapter's row is in the tab order wherever the camera is. A row that is
+not on screen is transparent, not hidden; when a control in it takes the focus,
+`boot.ts` (`followFocus`) scrolls its chapter up and the camera goes there. So
+the Tab key walks the room in the order the tour does.
 
 ## How it is put together
 
 ```
 src/world/
   timeline.ts       pure arithmetic: shots, poses, keys, sampling
-  script.ts         what the camera shows and the scene does in each chapter
+  script.ts         where the camera stands and what the room does in each chapter
   boot.ts           the page's side: measures chapters, samples the timeline,
-                    starts the scene after the first paint
+                    starts the scene after the first paint, wires the HUD
   link.ts           the line to the scene: a worker where possible, the page's
                     own thread otherwise
   world.worker.ts   the worker's end of that line
-  World.ts          renderer, camera, frame loop
-  kit.ts            loaders, tokens, smoothing
-  parts/            desk, mascot, pods, rings, sky
-src/sections/world/ the chapters' markup
-src/styles/world.css  the canvas's box and the chapters' layout
+  World.ts          renderer, camera, frame loop, what the pointer hits
+  kit.ts            loaders, tokens, fonts, canvas drawing, smoothing
+  parts/
+    room.ts         the room's zones, their baked light, the quads and anchors
+    labels.ts       the words on the room's objects
+    terminals.ts    the agents' terminals on the wall and the second monitor
+    rings.ts        the hologram
+    mascot.ts       the mascot
+    sky.ts          the lights outside the window, the dust in the lamp's cone
+src/data/room.ts    the copy of every station, for the page and for the room
+src/sections/room/  the chapters' markup
+src/styles/world.css  the canvas's box, the chapters, the HUD
 src/components/world/WorldCanvas.astro  the canvas, the data, the boot script
-art/                the Blender sources of the three models
+art/room/           the Blender sources of the room
+art/mascot/         the Blender source of the mascot
 ```
 
 ### The page works without the scene
@@ -61,18 +89,33 @@ There are two states and the first needs no script.
   This is what a browser without WebGL 2 or without JavaScript gets.
 - **`world-on`.** Stamped in the `<head>` (`Base.astro`) when the browser can
   draw the scene. A chapter becomes a tall track with one screen pinned inside
-  it. The class is set before the first paint because it decides the layout.
+  it, its copy leaves the picture and its HUD row appears. The class is set
+  before the first paint because it decides the layout.
 
-`world-ready` is added by `boot.ts` the moment it runs, and only then may a
-chapter's copy be hidden for its entrance. A page whose script never arrives (a
-stale cached page, a blocked file) therefore still shows all of its copy.
+`world-on` promises only that the browser can draw the scene and that the
+window is at least 600 px high (a pinned screen needs that much; a phone held
+sideways gets the plain page). Three more classes follow:
 
-`world-live` is added when the scene has drawn its first frame. If the scene
-cannot start, or its graphics context is lost later, `boot.ts` removes the
-classes again, clears what the scene wrote on the page, and keeps the reader in
-the chapter they were reading: the page is the plain one from then on.
+- `world-ready` is added by `boot.ts` the moment it runs. If it is not there
+  four seconds after the page has loaded, the script never arrived, and the
+  head's own script takes `world-on` off again.
+- `world-live` is added when the scene draws. **Only from then on is a
+  chapter's copy out of sight.** While the room loads, a chapter shows its own
+  words and its row in the middle of its screen, so a reader who follows a link
+  to a chapter before the room is there finds the chapter, not an empty screen.
+- `world-settled` follows two frames later and lets the HUD rows fade. (At the
+  instant the room arrives every row leaves the page's flow at once; a fade
+  there painted all of them over the foot of the screen, and Lighthouse counted
+  that as the page's largest paint.)
 
-Two switches for checking, both in the address:
+If the scene cannot start, if a zone of the room does not arrive after a second
+try, or if the graphics context is lost later, `boot.ts` (`giveUp`) removes the
+classes, stops the scene and its thread, clears what the scene wrote on the
+page, and keeps the reader in the chapter they were reading: the page is the
+plain page from then on. A room with a station missing is not shown, because
+that chapter's words would be nowhere.
+
+Switches for checking, all in the address:
 
 - `?world=off` asks for the plain page.
 - `?world=page` keeps the scene on the page's own thread.
@@ -82,15 +125,17 @@ Two switches for checking, both in the address:
 ### The scene runs on its own thread
 
 `link.ts` hands the canvas to a worker (`transferControlToOffscreen`). The
-worker parses the renderer, decodes the models, compiles the shaders and draws
-every frame. The page's thread reads the scroll position and posts one small
-message per frame.
+worker parses the renderer, decodes the models, compiles the shaders, draws the
+room's text and terminals, and draws every frame. The page's thread reads the
+scroll position and posts one small message per frame.
 
 Because of that, **nothing in `World.ts`, `kit.ts` or `parts/` may touch
 `window` or `document`.** What the scene needs from the page is handed to it:
 the values of the colour tokens (`TOKEN_NAMES` in `kit.ts`), the canvas's size,
-and the marks' sprite sheet as a decoded picture (an SVG can only be decoded on
-the page).
+the room's copy, the addresses of the two font files, and the marks' sprite
+sheet as a decoded picture (an SVG can only be decoded on the page). Text is
+drawn on `OffscreenCanvas` in the worker with fonts it loads itself
+(`loadFonts` in `kit.ts`).
 
 Where a worker cannot take a canvas, the same code runs on the page's thread.
 Both paths answer to `WorldLink`; nothing above `link.ts` knows which it got.
@@ -100,13 +145,9 @@ Two guards keep a worker from leaving the page waiting:
 - **A worker that neither starts nor fails** is given 25 seconds, then the
   page's own thread takes over on a fresh canvas.
 - **A worker whose frame loop goes quiet.** In Chrome a worker's animation
-  frames were seen to stop while the page's carried on (about one cold load in
-  a hundred on the test machine, with the window in the background). The page
-  posts one message per frame of its own; when the worker has not drawn for
-  150 ms and such a message arrives, it draws on that message instead
-  (`world.worker.ts`). Checked by removing the worker's
-  `requestAnimationFrame`: the camera still reaches the monitor and the app's
-  window still arrives.
+  frames were seen to stop while the page's carried on. The page posts one
+  message per frame of its own; when the worker has not drawn for 150 ms and
+  such a message arrives, it draws on that message instead (`world.worker.ts`).
 
 ### The timeline
 
@@ -114,9 +155,19 @@ A camera shot is written as what it must show, not where the camera stands:
 "fit a sphere of this radius around this point into this box of the window,
 from this direction" (`Shot` in `timeline.ts`). The distance and the lens shift
 follow from the window's shape, so one shot holds on a phone and on a wide
-monitor. Each shot names two boxes, one for a landscape window and one for a
-portrait one; the switch is at 21:20, the same ratio at which `world.css` moves
-the copy from above the scene to beside it.
+monitor.
+
+The camera is inside a room, so a shot also names its `reach`: the farthest the
+camera may stand from its target. Where the window's shape would ask for more
+(a phone held upright), the lens widens instead, up to 72 degrees, and the
+camera stays inside the walls.
+
+Between two shots the camera goes in a straight line from where it stands to
+where it will stand, and what it looks at goes in a straight line from one
+subject to the next (`lerpPose`; the scene follows the page the same way). The
+room is convex, so that path cannot leave it. Turning the angle and the
+distance instead swings the camera around a moving target, and across the room
+that arc passed through a wall.
 
 A chapter is pinned from its top edge until its bottom edge reaches the bottom
 of the window. Its beats (`script.ts`) are spread over that stretch. Between
@@ -125,45 +176,53 @@ the last beat of one to the first beat of the next. Every stretch is eased at
 both ends, so the camera rests on each beat.
 
 A beat can also set **channels**: numbers the scene reads besides the camera
-(`dawn`, `pods`, `rings`, `ring`, `wire`, `stars`, `voice`, `dock`).
+(`dawn`, `agents`, `rings`, `ring`, `wire`, `stars`, `voice`, `dock`).
 
-`boot.ts` writes two things on each chapter for CSS to use: `--p`, the
-progress through the pinned stretch, and `data-seen`, which starts the copy's
-entrance.
+`boot.ts` writes on each chapter what CSS needs: `--p`, the progress through
+the pinned stretch, `data-seen`, and `data-current` on the one chapter whose HUD
+row is showing.
 
 ### The dock
 
-In "Sit down" the monitor's screen has to land exactly on the app window in the
+At the desk the monitor's screen has to land exactly on the app window in the
 page. `resolveDock` computes the one camera distance and lens shift at which
 the screen quad covers the window's rectangle; a plane parallel to the image
 plane keeps its shape under a shifted lens, so all four corners match. The
-scene reports the worst corner's distance in px each frame, and `boot.ts` fades
-the live window in as that distance goes to zero. Measured after a direct jump
-into the chapter: under 0.3 px.
+scene reports the worst corner's distance in px each frame, and `boot.ts` shows
+the live window while that distance is near zero.
+
+The page opens docked: the hero's first beat is the dock, so the app window is
+on screen and usable before the scene has loaded, and the room appears around
+it. The LED bar above the monitor is the page's `<h1>`; it has the same ratio
+and the same place in the page as the `Text_hero` quad has above the screen.
 
 The scene must draw at exactly the size the poses are worked out for. A
 scrollbar arriving changes the canvas without a resize event, so `boot.ts`
 forwards every change of the canvas's size, not only window resizes.
 
-Until the two line up, the monitor shows `src/assets/world/screen.webp`, a
-picture of the app window in its opening state. After the app's look changes,
-take it again (see "The models").
+When the camera leaves the chair the monitor shows
+`src/assets/world/screen.webp`, a picture of the app window in its opening
+state. After the app's look changes, take it again (see "The models").
 
 ### What the pointer does
 
 Only on the front page, and only where no control of the page is under it: the
-mascot's eyes follow it, the camera leans a few degrees, a tile shows its name.
-A tile or the mascot answers a **click that did not travel**, never a press: a
-finger put down to scroll, or a drag that selects text, must not send the
-reader to another page. Behind a page of text nothing in the scene takes the
-pointer.
+mascot's eyes follow it, the camera leans a few degrees, a hologram tile shows
+its name, and an object that can be pressed (`SPOTS` in `World.ts`) shows the
+hand. An object answers a **click that did not travel**, never a press: a
+finger put down to scroll must not copy a command or open a page. Under a mouse
+the page already knows what the pointer is over and acts in the click itself:
+copying and opening a page need the user's gesture, and an answer that comes
+back from the scene's thread is no longer that gesture. Behind a page
+of text nothing in the scene takes the pointer.
 
 ### Reduced motion
 
 With `prefers-reduced-motion` the camera does not travel. Each beat is held
 until the next one is nearer, and the picture changes in a short fade
 (`world-cut`). The idle motion stops: no breathing, no drifting dust, no
-turning rings. Everything still answers a press.
+turning rings, and the terminals show their finished state. Everything still
+answers a press.
 
 ### Other routes
 
@@ -175,47 +234,89 @@ stops drawing once it is out of the way.
 
 ## The models
 
-Three models, each built from scratch by one Python script in headless Blender
-(`art/<name>/build.py`). Lighting is rendered ahead of time with Cycles on the
-GPU and stored in textures; the site draws the set unlit.
+The room is built from scratch by Python scripts in headless Blender, one per
+zone, against one contract:
 
-| Model | Nodes the code relies on | Light |
-|---|---|---|
-| `desk` | `Near`, `Far`, `Screen`, `MascotAnchor`, `LampBulb`, `LampPool` | two baked states, night and morning, in two atlases each |
-| `mascot` | `Body`, `Cape`, `Face`, `EyeL`, `EyeR` | lit at run time, so it can move |
-| `pod` | `Base`, `Screen`, `Agent`, `AgentEyeL`, `AgentEyeR`, `LanternGlow` | one baked atlas |
+- `art/room/spec.py` holds every number two files must agree on: the room's
+  size, each zone's box, the palette, the quads the site draws on, the anchors,
+  the lights, and the cameras the previews are taken from. `script.ts` uses the
+  same coordinates.
+- `art/room/common.py` holds what every zone shares: materials, the shell, the
+  light rig, the lightmap, the bake and the export.
+- `art/room/zone_<name>.py` models one zone; `bake_shell.py` bakes the walls,
+  floor and ceiling with every zone standing in them.
 
-`Screen` in `desk` is one quad with the app window's own ratio (1360 : 758),
-exactly vertical and facing +Z. The dock depends on that.
+| File the site ships | What is in it |
+|---|---|
+| `room-shell.glb` | walls, floor, ceiling, window opening, door |
+| `room-desk.glb` | desk, chair, monitors, PC, shelves and the wordmark on the back wall |
+| `room-right.glb` | the agents wall: six screens, their creatures, the shelf under them |
+| `room-lounge.glb` | armchair, rug, the holo table, the lightbox, the door side |
+| `room-window.glb` | window, sill, radiator, telescope, corkboard |
+| `room-corner.glb` | whiteboard, blueprint, sideboard, printer |
+| `mascot.glb` | the mascot (`Body`, `Cape`, `Face`, `EyeL`, `EyeR`), lit at run time so it can move |
 
-To rebuild a model and ship it:
+Lighting is rendered ahead of time with Cycles on the GPU and stored in
+textures; the site draws the room unlit. Each zone has one 2048 px atlas in two
+states, night and morning, and the scene blends between them (`dawn`). A zone's
+mesh is named `Zone_<name>` and its material `Bake_<atlas>`; that material name
+is how `room.ts` finds the atlas files.
+
+Besides its mesh a zone's file holds:
+
+- **Quads**: flat rectangles the site draws on at run time, named in
+  `spec.py` (`Screen`, `Screen2`, `Wall_1..6`, `Text_*`). The model only
+  provides the object around them: the monitor's shell, the lightbox's frame,
+  the whiteboard's surface.
+- **Anchors**: empties that mark a place (`MascotAnchor`, `LampBulb`,
+  `LampPool`, `MicTip`, `Wordmark`, `HoloCenter`).
+
+`Screen` is one quad with the app window's own ratio (1360 : 758), exactly
+vertical and facing +Z. The dock depends on that.
+
+The first screen needs `shell` and `desk`; the other zones load one after
+another once the first frame is drawn, then the morning atlases, then the
+edges for the wireframe.
+
+To rebuild a zone and ship it:
 
 ```
-"C:/Program Files/Blender Foundation/Blender 5.0/blender.exe" --background --factory-startup --python art/desk/build.py
+"C:/Program Files/Blender Foundation/Blender 5.0/blender.exe" --background --factory-startup --python art/room/zone_desk.py
+"C:/Program Files/Blender Foundation/Blender 5.0/blender.exe" --background --factory-startup --python art/room/bake_shell.py
 node scripts/build-world-assets.mjs
 ```
 
-`art/*/out/` is not committed. `build-world-assets.mjs` writes what the site
-ships into `src/assets/world/`: geometry compressed with meshopt, textures as
-WebP in a full and a half size, and the set's hard edges for the wireframe.
+A zone's light falls on its neighbours, so after a change that moves a lamp or
+a large object, bake the shell again as well. `art/*/out/` and
+`art/room/cache/` are not committed. `build-world-assets.mjs` writes what the
+site ships into `src/assets/world/`: geometry compressed with meshopt, the
+atlases as WebP in a full and a half size, and the room's hard edges for the
+wireframe.
 
 The monitor's picture is a screenshot of the app clone's window at 1360 x 758,
 taken from the plain page (`/?world=off`) right after the window has loaded and
 before its tour starts.
 
-## The marks on the tiles
+## The marks in the hologram
 
 The tiles of the first and third ring carry the marks of services the app
 connects to. They come from `src/components/logos/` through one sprite sheet
 (`src/pages/world/marks.svg.ts`). They identify those services and imply no
-partnership; the Plugins chapter carries the caption that says so
-([`LOGOS.md`](LOGOS.md)). Do not show a mark anywhere in the scene without that
-caption on the same screen.
+partnership; the lightbox behind the hologram carries the caption that says so
+while those rings are lit ([`LOGOS.md`](LOGOS.md)). Do not show a mark anywhere
+in the scene without that caption in the same picture.
+
+The terminals on the agents wall name the coding agents the app drives. They
+are written as text, in the terminal's own type, and show no mark.
 
 ## Rules
 
-- Text is never part of the scene. Every word a visitor reads is in the page,
-  so it can be selected, searched, translated and read aloud.
+- Every word a visitor reads in the room is also in the page's markup, and both
+  come from `src/data/room.ts` or `src/data/sessions.ts`. Never write copy in
+  `parts/`.
+- A control is never hidden from the keyboard because the camera is elsewhere.
+- Text in the room belongs to an object: a sign, a board, a screen, a sheet of
+  paper. Nothing floats.
 - Nothing draws before the page has painted. The scene starts after the load
   event and after the largest paint has been recorded, in an idle moment.
 - No colour is named in `src/world/`. Colours are tokens (`tokens.css`); the
@@ -224,3 +325,5 @@ caption on the same screen.
   another site.
 - A new part goes in `parts/`, is created in `World.extend` if it is not on the
   first screen, and reads channels rather than the scroll position.
+- A new object with words on it is a quad in `spec.py`, a frame around it in
+  the zone's script, and a drawing in `labels.ts`.

@@ -16,6 +16,7 @@ import {
   type AgentId,
 } from "./app/demoData";
 import { CLI_NAMES, now } from "./app/Markup";
+import type { SidePanelTab } from "./app/SidePanel";
 import { ThreadTree, ThreadView, type LiveThread } from "./app/Threads";
 import "./demo-stage.css";
 
@@ -46,6 +47,8 @@ const AgentsView = lazy(() => import("./app/AgentsView").then((m) => ({ default:
 const PluginsView = lazy(() => import("./app/PluginsView").then((m) => ({ default: m.PluginsView })));
 const GridScene = lazy(() => import("./app/GridScene").then((m) => ({ default: m.GridScene })));
 const GridNav = lazy(() => import("./app/GridScene").then((m) => ({ default: m.GridNav })));
+const SidePanel = lazy(() => import("./app/SidePanel").then((m) => ({ default: m.SidePanel })));
+const SidePanelHost = lazy(() => import("./app/SidePanel").then((m) => ({ default: m.SidePanelHost })));
 
 /** The app window, in CSS px — a common laptop-sized app window. */
 const WINDOW_W = 1360;
@@ -86,7 +89,10 @@ const SIDEBAR_W = 240;
  * the window's own ratio, so its height follows — the window is never squeezed
  * to fit a height.
  */
-function useStageFit(ref: { current: HTMLDivElement | null }): { scale: number; shift: number } {
+function useStageFit(ref: { current: HTMLDivElement | null }): {
+  scale: number;
+  shift: number;
+} {
   const [fit, setFit] = useState({ scale: 1, shift: 0 });
   useLayoutEffect(() => {
     const el = ref.current;
@@ -122,7 +128,15 @@ function initialThreads(): LiveThread[] {
 
 function loginThread(live: boolean): LiveThread {
   const thread = DEMO_THREADS.find((entry) => entry.id === LOGIN_THREAD_ID)!;
-  return { ...thread, turns: thread.turns.map((turn) => ({ ...turn, id: id(), live, startedAt: now() })) };
+  return {
+    ...thread,
+    turns: thread.turns.map((turn) => ({
+      ...turn,
+      id: id(),
+      live,
+      startedAt: now(),
+    })),
+  };
 }
 
 const TRY_CHIPS: { key: "fix" | "calendar" | "ide"; label: string }[] = [
@@ -140,6 +154,8 @@ export default function DemoStage({ className = "" }: { className?: string }) {
   const [trail, setTrail] = useState<Section[]>([]);
   const [layout, setLayout] = useState<IdeLayout>("threads");
   const [agentId, setAgentId] = useState<AgentId>("scout");
+  /** The Agentic IDE's side panel: shut (null), open on its launcher, or on a tab. */
+  const [panelTab, setPanelTab] = useState<SidePanelTab | null>(null);
 
   const [turns, setTurns] = useState<HomeTurn[]>(initialTurns);
   const [homeDraft, setHomeDraft] = useState("");
@@ -158,6 +174,11 @@ export default function DemoStage({ className = "" }: { className?: string }) {
   const login = threads.find((thread) => thread.id === LOGIN_THREAD_ID);
   const handedOff = Boolean(login);
   const loginRunning = Boolean(login?.turns.some((turn) => turn.live));
+  // The caption's status light counts the coding agents at work.
+  const status = {
+    running: threads.filter((thread) => thread.running || thread.turns.some((turn) => turn.live)).length,
+    needs: 0,
+  };
 
   // What the tour waits on, readable from inside its timers.
   const live = useRef({ handedOff, loginRunning });
@@ -189,7 +210,16 @@ export default function DemoStage({ className = "" }: { className?: string }) {
   const sendHome = useCallback((text: string) => {
     const said = text.trim();
     if (!said) return;
-    setTurns((all) => [...all, { id: id(), user: said, reply: replyFor(said), live: true, startedAt: now() }]);
+    setTurns((all) => [
+      ...all,
+      {
+        id: id(),
+        user: said,
+        reply: replyFor(said),
+        live: true,
+        startedAt: now(),
+      },
+    ]);
     setHomeDraft("");
   }, []);
 
@@ -207,7 +237,10 @@ export default function DemoStage({ className = "" }: { className?: string }) {
     setThreads((all) =>
       all.map((thread) =>
         thread.id === threadId
-          ? { ...thread, turns: thread.turns.map((turn) => (turn.id === turnId ? { ...turn, live: false } : turn)) }
+          ? {
+              ...thread,
+              turns: thread.turns.map((turn) => (turn.id === turnId ? { ...turn, live: false } : turn)),
+            }
           : thread,
       ),
     );
@@ -220,7 +253,10 @@ export default function DemoStage({ className = "" }: { className?: string }) {
       setThreads((all) =>
         all.map((thread) =>
           thread.id === LOGIN_THREAD_ID
-            ? { ...thread, turns: thread.turns.map((turn) => ({ ...turn, live: false })) }
+            ? {
+                ...thread,
+                turns: thread.turns.map((turn) => ({ ...turn, live: false })),
+              }
             : thread,
         ),
       );
@@ -241,10 +277,20 @@ export default function DemoStage({ className = "" }: { className?: string }) {
     setThreadDraft("");
     const open = threads.find((thread) => thread.id === selected);
     if (open) {
-      const turn = { ...genericThreadTurn(said, CLI_NAMES[open.mark]), id: id(), live: true, startedAt: now() };
-      setThreads((all) =>
-        all.map((thread) => (thread.id === open.id ? { ...thread, age: "now", turns: [...thread.turns, turn] } : thread)),
-      );
+      const turn = {
+        ...genericThreadTurn(said, CLI_NAMES[open.mark]),
+        id: id(),
+        live: true,
+        startedAt: now(),
+      };
+      // The list is sorted by activity: the thread moves to the top, into today.
+      setThreads((all) => {
+        const current = all.find((thread) => thread.id === open.id) ?? open;
+        return [
+          { ...current, day: undefined, turns: [...current.turns, turn] },
+          ...all.filter((thread) => thread.id !== open.id),
+        ];
+      });
       return;
     }
     const thread: LiveThread = {
@@ -252,9 +298,15 @@ export default function DemoStage({ className = "" }: { className?: string }) {
       title: said.length > 44 ? `${said.slice(0, 44).trimEnd()}…` : said,
       mark: "claude",
       model: "Claude Opus 5.5",
-      age: "now",
       branch: "main",
-      turns: [{ ...genericThreadTurn(said, CLI_NAMES.claude), id: id(), live: true, startedAt: now() }],
+      turns: [
+        {
+          ...genericThreadTurn(said, CLI_NAMES.claude),
+          id: id(),
+          live: true,
+          startedAt: now(),
+        },
+      ],
     };
     setThreads((all) => [thread, ...all]);
     setSelected(thread.id);
@@ -327,7 +379,15 @@ export default function DemoStage({ className = "" }: { className?: string }) {
   // With reduced motion nothing plays: the window opens on the finished errand.
   useEffect(() => {
     if (!reduced) return;
-    setTurns([...initialTurns(), { id: id(), user: LOGIN_PROMPT, reply: replyFor(LOGIN_PROMPT), live: false }]);
+    setTurns([
+      ...initialTurns(),
+      {
+        id: id(),
+        user: LOGIN_PROMPT,
+        reply: replyFor(LOGIN_PROMPT),
+        live: false,
+      },
+    ]);
     setThreads([loginThread(false), ...initialThreads()]);
   }, [reduced]);
 
@@ -353,6 +413,7 @@ export default function DemoStage({ className = "" }: { className?: string }) {
     : [];
 
   const openThread = threads.find((thread) => thread.id === selected) ?? null;
+  const sidePanel = panelTab ? <SidePanel tab={panelTab} onTab={setPanelTab} /> : null;
   const onIde = section === "agentic-ide";
 
   const sidebar =
@@ -370,7 +431,7 @@ export default function DemoStage({ className = "" }: { className?: string }) {
     ) : onIde ? (
       <SidebarFrame header={<SearchBar />}>
         <Suspense fallback={null}>
-          <GridNav onBack={() => go("chats")} />
+          <GridNav />
         </Suspense>
       </SidebarFrame>
     ) : (
@@ -382,7 +443,11 @@ export default function DemoStage({ className = "" }: { className?: string }) {
       <div
         ref={wrap}
         className="demo-window"
-        style={{ position: "relative", width: "100%", aspectRatio: `${WINDOW_W} / ${WINDOW_H}` }}
+        style={{
+          position: "relative",
+          width: "100%",
+          aspectRatio: `${WINDOW_W} / ${WINDOW_H}`,
+        }}
         aria-hidden="true"
       >
         <div
@@ -401,6 +466,9 @@ export default function DemoStage({ className = "" }: { className?: string }) {
               section={section}
               layout={layout}
               canGoBack={trail.length > 0}
+              status={status}
+              sidePanel={panelTab !== null}
+              onSidePanel={() => setPanelTab((open) => (open ? null : "launcher"))}
               onHome={() => go("chats")}
               onBack={back}
               onLayout={setLayout}
@@ -420,20 +488,27 @@ export default function DemoStage({ className = "" }: { className?: string }) {
               ) : onIde ? (
                 <div className="relative flex h-full min-h-0 flex-col bg-background text-foreground" data-testid="sticky-agentic-ide">
                   {layout === "threads" ? (
-                    <div className="min-h-0 flex-1">
-                      <ThreadView
-                        thread={openThread}
-                        draft={threadDraft}
-                        onDraft={setThreadDraft}
-                        onSend={sendThread}
-                        onTurnDone={threadTurnDone}
-                        onSubs={setSubsDone}
-                        onNew={() => setSelected(null)}
-                      />
+                    <div className="relative flex min-h-0 w-full flex-1">
+                      <div className="min-h-0 min-w-0 flex-1">
+                        <ThreadView
+                          thread={openThread}
+                          draft={threadDraft}
+                          onDraft={setThreadDraft}
+                          onSend={sendThread}
+                          onTurnDone={threadTurnDone}
+                          onSubs={setSubsDone}
+                          onNew={() => setSelected(null)}
+                        />
+                      </div>
+                      {sidePanel && (
+                        <Suspense fallback={null}>
+                          <SidePanelHost>{sidePanel}</SidePanelHost>
+                        </Suspense>
+                      )}
                     </div>
                   ) : (
                     <Suspense fallback={null}>
-                      <GridScene />
+                      <GridScene panel={sidePanel} />
                     </Suspense>
                   )}
                 </div>

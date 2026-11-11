@@ -1,19 +1,19 @@
 ---
 /**
- * The front page: one scrolled journey through the 3D world, in chapters.
- * Each chapter is a pinned screen over the scene; what the camera does in it is
- * written in src/world/script.ts. See docs/world.md.
+ * The front page: one tour of a 3D room, in chapters. Each chapter is a pinned
+ * screen while the camera stands at one place in the room; where it stands and
+ * what the room does is written in src/world/script.ts, and the words are in
+ * src/data/room.ts. See docs/world.md.
  */
 import Base from "@/layouts/Base.astro";
 import Legal from "@/sections/Legal.astro";
-import AgentsChapter from "@/sections/world/AgentsChapter.astro";
-import HeroChapter from "@/sections/world/HeroChapter.astro";
-import InstallChapter from "@/sections/world/InstallChapter.astro";
-import OpenChapter from "@/sections/world/OpenChapter.astro";
-import ReachChapters from "@/sections/world/ReachChapters.astro";
-import StarsChapter from "@/sections/world/StarsChapter.astro";
-import TalkChapter from "@/sections/world/TalkChapter.astro";
-import TryChapter from "@/sections/world/TryChapter.astro";
+import AgentsChapter from "@/sections/room/AgentsChapter.astro";
+import HeroChapter from "@/sections/room/HeroChapter.astro";
+import InstallChapter from "@/sections/room/InstallChapter.astro";
+import OpenChapter from "@/sections/room/OpenChapter.astro";
+import ReachChapters from "@/sections/room/ReachChapters.astro";
+import StarsChapter from "@/sections/room/StarsChapter.astro";
+import TalkChapter from "@/sections/room/TalkChapter.astro";
 ---
 
 <Base
@@ -24,7 +24,6 @@ import TryChapter from "@/sections/world/TryChapter.astro";
 >
   <main>
     <HeroChapter />
-    <TryChapter />
     <TalkChapter />
     <AgentsChapter />
     <ReachChapters />

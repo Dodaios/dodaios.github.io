@@ -19,16 +19,19 @@ import {
   Vector2,
   Vector3,
   WebGLRenderer,
+  type Mesh,
   type Texture,
 } from "three";
 
-import { breathe, damp, tokenLookup, type Context, type Tier, type Tokens } from "./kit";
-import { createDesk, glowTexture, type Desk } from "./parts/desk";
+import { breathe, damp, loadFonts, tokenLookup, type Context, type Tier, type Tokens } from "./kit";
+import { createLabels, type Labels, type LabelTexts } from "./parts/labels";
 import { createMascot, type Mascot } from "./parts/mascot";
-import { createPods, type Pods } from "./parts/pods";
 import { createRings, type RingData, type RingPick, type Rings } from "./parts/rings";
+import { createRoom, glowTexture, type Room, type ZoneName } from "./parts/room";
 import { createSky, type Sky } from "./parts/sky";
-import { CHANNELS_AT_REST, cameraPosition, type Channels, type Pose } from "./timeline";
+import { createTerminals, type Terminals } from "./parts/terminals";
+import { HOLO_CENTER } from "./script";
+import { CHANNELS_AT_REST, cameraPosition, poseLooking, type Channels, type Pose } from "./timeline";
 
 export interface WorldOptions {
   /** The page's canvas, or the worker's end of it. */
@@ -41,6 +44,10 @@ export interface WorldOptions {
   width: number;
   height: number;
   pixelRatio: number;
+  /** The words of every label in the room, as the page has them. */
+  labels: LabelTexts;
+  /** The typefaces the labels and terminals are drawn in. */
+  fonts: readonly { family: string; url: string; weight: string }[];
 }
 
 export interface Rect {
@@ -60,6 +67,13 @@ export interface FrameInput {
   pointerFree: boolean;
 }
 
+/** Something in the scene that answers a press. */
+export type Hot =
+  | { kind: "mascot" }
+  | { kind: "tile"; label: string; ring: number }
+  /** An object of the room: the whiteboard, the blueprint, a card, the counter. */
+  | { kind: "spot"; id: string };
+
 /** What the world answers. */
 export interface FrameOutput {
   /**
@@ -67,44 +81,45 @@ export interface FrameOutput {
    * corner. Infinity when there is no rectangle to compare with.
    */
   dockError: number;
-  /** Something under the pointer that can be pressed. */
-  hot: { kind: "mascot" } | { kind: "tile"; label: string; ring: number } | null;
+  /** What is under the pointer, if it can be pressed. */
+  hot: Hot | null;
 }
 
-/** Which parts a page asks for beyond the desk and the mascot. */
+/** What a page asks for beyond the first screen. */
 export interface Extras {
-  pods: boolean;
+  zones: readonly ZoneName[];
   rings: RingData | null;
   dawn: boolean;
   edges: boolean;
 }
 
-const POSE_KEYS = ["tx", "ty", "tz", "az", "el", "dist", "fov", "sx", "sy"] as const;
-const CHANNEL_KEYS = ["dawn", "pods", "rings", "ring", "wire", "stars", "voice", "dock"] as const;
+const CHANNEL_KEYS = ["dawn", "agents", "rings", "ring", "wire", "stars", "voice", "dock"] as const;
 /** Seconds the scene takes to come alive once its first frame is ready. */
 const REVEAL_SECONDS = 1.9;
+/** The quads of the room that answer a press, by name. */
+const SPOTS = ["Text_install", "Text_open", "Text_quote1", "Text_quote2", "Text_quote3", "Text_stars"] as const;
 
 export class World {
   /** The monitor's screen in the world, for the dock (src/world/timeline.ts). */
   readonly screen: { center: [number, number, number]; height: number };
+  /** Frames drawn so far; a host can watch it to see that the scene is alive. */
+  frames = 0;
 
-  private readonly renderer: WebGLRenderer;
   private readonly scene = new Scene();
   private readonly camera = new PerspectiveCamera(32, 1, 0.05, 220);
-  private last = 0;
-  private time = 0;
   private readonly raycaster = new Raycaster();
   private readonly pointer = new Vector2();
   private readonly pointerSmooth = new Vector2();
   private readonly corner = new Vector3();
   private readonly target = new Vector3();
 
-  private glow: Texture | null = null;
-  private readonly loading = { pods: false, rings: false };
-  private pods: Pods | null = null;
   private rings: Rings | null = null;
+  private ringsAsked = false;
+  private spots: Mesh[] = [];
   private pose: Pose | null = null;
   private ch: Channels = { ...CHANNELS_AT_REST };
+  private last = 0;
+  private time = 0;
   private reveal = 0;
   private paused = false;
   private running = false;
@@ -125,18 +140,18 @@ export class World {
 
   private constructor(
     private readonly ctx: Context,
-    renderer: WebGLRenderer,
-    private readonly desk: Desk,
+    private readonly renderer: WebGLRenderer,
+    private readonly room: Room,
+    private readonly labels: Labels,
+    private readonly terminals: Terminals,
     private readonly mascot: Mascot,
     private readonly sky: Sky,
   ) {
-    this.renderer = renderer;
     this.pixelRatio = renderer.getPixelRatio();
-    this.screen = {
-      center: [desk.screenCenter.x, desk.screenCenter.y, desk.screenCenter.z],
-      height: desk.screenSize.height,
-    };
-    this.scene.add(desk.group, mascot.group, sky.group);
+    const { center, height } = room.screen;
+    this.screen = { center: [center.x, center.y, center.z], height };
+    this.scene.add(room.group, mascot.group, sky.group);
+    this.collect();
   }
 
   /** Build the scene up to its first frame. Rejects if WebGL is not there. */
@@ -149,8 +164,8 @@ export class World {
       powerPreference: "high-performance",
       stencil: false,
     });
-    // Reading back shader logs stalls the main thread; a broken shader would
-    // show as a missing object, which the browser pass catches.
+    // Reading back shader logs stalls the thread; a broken shader would show
+    // as a missing object, which the browser pass catches.
     renderer.debug.checkShaderErrors = false;
     renderer.outputColorSpace = SRGBColorSpace;
     renderer.setPixelRatio(Math.min(options.pixelRatio || 1, tier.maxPixelRatio));
@@ -164,53 +179,70 @@ export class World {
     };
 
     await breathe();
-    const glow = glowTexture();
-    const desk = await createDesk(ctx, glow);
+    const glow: Texture = glowTexture();
+    const room = createRoom(ctx, glow);
+    // The first screen is the desk in its room; everything else comes later.
+    await Promise.all([room.loadZone("shell"), room.loadZone("desk"), loadFonts(options.fonts)]);
     await breathe();
-    const mascot = await createMascot(ctx, desk.mascotAnchor, desk.lampBulb, desk.screenCenter);
-    await breathe();
-    const sky = createSky(ctx, desk.lampBulb, options.stargazers);
 
-    const world = new World(ctx, renderer, desk, mascot, sky);
-    world.glow = glow;
+    const labels = createLabels(ctx, options.labels);
+    const terminals = createTerminals(ctx);
+    labels.attach(room.quads);
+    terminals.attach(room.quads);
+    await breathe();
+
+    const seat = room.anchors.get("MascotAnchor") ?? { position: new Vector3(-0.62, 0.74, -2.12), yaw: 0.24 };
+    const lamp = room.anchors.get("LampBulb")?.position ?? new Vector3(-1, 1.25, -2.45);
+    const mascot = await createMascot(ctx, seat, lamp, room.screen.center);
+    await breathe();
+    const sky = createSky(ctx, lamp, options.stargazers);
+
+    const world = new World(ctx, renderer, room, labels, terminals, mascot, sky);
     world.resize(options.width, options.height);
     return world;
   }
 
-  /** Bring in the parts that are not on the first screen. Safe to call twice. */
+  /**
+   * Bring in what is not on the first screen. Safe to call twice. A zone that
+   * does not arrive is asked for once more and then REJECTS: a room with a
+   * station missing would leave that chapter's words nowhere, so the page has
+   * to know and take over.
+   */
   async extend(extras: Partial<Extras>): Promise<void> {
-    if (extras.pods && !this.pods && !this.loading.pods) {
-      this.loading.pods = true;
+    for (const zone of extras.zones ?? []) {
       try {
-        const hub = this.desk.screenCenter.clone().add(new Vector3(0, this.desk.screenSize.height * 0.62, 0));
-        const pods = await createPods(this.ctx, this.glow ?? glowTexture(), hub);
-        this.scene.add(pods.group);
-        this.pods = pods;
+        await this.room.loadZone(zone);
       } catch (error) {
-        console.warn("[world] the agent pods did not load", error);
+        console.warn(`[world] the ${zone} zone did not load; trying once more`, error);
+        await this.room.loadZone(zone);
       }
+      this.labels.attach(this.room.quads);
+      this.terminals.attach(this.room.quads);
+      this.collect();
       await breathe();
     }
-    if (extras.rings && !this.rings && !this.loading.rings) {
-      this.loading.rings = true;
+    if (extras.rings && !this.ringsAsked) {
+      this.ringsAsked = true;
       try {
-        const rings = await createRings(this.ctx, extras.rings);
+        const at = this.room.anchors.get("HoloCenter")?.position ?? new Vector3(...HOLO_CENTER);
+        const rings = await createRings(this.ctx, extras.rings, at);
         this.scene.add(rings.mesh);
         this.rings = rings;
       } catch (error) {
-        console.warn("[world] the orbit rings did not load", error);
+        console.warn("[world] the hologram did not load", error);
       }
       await breathe();
     }
-    if (extras.dawn) await this.desk.loadDawn().catch((error) => console.warn("[world] no morning textures", error));
-    if (extras.edges) await this.desk.loadEdges().catch((error) => console.warn("[world] no wireframe", error));
+    if (extras.dawn) await this.room.loadDawn().catch((error) => console.warn("[world] no morning textures", error));
+    if (extras.edges) await this.room.loadEdges().catch((error) => console.warn("[world] no wireframe", error));
   }
 
-  start(
-    getFrame: () => FrameInput | null,
-    onFrame: (out: FrameOutput) => void,
-    onCut: () => void,
-  ): void {
+  /** The quads that answer a press, of the zones that are in. */
+  private collect(): void {
+    this.spots = SPOTS.map((name) => this.room.quads.get(name)).filter((mesh): mesh is Mesh => Boolean(mesh));
+  }
+
+  start(getFrame: () => FrameInput | null, onFrame: (out: FrameOutput) => void, onCut: () => void): void {
     this.getFrame = getFrame;
     this.onFrame = onFrame;
     this.onCut = onCut;
@@ -237,7 +269,7 @@ export class World {
   }
 
   /** The visitor pressed the scene. Returns what was hit. */
-  press(): FrameOutput["hot"] {
+  press(): Hot | null {
     // Probed now, not read from the last frame: a tap has no hover before it.
     const hot = this.hasPointer && this.pose ? this.probe() : null;
     if (hot?.kind === "mascot") this.mascot.poke();
@@ -256,6 +288,16 @@ export class World {
     this.mascot.setListening(on);
   }
 
+  /** Change the words of one label in the room. */
+  setLabel(id: string, lines: readonly string[]): void {
+    this.labels.set(id, lines);
+  }
+
+  /** Something happened on the page that the room acts out. */
+  act(name: string): void {
+    if (name === "voice-run") this.terminals.run();
+  }
+
   /** The canvas's size on the page, in CSS px. */
   resize(width = this.width, height = this.height): void {
     width = Math.max(1, Math.round(width));
@@ -268,23 +310,16 @@ export class World {
     this.camera.aspect = width / height;
   }
 
-  get size(): { width: number; height: number } {
-    return { width: this.width, height: this.height };
+  /** Milliseconds since the last frame was worked out. */
+  get idleFor(): number {
+    return performance.now() - this.last;
   }
-
-  /** Frames drawn so far; a host can watch it to see that the scene is alive. */
-  frames = 0;
 
   private readonly tick = (): void => {
     if (!this.running) return;
     this.frame = requestAnimationFrame(this.tick);
     this.step();
   };
-
-  /** Milliseconds since the last frame was worked out. */
-  get idleFor(): number {
-    return performance.now() - this.last;
-  }
 
   /**
    * Work out and draw one frame. The frame loop calls it; a host may call it
@@ -320,7 +355,24 @@ export class World {
     } else {
       // Arriving at the monitor has to finish: the page waits for an exact fit.
       const rate = input.ch.dock > 0.98 ? 11 : 6.5;
-      for (const key of POSE_KEYS) this.pose[key] = damp(this.pose[key], input.pose[key], rate, follow);
+      // The camera follows as a place and a subject, each in a straight line: a
+      // jump across the room (a link in the nav) must not swing it through a wall.
+      const eye = cameraPosition(this.pose);
+      const want = cameraPosition(input.pose);
+      const next = this.pose;
+      this.pose = poseLooking(
+        [damp(eye[0], want[0], rate, follow), damp(eye[1], want[1], rate, follow), damp(eye[2], want[2], rate, follow)],
+        [
+          damp(next.tx, input.pose.tx, rate, follow),
+          damp(next.ty, input.pose.ty, rate, follow),
+          damp(next.tz, input.pose.tz, rate, follow),
+        ],
+        {
+          fov: damp(next.fov, input.pose.fov, rate, follow),
+          sx: damp(next.sx, input.pose.sx, rate, follow),
+          sy: damp(next.sy, input.pose.sy, rate, follow),
+        },
+      );
     }
     for (const key of CHANNEL_KEYS) this.ch[key] = calm ? input.ch[key] : damp(this.ch[key], input.ch[key], 7, follow);
 
@@ -330,7 +382,9 @@ export class World {
     if (before < 1 && this.reveal >= 1 && !calm) this.mascot.poke();
 
     // The pointer moves the camera a few degrees, except where a fit is exact.
-    const free = this.hasPointer && input.pointerFree && !calm;
+    // With reduced motion it moves nothing, but it still finds what it is over.
+    const pointed = this.hasPointer && input.pointerFree;
+    const free = pointed && !calm;
     this.pointerSmooth.x = damp(this.pointerSmooth.x, free ? this.pointer.x : 0, 3.5, dt);
     this.pointerSmooth.y = damp(this.pointerSmooth.y, free ? this.pointer.y : 0, 3.5, dt);
     const sway = 1 - Math.min(1, this.ch.dock * 1.2);
@@ -338,11 +392,7 @@ export class World {
     const az = ((pose.az + this.pointerSmooth.x * 2.4 * sway) * Math.PI) / 180;
     const el = ((pose.el - this.pointerSmooth.y * 1.4 * sway) * Math.PI) / 180;
     const flat = Math.cos(el) * pose.dist;
-    this.camera.position.set(
-      pose.tx + Math.sin(az) * flat,
-      pose.ty + Math.sin(el) * pose.dist,
-      pose.tz + Math.cos(az) * flat,
-    );
+    this.camera.position.set(pose.tx + Math.sin(az) * flat, pose.ty + Math.sin(el) * pose.dist, pose.tz + Math.cos(az) * flat);
     this.target.set(pose.tx, pose.ty, pose.tz);
     this.camera.lookAt(this.target);
     this.camera.fov = pose.fov;
@@ -354,7 +404,9 @@ export class World {
     this.camera.updateMatrixWorld();
 
     this.listenLevel = damp(this.listenLevel, this.listening ? 1 : 0, 6, dt);
-    this.desk.update(this.ch, this.reveal, time);
+    this.room.update(this.ch, this.reveal, time);
+    this.labels.update(this.ch, this.reveal);
+    this.terminals.update(this.ch, this.reveal, time);
     this.mascot.update({
       dt,
       time,
@@ -373,19 +425,18 @@ export class World {
       listening: this.listenLevel,
       face: this.mascot.face,
     });
-    this.pods?.update(this.ch, this.reveal, time, this.camera, pose.sx);
-    this.rings?.update(this.ch, time, { x: pose.sx, y: pose.sy });
+    this.rings?.update(this.ch, time);
 
     this.renderer.render(this.scene, this.camera);
     this.frames++;
 
     this.out.dockError = input.dockRect ? this.dockError(input.dockRect) : Infinity;
-    if (!free && this.hover) {
+    if (!pointed && this.hover) {
       // The pointer left the scene: no tile may stay lit behind it.
       this.hover = null;
       this.rings?.setHover(null);
     }
-    this.out.hot = free ? this.probe() : null;
+    this.out.hot = pointed ? this.probe() : null;
     this.onFrame?.(this.out);
 
     this.watchSpeed(dt);
@@ -393,14 +444,12 @@ export class World {
 
   /** The worst distance between a screen corner and the matching corner of `rect`. */
   private dockError(rect: Rect): number {
-    const { screenCenter, screenSize } = this.desk;
+    const { center, width, height } = this.room.screen;
     let worst = 0;
     for (let i = 0; i < 4; i++) {
       const sx = i % 2 === 0 ? -1 : 1;
       const sy = i < 2 ? 1 : -1;
-      this.corner
-        .set(screenCenter.x + (sx * screenSize.width) / 2, screenCenter.y + (sy * screenSize.height) / 2, screenCenter.z)
-        .project(this.camera);
+      this.corner.set(center.x + (sx * width) / 2, center.y + (sy * height) / 2, center.z).project(this.camera);
       const x = ((this.corner.x + 1) / 2) * this.width;
       const y = ((1 - this.corner.y) / 2) * this.height;
       const wantX = sx < 0 ? rect.left : rect.left + rect.width;
@@ -411,7 +460,7 @@ export class World {
   }
 
   /** What is under the pointer. */
-  private probe(): FrameOutput["hot"] {
+  private probe(): Hot | null {
     this.raycaster.setFromCamera(this.pointer, this.camera);
     if (this.rings) {
       const pick = this.rings.pick(this.raycaster.ray);
@@ -421,8 +470,11 @@ export class World {
       }
       if (pick) return { kind: "tile", label: pick.label, ring: pick.ring };
     }
-    if (this.ch.dock < 0.5 && this.raycaster.intersectObject(this.mascot.hit, false).length > 0) {
-      return { kind: "mascot" };
+    if (this.ch.dock < 0.5) {
+      if (this.raycaster.intersectObject(this.mascot.hit, false).length > 0) return { kind: "mascot" };
+      // Only what the camera is near enough to read answers a press.
+      const hit = this.raycaster.intersectObjects(this.spots, false)[0];
+      if (hit && hit.distance < 3.6) return { kind: "spot", id: hit.object.name.replace(/^Text_/, "") };
     }
     return null;
   }

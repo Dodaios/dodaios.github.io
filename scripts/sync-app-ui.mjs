@@ -51,7 +51,8 @@ if (!entry || !existsSync(join(assets, entry))) {
 // those views too, so every such sheet is read after the entry sheet. Where a
 // rebuild left two files of one view behind, the newer one wins. The editor,
 // the game and the arcade are never cloned and are skipped for their size.
-const SKIP = /^(index|monacoRuntime|Verse|ArcadeCabinet|RetroArcade)/;
+// `mobile` is the phone-companion page's sheet: it redefines the `:root` tokens.
+const SKIP = /^(index|monacoRuntime|Verse|ArcadeCabinet|RetroArcade|mobile)/;
 const chunks = new Map();
 for (const n of readdirSync(assets)) {
   if (!n.endsWith(".css") || SKIP.test(n)) continue;

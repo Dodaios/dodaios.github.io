@@ -18,6 +18,8 @@ type Incoming =
   | { type: "extend"; id: number; extras: Partial<Extras> }
   | { type: "press"; id: number }
   | { type: "listening"; on: boolean }
+  | { type: "label"; id: string; lines: readonly string[] }
+  | { type: "act"; name: string }
   | { type: "paused"; on: boolean };
 
 const scope = self as unknown as {
@@ -32,7 +34,8 @@ let sentHot = "";
 let received = 0;
 let pulseAt = 0;
 
-const hotKey = (hot: FrameOutput["hot"]) => (hot ? (hot.kind === "tile" ? `tile:${hot.label}:${hot.ring}` : hot.kind) : "");
+const hotKey = (hot: FrameOutput["hot"]) =>
+  hot ? (hot.kind === "tile" ? `tile:${hot.label}:${hot.ring}` : hot.kind === "spot" ? `spot:${hot.id}` : hot.kind) : "";
 
 /** Only what changed crosses back: the page has nothing to do with the rest. */
 const report = (out: FrameOutput) => {
@@ -97,8 +100,9 @@ scope.onmessage = (event) => {
       world?.resize(message.width, message.height);
       break;
     case "extend":
-      void (world?.extend(message.extras) ?? Promise.resolve()).then(() =>
-        scope.postMessage({ type: "extended", id: message.id }),
+      (world?.extend(message.extras) ?? Promise.resolve()).then(
+        () => scope.postMessage({ type: "extended", id: message.id }),
+        (error: unknown) => scope.postMessage({ type: "extended", id: message.id, error: String(error) }),
       );
       break;
     case "press":
@@ -106,6 +110,12 @@ scope.onmessage = (event) => {
       break;
     case "listening":
       world?.setListening(message.on);
+      break;
+    case "label":
+      world?.setLabel(message.id, message.lines);
+      break;
+    case "act":
+      world?.act(message.name);
       break;
     case "paused":
       world?.setPaused(message.on);

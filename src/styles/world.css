@@ -1,24 +1,25 @@
 /*
  * The 3D world's place on the page, and the chapters that ride on it.
  *
- * The scene itself is drawn by src/world; this file is everything around it:
- * the canvas's box, the layout of a chapter, and the type and controls that
- * sit over the picture. See docs/world.md.
+ * The scene is a room (src/world, docs/world.md) and it fills the window. In
+ * it the words are objects: a light bar, a lightbox, a whiteboard. So this
+ * file lays out very little over the picture: the app's window where the
+ * monitor is, and one row of controls at the foot of the screen.
  *
  * TWO STATES, AND THE FIRST ONE NEEDS NO SCRIPT.
  *
  *   plain       No `world-on` on <html>: there is no scene. Every chapter is an
- *               ordinary block in the flow and everything in it is visible.
- *               This is what a browser without WebGL or without JavaScript
- *               gets, and it is a complete page.
+ *               ordinary block in the flow, its copy set as text. This is what
+ *               a browser without WebGL or without JavaScript gets, and it is a
+ *               complete page.
  *
  *   world-on    Stamped in the head when the browser can draw the scene. A
  *               chapter becomes a tall track with one screen pinned inside it,
- *               and the scroll position drives the camera (src/world/boot.ts).
+ *               the scroll position moves the camera (src/world/boot.ts), and
+ *               the chapter's copy is kept for screen readers only: the room
+ *               shows the same words.
  *
- * `world-live` is added once the scene has drawn its first frame. Until then a
- * world-on page shows its text on the bare ground, which is also what a slow
- * connection sees first.
+ * `world-live` is added once the scene has drawn its first frame.
  */
 
 /* ---------------------------------------------------------------------------
@@ -38,7 +39,7 @@
   height: 100lvh;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 1400ms ease;
+  transition: opacity 900ms ease;
 }
 
 html.world-on .world-canvas {
@@ -53,7 +54,7 @@ html.world-live .world-canvas {
  * clearest behind the page's opening lines and steps back once the reader is
  * in the text (`--world-still`, written by boot.ts as the page scrolls). */
 html.world-live .world-canvas--still {
-  opacity: calc(0.46 * var(--world-still, 1));
+  opacity: calc(0.4 * var(--world-still, 1));
   transition: opacity 400ms ease;
 }
 
@@ -78,7 +79,7 @@ html[data-world-hot] {
   cursor: pointer;
 }
 
-/* The name of the tile under the pointer. */
+/* The name of the thing under the pointer. */
 .world-tip {
   position: fixed;
   inset-block-start: 0;
@@ -135,8 +136,8 @@ html.world-on .chapter__pin {
   height: 100svh;
   /* The foot leaves room for the bar that says the project was renamed
    * (RenameNotice.astro), which is fixed over the bottom edge while it lasts. */
-  padding-block: calc(var(--nav-height) + 0.75rem) 4.25rem;
-  /* The pinned screen covers the scene; only its own content takes the pointer. */
+  padding-block: calc(var(--nav-height) + 0.5rem) 4.25rem;
+  /* The pinned screen covers the scene; only its own controls take the pointer. */
   pointer-events: none;
 }
 
@@ -152,63 +153,48 @@ html.world-on .chapter__pin [data-ui] {
   gap: var(--space-lg);
 }
 
-/* A panel that spans the frame also fills its height: it lays out a whole
- * screen of its own (the dock, the stargazers). */
-html.world-on .chapter__frame:has(> .panel--wide) {
-  grid-template-rows: minmax(0, 1fr);
-  align-content: stretch;
-}
-
-/* A landscape window: the copy takes one side, the scene the other. The same
- * threshold decides the camera's framing (boxFor in src/world/timeline.ts). */
-@media (min-aspect-ratio: 21/20) {
-  html.world-on .chapter__frame {
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    align-content: center;
-  }
-
-  html.world-on .panel {
-    grid-column: 1 / span 5;
-  }
-
-  html.world-on .panel--right {
-    grid-column: 8 / span 5;
-  }
-
-  html.world-on .panel--wide {
-    grid-column: 1 / -1;
-  }
-}
-
 /* ---------------------------------------------------------------------------
  * The copy
+ *
+ * On the plain page it is the chapter. Where the scene runs, the room carries
+ * the same words (src/data/room.ts feeds both), so the copy is taken out of
+ * sight and kept for screen readers and for the keyboard: a link in it that
+ * takes the focus comes back into view, as a skip link does.
  * ------------------------------------------------------------------------ */
 
-.panel {
-  position: relative;
-  /* Keeps the patch of ground below directly under this panel's own text. */
-  isolation: isolate;
-  /* The headline is sized against the panel it has to fit (see .display). */
-  container-type: inline-size;
+.copy {
+  max-inline-size: 40rem;
 }
 
-/* Text is never set straight on the picture: a patch of the page's own ground
- * sits under it and fades to nothing, so there is no card and no edge. A panel
- * that spans the whole frame gets none (it would veil the scene itself); the
- * copy inside it carries its own. */
-html.world-on .panel:not(.panel--wide)::before,
-html.world-on .stars3d__head::before {
-  content: "";
+/* Only once the room is there (`world-live`): while it loads, or if it never
+ * comes, a chapter shows its own words. The first chapter's are the monitor. */
+html.world-live .copy,
+html.world-on .chapter[data-chapter="hero"] .copy {
   position: absolute;
-  inset: -2.5rem -3rem;
-  z-index: -1;
-  background: radial-gradient(
-    closest-side,
-    color-mix(in srgb, var(--canvas) 92%, transparent) 0%,
-    color-mix(in srgb, var(--canvas) 74%, transparent) 60%,
-    transparent 100%
-  );
-  pointer-events: none;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+html.world-on .copy:focus-within {
+  position: fixed;
+  inset-block-start: calc(var(--nav-height) + 0.5rem);
+  inset-inline-start: 1rem;
+  z-index: 35;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  overflow: visible;
+  clip-path: none;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  white-space: normal;
+  pointer-events: auto;
 }
 
 .eyebrow {
@@ -220,26 +206,12 @@ html.world-on .stars3d__head::before {
   color: var(--muted);
 }
 
-/*
- * A headline is sized against its own panel, not against the window. The page
- * grows its type with the window while the content column stops growing at
- * 1280px until the window is twice that wide (docs/layout.md), so on a 2560px
- * monitor a size taken from the window broke "open-source" at its hyphen. The
- * first declaration is for a browser without container units.
- */
 .display {
   margin-top: var(--space-base);
-  font-size: clamp(2rem, 1.35rem + 2.1vw, 3.5rem);
-  font-size: clamp(2rem, 10cqi, 3.5rem);
-  line-height: 1.05;
-  letter-spacing: -0.03em;
+  font-size: clamp(2rem, 1.35rem + 2.1vw, 3.25rem);
+  line-height: 1.06;
+  letter-spacing: -0.02em;
   text-wrap: balance;
-}
-
-.display--hero {
-  font-size: clamp(2.25rem, 1.4rem + 2.7vw, 4.25rem);
-  font-size: clamp(2.25rem, 12cqi, 4.25rem);
-  line-height: 1.03;
 }
 
 .display__quiet {
@@ -253,10 +225,6 @@ html.world-on .stars3d__head::before {
   line-height: 1.55;
   color: var(--body);
   text-wrap: pretty;
-}
-
-.lede + .lede {
-  margin-top: var(--space-sm);
 }
 
 .fine {
@@ -283,169 +251,181 @@ html.world-on .stars3d__head::before {
 
 .text-link:hover,
 .text-link:focus-visible {
-  text-decoration-color: var(--ink);
+  text-decoration-color: var(--accent);
 }
 
-.text-link__arrow {
-  transition: translate 200ms ease;
-}
-
-.text-link:hover .text-link__arrow {
-  translate: 0.25rem 0;
-}
-
-.pill {
+/* The brand's button: paper on ink, the button radius, never a pill. */
+.button {
   display: inline-flex;
-  min-height: 3rem;
+  min-height: 2.75rem;
   align-items: center;
   justify-content: center;
-  padding-inline: 1.75rem;
-  border-radius: var(--radius-pill);
+  gap: 0.5rem;
+  padding-inline: 1.25rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   background: var(--ink);
   color: var(--on-ink);
-  font-size: 0.9375rem;
+  font-size: var(--text-body-sm);
   font-weight: 500;
-  transition: background-color 150ms ease;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
 }
 
-.pill:hover {
+.button:hover {
   background: var(--ink-active);
 }
 
-.pill--quiet {
-  border: 1px solid var(--hairline-strong);
-  background: color-mix(in srgb, var(--surface-card) 86%, transparent);
+.button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.button--quiet {
+  border-color: var(--hairline-strong);
+  background: color-mix(in srgb, var(--surface-card) 88%, transparent);
   color: var(--ink);
 }
 
-.pill--quiet:hover {
+.button--quiet:hover {
+  border-color: var(--muted-soft);
   background: var(--surface-strong);
 }
 
-/* Each line of a chapter's copy arrives a beat after the one above it. Only
- * once boot.ts has taken charge (`world-ready`): on the plain page, and on a
- * page whose script never arrived, nothing is ever hidden. */
-html.world-ready .chapter:not([data-seen]) .reveal {
-  opacity: 0;
-  translate: 0 1.25rem;
-}
-
-html.world-on .reveal {
-  transition:
-    opacity 700ms ease,
-    translate 800ms cubic-bezier(0.2, 0.7, 0.2, 1);
-  transition-delay: calc(var(--i, 0) * 90ms);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html.world-ready .chapter:not([data-seen]) .reveal {
-    translate: none;
-  }
-
-  html.world-on .reveal {
-    transition-duration: 200ms;
-    transition-delay: 0ms;
-  }
-
-}
-
-/* ---------------------------------------------------------------------------
- * The hero
- * ------------------------------------------------------------------------ */
-
-.hero3d__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-base) var(--space-lg);
-  margin-top: var(--space-xl);
-}
-
-.hero3d__links {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.625rem;
-  font-size: var(--text-body-sm);
-  color: var(--muted);
-}
-
-.hero3d__link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2.75rem;
-  color: var(--body);
-  transition: color 150ms ease;
-}
-
-.hero3d__link:hover,
-.hero3d__link:focus-visible {
-  color: var(--ink);
-}
-
-.hero3d__link-mark {
+.button__mark {
   height: 1rem;
   aspect-ratio: 1;
 }
 
-.hero3d__count {
-  padding: 0.0625rem 0.5rem;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-pill);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
+/* ---------------------------------------------------------------------------
+ * The foot of the screen: the one row of controls a chapter has
+ *
+ * On the plain page it is the row under the chapter's copy. Where the scene
+ * runs it is fixed to the foot of the window, and only the row of the chapter
+ * the reader is in (`data-current`, set by boot.ts) is there.
+ * ------------------------------------------------------------------------ */
+
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-base);
+  margin-top: var(--space-lg);
+}
+
+.hud__note {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption-upper);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 
-/* The cue at the foot of the first screen. It leaves as soon as it is obeyed. */
-.hero3d__cue {
+.hud__note--plain {
+  font-family: var(--font-sans);
+  font-size: var(--text-caption);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Said about the room: it has no place on a page without one. */
+html:not(.world-on) .hud__note--world,
+html:not(.world-on) .hud__world {
   display: none;
 }
 
-html.world-on .hero3d__cue {
-  position: absolute;
-  inset-block-end: 4.75rem;
+.copy__actions {
+  margin-top: var(--space-lg);
+}
+
+.hud__figure {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Before the room is there a chapter is its copy and its row, in the middle of
+ * its screen; the first chapter is the app's window and nothing else. */
+html.world-on:not(.world-live) .chapter:not([data-chapter="hero"]) .chapter__frame {
+  align-content: center;
+}
+
+html.world-on:not(.world-live) .chapter[data-chapter="hero"] .hud {
+  display: none;
+}
+
+html.world-live .hud {
+  position: fixed;
   inset-inline: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.625rem;
-  opacity: calc(1 - var(--p, 0) * 5);
+  inset-block-end: 4.5rem;
+  z-index: 20;
+  justify-content: center;
+  margin: 0;
+  padding-inline: var(--gutter, 1.5rem);
+  text-align: center;
+  /* Out of sight, not out of reach: a row that is not on screen stays in the
+   * tab order, and taking the focus brings its chapter up (boot.ts). */
+  opacity: 0;
+  translate: 0 0.5rem;
+  pointer-events: none;
 }
 
-.hero3d__cue-line {
-  width: 1px;
-  height: 2.25rem;
-  background: linear-gradient(to bottom, var(--rule), transparent);
-  animation: cue-fall 2.4s ease-in-out infinite;
-  transform-origin: top;
+/* The rows move only once the room has settled in (`world-settled`, a moment
+ * after `world-live`). At the instant the room arrives every row leaves the
+ * page's flow at once, and a fade there would paint all of them, unseen rows
+ * included, over the foot of the screen. */
+html.world-settled .hud {
+  transition:
+    opacity 300ms ease,
+    translate 400ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
-@keyframes cue-fall {
-  0% {
-    scale: 1 0;
-    opacity: 0;
-  }
-  40% {
-    scale: 1 1;
-    opacity: 1;
-  }
-  100% {
-    scale: 1 1;
-    opacity: 0;
-    translate: 0 0.75rem;
-  }
+html.world-live .chapter[data-current] .hud {
+  opacity: 1;
+  translate: none;
+}
+
+html.world-live .chapter[data-current] .hud > * {
+  pointer-events: auto;
+}
+
+/* Seated at the monitor, the app's window and its starters are the whole
+ * screen: the chapter's row waits until the chair has rolled back. */
+html.world-live .chapter[data-current]:has(.dock__stage[data-shown]) .hud {
+  opacity: 0;
+}
+
+html.world-live .chapter[data-current]:has(.dock__stage[data-shown]) .hud > * {
+  pointer-events: none;
+}
+
+/* A chapter's note sits on the picture, so it brings a little ground of its own. */
+html.world-on .hud__note {
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--canvas) 72%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero3d__cue-line {
-    animation: none;
+  html.world-live .hud {
+    translate: none;
+  }
+
+  html.world-settled .hud {
+    transition-duration: 150ms, 0s;
   }
 }
 
 /* ---------------------------------------------------------------------------
- * The dock: the app's window, where the monitor's screen comes to rest
+ * The first screen: the headline's light bar and the app's window
+ *
+ * The stage is the monitor of the room, in the page: a bar with the headline
+ * where the room has its light bar, and under it the app's window where the
+ * room has the screen. Bar, gap and window keep the proportions of the model
+ * (art/room/spec.py: the screen is 0.7536 x 0.42 m, the bar 0.07 m high and
+ * 0.02 m above it), so that when the camera sits at the monitor, each lies on
+ * its counterpart to the pixel.
  * ------------------------------------------------------------------------ */
 
 .dock {
@@ -457,105 +437,81 @@ html.world-on .hero3d__cue {
   justify-content: center;
 }
 
-/* Said while the camera is still on its way to the chair. */
-.dock__invite {
-  display: none;
-}
-
-html.world-on .dock__invite {
-  position: absolute;
-  inset-block-start: 14%;
-  inset-inline: 0;
-  display: block;
-  text-align: center;
-  opacity: calc(1 - var(--p, 0) * 6);
-  pointer-events: none;
-}
-
 .dock__stage {
-  /* As wide as the column, or as wide as the window's own ratio allows the
-   * screen's height to hold it together with the caption and the starters. */
-  width: min(100%, calc((100svh - var(--nav-height) - 11.75rem) * 1.7942));
+  /* As wide as the column, or as wide as the screen's height allows the bar,
+   * the window and the starters under it to be: 1.4775 is the stage's width
+   * over the height of bar, gap and window together. */
+  width: min(100%, calc((100svh - var(--nav-height) - 9.25rem) * 1.4775));
   min-width: min(100%, 20rem);
 }
 
-/* While the scene runs, the window is only there when the monitor is under it. */
+/* Seated at the monitor there is no column to keep to: the screen may take all
+ * the width the window's height allows it. */
+html.world-on .chapter[data-chapter="hero"] .chapter__frame {
+  max-width: none;
+}
+
+/* While the scene runs, the stage is only there when the monitor is under it. */
 html.world-live .dock__stage {
   opacity: 0;
 }
 
-html.world-live .dock__stage:not([data-shown]) {
-  visibility: hidden;
-}
+/* Unseen, it stays in the page for a screen reader (the headline is in it) and
+ * in the tab order: taking the focus brings the reader back to the desk
+ * (boot.ts, `followFocus`). */
 
 html.world-live .dock__stage:not([data-live]) {
   pointer-events: none;
 }
 
-.dock__caption {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.25rem var(--space-lg);
-  margin-bottom: 0.75rem;
-  font-size: var(--text-body-sm);
-  color: var(--body);
-}
-
-.dock__caption strong {
+.hero-bar {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 0.7536 / 0.07;
+  /* The gap between bar and screen, as a share of the width: 0.02 / 0.7536. */
+  margin-bottom: 2.654%;
+  padding-inline: 4%;
+  /* Dark glass, as the bar in the room: it covers the bar's own letters while
+   * the two lie on each other. */
+  background: var(--canvas);
   color: var(--ink);
-  font-weight: 500;
-}
-
-.dock__leave {
   font-family: var(--font-mono);
-  font-size: var(--text-caption-upper);
-  letter-spacing: 0.1em;
+  font-size: clamp(0.5625rem, 1.9cqi, 1.5rem);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  line-height: 1.2;
+  text-align: center;
   text-transform: uppercase;
-  color: var(--muted);
+  text-wrap: balance;
 }
 
-html:not(.world-on) .dock__leave {
-  display: none;
+.dock__stage {
+  container-type: inline-size;
+}
+
+/* A phone shows the middle of the monitor only: the bar keeps to the frame and
+ * sets the headline in two lines. Its height stays the model's: 0.07 m of a
+ * window held at 349px for 0.42 m. */
+@media (max-width: 767px) {
+  .hero-bar {
+    aspect-ratio: auto;
+    height: 58px;
+    margin-bottom: 17px;
+    font-size: 0.625rem;
+    letter-spacing: 0.12em;
+  }
 }
 
 /* ---------------------------------------------------------------------------
  * Hold to talk
  * ------------------------------------------------------------------------ */
 
-.talk {
-  display: grid;
-  gap: var(--space-sm);
-  margin-top: var(--space-xl);
-}
-
 .talk__hold {
-  display: inline-flex;
-  min-height: 3rem;
-  align-items: center;
-  justify-self: start;
-  gap: 0.75rem;
-  padding-inline: 1.25rem 1.5rem;
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--surface-card) 86%, transparent);
-  color: var(--ink);
-  font-size: 0.9375rem;
-  font-weight: 500;
-  cursor: pointer;
   user-select: none;
   /* A held finger must not start a scroll or a text selection. */
   touch-action: none;
   -webkit-touch-callout: none;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
-}
-
-.talk__hold:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 3px;
 }
 
 .talk__dot {
@@ -567,6 +523,7 @@ html:not(.world-on) .dock__leave {
 }
 
 .talk__hold[aria-pressed="true"] {
+  border-color: var(--ink);
   background: var(--ink);
   color: var(--on-ink);
 }
@@ -577,12 +534,10 @@ html:not(.world-on) .dock__leave {
 
 .talk__lines {
   display: grid;
-  min-height: 4.25rem;
-  align-content: start;
-  gap: 0.375rem;
+  gap: 0.25rem;
+  margin-top: var(--space-base);
   font-family: var(--font-mono);
   font-size: var(--text-code);
-  line-height: 1.5;
   color: var(--ink);
 }
 
@@ -595,158 +550,176 @@ html:not(.world-on) .dock__leave {
   color: var(--muted);
 }
 
-/* ---------------------------------------------------------------------------
- * Agents
- * ------------------------------------------------------------------------ */
-
-.agents3d__count {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-  margin-top: var(--space-xl);
-  font-family: var(--font-mono);
-  font-size: var(--text-caption);
-  color: var(--muted);
-}
-
-.agents3d__figure {
-  min-width: 1ch;
-  color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: var(--text-display-xl);
-  line-height: 1;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-}
-
-/* ---------------------------------------------------------------------------
- * The stargazers and what people say
- * ------------------------------------------------------------------------ */
-
-.stars3d {
-  display: grid;
-  height: 100%;
-  align-content: space-between;
-  gap: var(--space-xl);
-}
-
-.stars3d__head {
-  position: relative;
-  isolation: isolate;
-  max-inline-size: 30rem;
-}
-
-.stars3d__figure {
-  color: var(--ink);
-  font-size: clamp(4rem, 2.5rem + 7vw, 9rem);
-  line-height: 0.95;
-  letter-spacing: -0.045em;
-  font-variant-numeric: tabular-nums;
-}
-
-
-.voices3d {
-  display: grid;
-  width: 100%;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(16rem, 1fr);
-  gap: var(--space-base);
-  overflow-x: auto;
-  padding-block: 0.25rem;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  perspective: 75rem;
-}
-
-.voices3d::-webkit-scrollbar {
+/* The room shows the exchange (the sign on the desk, the second monitor). */
+html.world-on .talk__lines {
   display: none;
 }
 
-.voice3d {
+/* ---------------------------------------------------------------------------
+ * What people said (the plain page; the room pins these to its corkboard)
+ * ------------------------------------------------------------------------ */
+
+/* ---------------------------------------------------------------------------
+ * What the room shows on its screens and sheets, as the page says it
+ * ------------------------------------------------------------------------ */
+
+.sessions {
+  display: grid;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+.session {
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+}
+
+.copy > .session {
+  margin-top: var(--space-lg);
+}
+
+.session__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--hairline);
+  font-size: var(--text-caption);
+}
+
+.session__agent {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.session__tool {
+  color: var(--muted);
+}
+
+.session__lines {
+  padding: 0.625rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.6;
+  color: var(--body);
+  overflow-wrap: anywhere;
+}
+
+.session__lines [data-kind="ask"] {
+  color: var(--ink);
+}
+
+.session__lines [data-kind="ok"],
+.session__lines [data-kind="add"] {
+  color: var(--success);
+}
+
+.session__lines [data-kind="cut"] {
+  color: var(--error);
+}
+
+.session__lines [data-kind="out"],
+.session__lines [data-kind="note"] {
+  color: var(--muted);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: var(--space-lg);
+}
+
+.tags li {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.plan {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.plan li {
+  display: grid;
+  gap: 0.125rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+.plan__name {
+  color: var(--ink);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.plan__role {
+  color: var(--muted);
+}
+
+.quotes {
+  display: grid;
+  gap: var(--space-base);
+  margin-top: var(--space-xl);
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+.quote {
   display: grid;
   align-content: space-between;
   gap: var(--space-base);
   padding: var(--space-lg);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-card) 84%, transparent);
+  background: var(--surface-card);
   color: var(--body);
   font-size: var(--text-body-sm);
   line-height: 1.55;
-  scroll-snap-align: center;
-  transition:
-    transform 400ms cubic-bezier(0.2, 0.7, 0.2, 1),
-    border-color 200ms ease;
 }
 
-.voice3d:hover,
-.voice3d:focus-visible {
+.quote:hover,
+.quote:focus-visible {
   border-color: var(--hairline-strong);
-  transform: none;
 }
 
-.voice3d__quote {
+.quote__text {
   color: var(--ink);
 }
 
-.voice3d__by {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
+.quote__by {
   font-size: var(--text-caption);
   color: var(--muted);
 }
 
-.voice3d__avatar {
-  width: 1.75rem;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-@media (min-aspect-ratio: 21/20) {
-  /* Three cards standing in a shallow arc, like a folding screen. */
-  .voices3d {
-    grid-auto-flow: row;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    overflow: visible;
-  }
-
-  .voices3d > li:nth-child(1) > .voice3d {
-    transform: rotateY(9deg) translateZ(-1rem);
-    transform-origin: right center;
-  }
-
-  .voices3d > li:nth-child(3) > .voice3d {
-    transform: rotateY(-9deg) translateZ(-1rem);
-    transform-origin: left center;
-  }
-
-  .voices3d > li:nth-child(n + 4) {
-    display: none;
-  }
-
-  .voices3d > li > .voice3d:hover,
-  .voices3d > li > .voice3d:focus-visible {
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .voices3d > li > .voice3d {
-    transform: none;
-  }
+.stars__figure {
+  color: var(--ink);
+  font-size: clamp(3.5rem, 2.5rem + 5vw, 7rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------------------------------------------------------------------------
- * Install
+ * Install (the plain page; the room writes the command on its whiteboard)
  * ------------------------------------------------------------------------ */
 
-.install3d__box {
+.install__box {
   margin-top: var(--space-xl);
 }
 
-.install3d__steps {
+.install__steps {
   display: grid;
   gap: 0.5rem;
   margin-top: var(--space-lg);
@@ -755,13 +728,13 @@ html:not(.world-on) .dock__leave {
   color: var(--body);
 }
 
-.install3d__steps li {
+.install__steps li {
   display: grid;
   grid-template-columns: 1.75rem minmax(0, 1fr);
   counter-increment: step;
 }
 
-.install3d__steps li::before {
+.install__steps li::before {
   content: counter(step);
   font-family: var(--font-mono);
   font-size: var(--text-caption);
@@ -769,25 +742,12 @@ html:not(.world-on) .dock__leave {
   color: var(--muted);
 }
 
-.install3d__steps strong {
-  color: var(--ink);
-  font-weight: 500;
-}
-
-/* In a portrait window the copy sits above the scene and has to leave it room:
- * the steps are the part of this chapter the command box already implies. */
-@media not (min-aspect-ratio: 21/20) {
-  html.world-on .install3d__steps {
-    display: none;
-  }
-}
-
 /* ---------------------------------------------------------------------------
  * The foot of the front page
  *
  * The one place on the front page that paints a ground: the legal text is read,
- * not looked at, and a morning scene behind it would make it neither. The
- * ground fades in from nothing, so the scene is not cut off by an edge.
+ * not looked at, and a room behind it would make it neither. The ground fades
+ * in from nothing, so the scene is not cut off by an edge.
  * ------------------------------------------------------------------------ */
 
 html.world-on .world-foot {
@@ -803,31 +763,4 @@ html.world-on .world-foot::before {
   height: 12rem;
   background: linear-gradient(to bottom, transparent, var(--canvas));
   pointer-events: none;
-}
-
-/* ---------------------------------------------------------------------------
- * Short windows (a phone on its side, a small laptop)
- * ------------------------------------------------------------------------ */
-
-@media (max-height: 620px) {
-  html.world-on .display {
-    font-size: clamp(1.625rem, 1.2rem + 1.6vw, 2.5rem);
-  }
-
-  html.world-on .lede {
-    margin-top: var(--space-sm);
-    font-size: var(--text-body-sm);
-  }
-
-  html.world-on .hero3d__actions,
-  html.world-on .talk,
-  html.world-on .install3d__box {
-    margin-top: var(--space-base);
-  }
-
-  html.world-on .fine,
-  html.world-on .install3d__steps,
-  html.world-on .hero3d__cue {
-    display: none;
-  }
 }

@@ -1,0 +1,40 @@
+---
+/**
+ * The blueprint: the room dims and shows the lines it is built from, while the
+ * framed plan says the same of the product.
+ */
+import { GitHubMark } from "@/components/logos/GitHubMark";
+import { OPEN } from "@/data/room";
+import { REPO } from "@/lib/install";
+import Chapter from "./Chapter.astro";
+---
+
+<Chapter id="open-source" chapter="open" len={2} labelledby="oss-heading">
+  <p class="eyebrow">Open source · Apache 2.0</p>
+  <h2 id="oss-heading" class="display">
+    {OPEN.title}
+    <span class="display__quiet">{OPEN.sub}</span>
+  </h2>
+  <p class="lede">{OPEN.lede}</p>
+  {/* The plan drawn on the blueprint: who hands work to whom. */}
+  <ol class="plan" aria-label="How the work is handed on">
+    {
+      OPEN.plan.map((box) => {
+        const [name, role] = box.split(" | ");
+        return (
+          <li>
+            <span class="plan__name">{name}</span>
+            <span class="plan__role">{role}</span>
+          </li>
+        );
+      })
+    }
+  </ol>
+
+  <Fragment slot="hud">
+    <a class="button button--quiet" href={REPO} target="_blank" rel="noopener" data-open-repo>
+      <GitHubMark className="button__mark" />
+      {OPEN.link}
+    </a>
+  </Fragment>
+</Chapter>

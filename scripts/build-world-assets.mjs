@@ -3,13 +3,17 @@
  * Turn the 3D models as Blender exports them (art/<name>/out, not committed)
  * into what the site ships (src/assets/world, committed).
  *
- *   mascot.glb, pod.glb   geometry compressed with meshopt, the texture inside
- *                         as WebP
- *   desk.glb              geometry only; its light lives in separate textures
- *                         so the scene can blend night into morning and pick a
- *                         size for the device
- *   desk-<atlas>-<state>.webp, and -1k.webp   the baked light, full and half size
- *   desk-edges.bin        the set's hard edges, for the wireframe
+ *   mascot.glb                 geometry compressed with meshopt, its texture
+ *                              inside as WebP
+ *   room-<zone>.glb            one zone of the room, geometry only; its light
+ *                              lives in separate textures so the scene can
+ *                              blend night into morning and pick a size for
+ *                              the device
+ *   room-<atlas>-<state>.webp  the baked light, full size, and -1k.webp at half
+ *   room-edges.bin             the room's hard edges, for the wireframe
+ *
+ * A zone that Blender has not exported yet is skipped, and what is already in
+ * src/assets/world stays as it is.
  *
  * Run it after rebuilding a model:  node scripts/build-world-assets.mjs
  * See docs/world.md, "The models".
@@ -26,8 +30,12 @@ import sharp from "sharp";
 
 const ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const ART = join(ROOT, "art");
+const ROOM = join(ART, "room", "out");
 const OUT = join(ROOT, "src", "assets", "world");
 mkdirSync(OUT, { recursive: true });
+
+/** The zones of the room (art/room/spec.py), and the shell they stand in. */
+const ZONES = ["shell", "desk", "right", "lounge", "window", "corner"];
 
 await MeshoptDecoder.ready;
 await MeshoptEncoder.ready;
@@ -44,7 +52,7 @@ const compress = [
   meshopt({ encoder: MeshoptEncoder, level: "medium" }),
 ];
 
-/** A model that keeps its own texture: mascot, pod. */
+/** A model that keeps its own texture: the mascot. */
 async function textured(name, size) {
   const source = join(ART, name, "out", `${name}.glb`);
   if (!existsSync(source)) return console.warn(`  (skipped ${name}: ${source} is missing)`);
@@ -60,18 +68,17 @@ async function textured(name, size) {
 }
 
 /**
- * The set's hard edges, as pairs of points: every edge where the surface turns
- * by more than `ANGLE` degrees or simply ends. Short ones are dropped, they
- * are the bevels and would only thicken every corner.
+ * The hard edges of a zone's furniture, as pairs of points: every edge where
+ * the surface turns by more than `ANGLE` degrees or simply ends. Short ones are
+ * dropped, they are the bevels and would only thicken every corner.
  */
-function hardEdges(document) {
+function hardEdges(document, segments) {
   const ANGLE = 38;
-  const MIN_LENGTH = 0.012;
+  const MIN_LENGTH = 0.03;
   const cos = Math.cos((ANGLE * Math.PI) / 180);
-  const segments = [];
   for (const node of document.getRoot().listNodes()) {
     const mesh = node.getMesh();
-    if (!mesh || !["Near", "Far"].includes(node.getName())) continue;
+    if (!mesh || !node.getName().startsWith("Zone_")) continue;
     const matrix = node.getWorldMatrix();
     for (const primitive of mesh.listPrimitives()) {
       const position = primitive.getAttribute("POSITION");
@@ -118,7 +125,6 @@ function hardEdges(document) {
       }
     }
   }
-  return segments;
 }
 
 /**
@@ -139,45 +145,57 @@ function packEdges(points) {
   return Buffer.concat([Buffer.from(header.buffer), Buffer.from(body.buffer)]);
 }
 
-async function desk() {
-  const dir = join(ART, "desk", "out");
-  const source = join(dir, "desk.glb");
-  if (!existsSync(source)) return console.warn(`  (skipped desk: ${source} is missing)`);
+/** One zone: its model without textures, and its atlases in two states and two sizes. */
+async function zone(name, segments) {
+  const source = join(ROOM, `${name}.glb`);
+  if (!existsSync(source)) {
+    console.warn(`  (skipped ${name}: ${source} is missing)`);
+    return false;
+  }
   const document = await io.read(source);
+  hardEdges(document, segments);
 
-  const segments = hardEdges(document);
-  const edges = join(OUT, "desk-edges.bin");
-  writeFileSync(edges, packEdges(segments));
-  report(edges);
-  console.log(`    ${segments.length / 2} edges`);
-
-  // The light is shipped beside the model, not inside it.
+  // The light is shipped beside the model, not inside it. A baked mesh's
+  // material is named `Bake_<atlas>`; that name is how the scene finds the files.
+  const atlases = new Set();
   for (const material of document.getRoot().listMaterials()) {
+    if (material.getName().startsWith("Bake_")) atlases.add(material.getName().slice(5));
     material.setBaseColorTexture(null).setEmissiveTexture(null);
   }
   await document.transform(prune({ keepLeaves: true, keepAttributes: true }), ...compress);
-  const target = join(OUT, "desk.glb");
+  const target = join(OUT, `room-${name}.glb`);
   await io.write(target, document);
   report(target);
 
-  for (const atlas of ["near", "far"]) {
+  for (const atlas of atlases) {
     for (const state of ["night", "dawn"]) {
-      const png = join(dir, `${atlas}_${state}.png`);
+      const png = join(ROOM, `${atlas}_${state}.png`);
       if (!existsSync(png)) {
         console.warn(`  (missing ${png})`);
         continue;
       }
-      const full = join(OUT, `desk-${atlas}-${state}.webp`);
-      const half = join(OUT, `desk-${atlas}-${state}-1k.webp`);
+      const full = join(OUT, `room-${atlas}-${state}.webp`);
+      const half = join(OUT, `room-${atlas}-${state}-1k.webp`);
       await sharp(png).resize(2048, 2048).webp({ quality: 84, effort: 6 }).toFile(full);
       await sharp(png).resize(1024, 1024).webp({ quality: 82, effort: 6 }).toFile(half);
       report(full);
       report(half);
     }
   }
+  return true;
 }
 
 console.log("world assets:");
 await textured("mascot", 1024);
-await textured("pod", 1024);
-await desk();
+const segments = [];
+let whole = true;
+for (const name of ZONES) whole = (await zone(name, segments)) && whole;
+// The wireframe is one file for the whole room: from a partial export it would
+// lose the lines of every zone that was skipped.
+if (!whole) console.warn("  (room-edges.bin left as it is: not every zone was exported)");
+else if (segments.length > 0) {
+  const edges = join(OUT, "room-edges.bin");
+  writeFileSync(edges, packEdges(segments));
+  report(edges);
+  console.log(`    ${segments.length / 2} edges`);
+}

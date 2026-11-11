@@ -62,7 +62,6 @@ export interface NavLink {
  * NINTH ENTRY MEANS MEASURING AGAIN AT 1024px, not just typing a line here.
  */
 export const NAV_LINKS: readonly NavLink[] = [
-  { id: "try", label: "Try it" },
   { id: "talk", label: "Voice" },
   { id: "agents", label: "Agents" },
   { id: "features", label: "Plugins" },

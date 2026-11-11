@@ -1,0 +1,41 @@
+---
+/**
+ * The right wall: six screens wake one after another, each with one coding
+ * agent at work in its terminal. The note at the foot counts them as they do.
+ */
+import { AGENTS } from "@/data/room";
+import { AGENT_SESSIONS } from "@/data/sessions";
+import { AGENT_COUNT } from "@/world/script";
+import Chapter from "./Chapter.astro";
+---
+
+<Chapter id="agents" chapter="agents" len={2.8} labelledby="agents-heading">
+  <p class="eyebrow">Agents</p>
+  <h2 id="agents-heading" class="display">{AGENTS.wall}</h2>
+  <p class="lede">{AGENTS.lede}</p>
+  {/* What the six screens on the wall show: one agent each, at a job in its terminal. */}
+  <ul class="sessions" aria-label="Six agents at work, each in its terminal">
+    {
+      AGENT_SESSIONS.map((session) => (
+        <li class="session">
+          <p class="session__head">
+            <span class="session__agent">{session.agent}</span>
+            <span class="session__tool">{session.tool}</span>
+          </p>
+          <ol class="session__lines">
+            {session.jobs[0].map((line) => (
+              <li data-kind={line.kind}>{line.text}</li>
+            ))}
+          </ol>
+        </li>
+      ))
+    }
+  </ul>
+
+  <Fragment slot="hud">
+    <span class="hud__note">
+      {/* Counted up by the scene as the screens wake; the full number without it. */}
+      <span class="hud__figure" data-agents-count data-total={AGENT_COUNT}>{AGENT_COUNT}</span> of {AGENT_COUNT} agents at work
+    </span>
+  </Fragment>
+</Chapter>

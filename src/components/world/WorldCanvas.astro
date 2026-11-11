@@ -14,6 +14,7 @@
  */
 import { marks } from "@/components/logos/marks";
 import catalog from "@/data/app-catalog.json";
+import { roomLabels } from "@/data/room";
 import counts from "@/data/social-counts.json";
 import { CLI_MARKS, MARK_SHEET_COLUMNS } from "@/world/marks";
 
@@ -27,6 +28,7 @@ const { scene } = Astro.props;
 const data = {
   scene,
   stargazers: counts.platforms.github.value,
+  labels: roomLabels(),
   rings: {
     sheet: "/world/marks.svg",
     columns: MARK_SHEET_COLUMNS,

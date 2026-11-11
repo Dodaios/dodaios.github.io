@@ -1,7 +1,8 @@
 # Voices — what people say
 
 > Builds on [`world.md`](world.md) and [`design.md`](design.md). The quotes
-> are shown in the Stars chapter, `src/sections/world/StarsChapter.astro`;
+> are shown in the Stars chapter, `src/sections/room/StarsChapter.astro`, and
+> in the room as the cards pinned to the corkboard;
 > their content is `src/data/voices.ts`.
 
 Quotes from people who used the project, under the count of the people who

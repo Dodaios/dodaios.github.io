@@ -1,15 +1,17 @@
 /**
- * The three orbits: every service, skill and command-line tool the app reaches,
- * as tiles circling the desk. One ring is lit at a time.
+ * The hologram above the holo table: every service, skill and command-line
+ * tool the app reaches, as three rings of small tiles turning around one
+ * point. One ring is lit at a time.
  *
  * All tiles are one draw call. Each tile's place on its ring is computed in the
  * vertex shader from its angle, so nothing is moved on the processor; the same
  * arithmetic is repeated in `pick` to find the tile under the pointer.
  *
- * The marks identify third-party services and imply no partnership; the page
- * says so beside them (docs/LOGOS.md).
+ * The marks identify third-party services and imply no partnership; the room's
+ * lightbox says so beside them (docs/LOGOS.md).
  */
 import {
+  AdditiveBlending,
   CanvasTexture,
   DoubleSide,
   InstancedBufferAttribute,
@@ -20,13 +22,12 @@ import {
   PlaneGeometry,
   RedFormat,
   ShaderMaterial,
-  Vector2,
   Vector3,
   type Ray,
 } from "three";
 
 import { breathe, makeCanvas, type Context, type Pen } from "../kit";
-import { RING_CENTER_Z, RINGS } from "../script";
+import { RINGS } from "../script";
 import type { Channels } from "../timeline";
 
 /**
@@ -40,7 +41,7 @@ export interface RingData {
   columns: number;
   /** Every mark in sheet order. */
   marks: readonly string[];
-  /** Names of the marks that are command-line tools; the rest ride the first ring. */
+  /** Names of the marks that are command-line tools; they ride the third ring. */
   clis: readonly string[];
   skills: readonly string[];
 }
@@ -52,8 +53,7 @@ export interface RingPick {
 
 export interface Rings {
   mesh: Mesh;
-  /** `shift` is the camera's lens shift: it tells which side the page's copy is on. */
-  update(ch: Channels, time: number, shift: { x: number; y: number }): void;
+  update(ch: Channels, time: number): void;
   /** The tile the ray meets first, if any. */
   pick(ray: Ray): RingPick | null;
   setHover(pick: RingPick | null): void;
@@ -64,20 +64,22 @@ const VERTEX = /* glsl */ `
   attribute vec3 aPlace;
   attribute vec2 aSize;
   attribute float aIndex;
+  uniform vec3 uCenter;
   uniform vec3 uRingY;
   uniform vec3 uRingR;
   uniform vec3 uPhase;
-  uniform float uCenterZ;
   uniform float uRings;
   uniform float uHover;
   uniform float uTime;
+  /* 1 for the tiles themselves; more for the glow drawn around them. */
+  uniform float uGrow;
   varying vec2 vUv;
   varying vec2 vAtlas;
   varying vec2 vSize;
   varying float vRing;
   varying float vHover;
   varying float vDepth;
-  varying vec2 vScreen;
+  varying float vHeight;
   float pick(vec3 v, float i) {
     return i < 0.5 ? v.x : (i < 1.5 ? v.y : v.z);
   }
@@ -85,13 +87,14 @@ const VERTEX = /* glsl */ `
     float ring = aPlace.y;
     float radius = pick(uRingR, ring);
     float angle = aPlace.x + pick(uPhase, ring);
+    // The rings are projected out of the table: each tile rises into its place.
     float appear = smoothstep(aPlace.z * 0.6, aPlace.z * 0.6 + 0.4, uRings);
     float hover = 1.0 - step(0.5, abs(uHover - aIndex));
-    vec2 size = aSize * appear * (1.0 + 0.1 * hover);
-    vec3 center = vec3(
+    vec2 size = aSize * appear * (1.0 + 0.12 * hover) * uGrow;
+    vec3 center = uCenter + vec3(
       sin(angle) * radius,
-      pick(uRingY, ring) + sin(uTime * 0.6 + aPlace.z * 40.0) * 0.05,
-      uCenterZ + cos(angle) * radius
+      pick(uRingY, ring) * appear + sin(uTime * 0.6 + aPlace.z * 40.0) * 0.012 - (1.0 - appear) * 0.5,
+      cos(angle) * radius
     );
     vec3 right = vec3(cos(angle), 0.0, -sin(angle));
     vec3 world = center + right * position.x * size.x + vec3(0.0, 1.0, 0.0) * position.y * size.y;
@@ -102,8 +105,8 @@ const VERTEX = /* glsl */ `
     vRing = ring;
     vHover = hover;
     vDepth = -view.z;
+    vHeight = world.y;
     gl_Position = projectionMatrix * view;
-    vScreen = gl_Position.xy / gl_Position.w;
   }
 `;
 
@@ -112,24 +115,25 @@ const FRAGMENT = /* glsl */ `
   uniform vec3 uCard;
   uniform vec3 uInk;
   uniform vec3 uLine;
+  uniform vec3 uAccent;
   uniform vec3 uGround;
   uniform float uFocus;
   uniform float uDim;
-  uniform vec2 uCopy;
-  varying vec2 vScreen;
+  uniform float uTime;
   varying vec2 vUv;
   varying vec2 vAtlas;
   varying vec2 vSize;
   varying float vRing;
   varying float vHover;
   varying float vDepth;
+  varying float vHeight;
   void main() {
     // A rounded rectangle, measured in metres so every tile gets the same corner.
-    float corner = 0.075;
+    float corner = 0.018;
     vec2 p = (vUv - 0.5) * vSize;
     vec2 q = abs(p) - (vSize * 0.5 - vec2(corner));
     float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - corner;
-    float aa = fwidth(d) + 0.0005;
+    float aa = fwidth(d) + 0.0001;
     float alpha = 1.0 - smoothstep(-aa, aa, d);
     if (alpha < 0.02) discard;
 
@@ -137,38 +141,63 @@ const FRAGMENT = /* glsl */ `
     bool paper = vRing > 0.5 && vRing < 1.5;
     bool terminal = vRing > 1.5;
     float cover = front ? texture2D(tAtlas, vAtlas).r : 0.0;
+    float focus = 1.0 - clamp(abs(uFocus - (vRing + 1.0)), 0.0, 1.0);
 
-    vec3 fill = paper ? uInk : uCard;
+    // Projected light has no black: the darkest a tile gets is a deep blue.
+    vec3 glass = mix(uCard, uAccent, 0.1 + 0.12 * focus);
+    vec3 fill = paper ? uInk : glass;
     vec3 mark = paper ? uGround : uInk;
     vec3 color = mix(fill, mark, cover);
 
-    // The edge: a hairline on the dark tiles, none on the paper ones.
-    float edge = smoothstep(-0.016 - aa, -0.016 + aa, d);
-    if (!paper) color = mix(color, uLine, edge);
+    // The edge: a hairline, in the accent while the tile's ring is the lit one.
+    float edge = smoothstep(-0.004 - aa, -0.004 + aa, d);
+    vec3 rim = mix(uLine, uAccent, focus);
+    if (!paper) color = mix(color, rim, edge);
 
     // A command-line tool's tile wears a window's title bar: a line and three dots.
     if (terminal && front) {
-      float bar = p.y - (vSize.y * 0.5 - 0.115);
-      float line = 1.0 - smoothstep(0.0, 0.004 + aa, abs(bar));
-      vec2 dots = vec2(p.x + vSize.x * 0.5 - 0.085, p.y - (vSize.y * 0.5 - 0.058));
+      float bar = p.y - (vSize.y * 0.5 - 0.03);
+      float line = 1.0 - smoothstep(0.0, 0.001 + aa, abs(bar));
+      vec2 dots = vec2(p.x + vSize.x * 0.5 - 0.022, p.y - (vSize.y * 0.5 - 0.015));
       float dot = 0.0;
       for (int i = 0; i < 3; i++) {
-        dot = max(dot, 1.0 - smoothstep(0.013, 0.013 + aa, length(dots - vec2(float(i) * 0.05, 0.0))));
+        dot = max(dot, 1.0 - smoothstep(0.0034, 0.0034 + aa, length(dots - vec2(float(i) * 0.013, 0.0))));
       }
       color = mix(color, uLine, max(line, dot) * (1.0 - edge));
     }
 
-    float focus = 1.0 - clamp(abs(uFocus - (vRing + 1.0)), 0.0, 1.0);
     // An unlit ring is a presence, not a subject; paper would outshine the lit one.
-    float level = mix(paper ? 0.05 : 0.1, 1.0, focus);
-    level *= front ? 1.0 : 0.3;
-    level *= mix(1.0, 0.3, smoothstep(7.0, 17.0, vDepth));
-    // Where the page's copy stands the tiles step back, so the words stay readable.
-    float beside = smoothstep(-0.2, 0.3, vScreen.x * sign(uCopy.x)) * abs(uCopy.x);
-    float above = smoothstep(-0.2, 0.3, vScreen.y) * uCopy.y;
-    level *= 1.0 - 0.93 * max(beside, above);
-    level = min(1.0, level + 0.25 * vHover) * uDim;
+    float level = mix(paper ? 0.1 : 0.34, 1.0, focus);
+    level *= front ? 1.0 : 0.34;
+    level *= mix(1.0, 0.45, smoothstep(1.6, 3.8, vDepth));
+    // Projected light: a faint line travels up through every tile.
+    float scan = 0.9 + 0.1 * sin(vHeight * 180.0 - uTime * 3.0);
+    level = min(1.0, level * scan + 0.25 * vHover) * uDim;
     gl_FragColor = vec4(color * level, alpha);
+    #include <colorspace_fragment>
+  }
+`;
+
+/* The glow of a lit tile: light that spills past its edge, added to what is behind. */
+const GLOW_FRAGMENT = /* glsl */ `
+  uniform vec3 uAccent;
+  uniform float uFocus;
+  uniform float uDim;
+  uniform float uGrow;
+  varying vec2 vUv;
+  varying float vRing;
+  varying float vHover;
+  void main() {
+    float focus = 1.0 - clamp(abs(uFocus - (vRing + 1.0)), 0.0, 1.0);
+    vec2 p = abs(vUv - 0.5) * 2.0;
+    vec2 q = p - vec2(1.0 / uGrow);
+    // Nothing over the tile's own face, most at its edge, none at the quad's.
+    float outside = step(0.0, max(q.x, q.y));
+    float d = length(max(q, 0.0)) / (1.0 - 1.0 / uGrow);
+    // The far side of a ring glows less: it is seen through the near one.
+    float side = gl_FrontFacing ? 1.0 : 0.25;
+    float a = pow(1.0 - clamp(d, 0.0, 1.0), 3.0) * outside * side * (0.13 * focus + 0.16 * vHover) * uDim;
+    gl_FragColor = vec4(uAccent * a, 1.0);
     #include <colorspace_fragment>
   }
 `;
@@ -176,10 +205,12 @@ const FRAGMENT = /* glsl */ `
 const COLUMNS = 10;
 const ROWS = 8;
 /** Tile sizes in metres. */
-const MARK_TILE = 0.62;
-const CARD_TILE = { width: 0.98, height: 0.615 };
+const MARK_TILE = 0.16;
+const CARD_TILE = { width: 0.255, height: 0.16 };
+/** How many skills fit their ring without touching. */
+const SKILL_CARDS = 16;
 
-export async function createRings(ctx: Context, data: RingData): Promise<Rings> {
+export async function createRings(ctx: Context, data: RingData, at: Vector3): Promise<Rings> {
   const scale = ctx.tier.small ? 1 : 2;
   const cellW = 204 * scale;
   const cellH = 128 * scale;
@@ -204,7 +235,7 @@ export async function createRings(ctx: Context, data: RingData): Promise<Rings> 
 
   // Skills: a page each, its name and a few lines of text under it.
   const firstSkillCell = Math.ceil(data.marks.length / COLUMNS) * COLUMNS;
-  const skills = data.skills.slice(0, COLUMNS * ROWS - firstSkillCell);
+  const skills = data.skills.slice(0, Math.min(SKILL_CARDS, COLUMNS * ROWS - firstSkillCell));
   g.fillStyle = "white";
   g.textBaseline = "alphabetic";
   skills.forEach((name, i) => {
@@ -212,14 +243,14 @@ export async function createRings(ctx: Context, data: RingData): Promise<Rings> 
     const x = (cell % COLUMNS) * cellW;
     const y = Math.floor(cell / COLUMNS) * cellH;
     const pad = 16 * scale;
-    g.font = `500 ${13 * scale}px "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace`;
+    g.font = `500 ${15 * scale}px "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace`;
     let label = name;
     while (label.length > 4 && g.measureText(label).width > cellW - pad * 2) label = `${label.slice(0, -2)}…`;
-    g.fillText(label, x + pad, y + pad + 12 * scale);
+    g.fillText(label, x + pad, y + pad + 14 * scale);
     for (let line = 0; line < 4; line++) {
       const width = (cellW - pad * 2) * [0.92, 0.74, 0.86, 0.48][line];
       g.globalAlpha = 0.34;
-      g.fillRect(x + pad, y + pad + (30 + line * 16) * scale, width, 5 * scale);
+      g.fillRect(x + pad, y + pad + (34 + line * 16) * scale, width, 5 * scale);
       g.globalAlpha = 1;
     }
   });
@@ -231,7 +262,8 @@ export async function createRings(ctx: Context, data: RingData): Promise<Rings> 
   atlas.magFilter = LinearFilter;
   atlas.anisotropy = ctx.anisotropy;
 
-  // Which tile shows what, on which ring.
+  // Which tile shows what, on which ring. Top: apps and models. Middle: skills.
+  // Bottom: command-line tools.
   interface Tile {
     ring: number;
     cell: number;
@@ -240,14 +272,13 @@ export async function createRings(ctx: Context, data: RingData): Promise<Rings> 
   }
   const clis = new Set(data.clis);
   const tiles: Tile[] = [];
-  data.marks.forEach((name, cell) => tiles.push({ ring: 0, cell, square: true, label: name }));
+  data.marks.forEach((name, cell) => {
+    if (!clis.has(name)) tiles.push({ ring: 0, cell, square: true, label: name });
+  });
   skills.forEach((name, i) => tiles.push({ ring: 1, cell: firstSkillCell + i, square: false, label: name }));
-  // The tools ring is the widest and has the fewest names: each rides it twice.
-  for (let lap = 0; lap < 2; lap++) {
-    data.marks.forEach((name, cell) => {
-      if (clis.has(name)) tiles.push({ ring: 2, cell, square: true, label: name });
-    });
-  }
+  data.marks.forEach((name, cell) => {
+    if (clis.has(name)) tiles.push({ ring: 2, cell, square: true, label: name });
+  });
 
   const count = tiles.length;
   const perRing = [0, 1, 2].map((ring) => tiles.filter((tile) => tile.ring === ring).length);
@@ -290,17 +321,18 @@ export async function createRings(ctx: Context, data: RingData): Promise<Rings> 
       uCard: { value: ctx.token("--surface-card") },
       uInk: { value: ctx.token("--ink") },
       uLine: { value: ctx.token("--hairline-strong") },
+      uAccent: { value: ctx.token("--world-accent") },
       uGround: { value: ctx.token("--canvas") },
+      uCenter: { value: at.clone() },
       uRingY: { value: new Vector3(RINGS[0].y, RINGS[1].y, RINGS[2].y) },
       uRingR: { value: new Vector3(RINGS[0].radius, RINGS[1].radius, RINGS[2].radius) },
       uPhase: { value: phase },
-      uCenterZ: { value: RING_CENTER_Z },
       uRings: { value: 0 },
       uFocus: { value: 0 },
       uHover: { value: -1 },
       uTime: { value: 0 },
       uDim: { value: 1 },
-      uCopy: { value: new Vector2() },
+      uGrow: { value: 1 },
     },
     vertexShader: VERTEX,
     fragmentShader: FRAGMENT,
@@ -310,6 +342,21 @@ export async function createRings(ctx: Context, data: RingData): Promise<Rings> 
   const mesh = new Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.visible = false;
+
+  // The glow shares the tiles' geometry and every uniform that places them.
+  const glowMaterial = new ShaderMaterial({
+    uniforms: { ...material.uniforms, uGrow: { value: 1.6 } },
+    vertexShader: VERTEX,
+    fragmentShader: GLOW_FRAGMENT,
+    side: DoubleSide,
+    blending: AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+  });
+  const glow = new Mesh(geometry, glowMaterial);
+  glow.frustumCulled = false;
+  glow.renderOrder = 2;
+  mesh.add(glow);
 
   const calm = ctx.tier.calm;
   const center = new Vector3();
@@ -322,13 +369,8 @@ export async function createRings(ctx: Context, data: RingData): Promise<Rings> 
   return {
     mesh,
 
-    update(ch, now, shift) {
+    update(ch, now) {
       time = calm ? 0 : now;
-      // The subject is shifted away from the copy: left of centre means the copy is on the right.
-      (material.uniforms.uCopy.value as Vector2).set(
-        Math.max(-1, Math.min(1, -shift.x * 2.6)),
-        Math.max(0, Math.min(1, -shift.y * 2.6)),
-      );
       rings = ch.rings;
       phase.set(RINGS[0].speed * time, RINGS[1].speed * time, RINGS[2].speed * time);
       material.uniforms.uRings.value = ch.rings;
@@ -347,7 +389,7 @@ export async function createRings(ctx: Context, data: RingData): Promise<Rings> 
         const ring = RINGS[tile.ring];
         const angle = places[i * 3] + ring.speed * time;
         normal.set(Math.sin(angle), 0, Math.cos(angle));
-        center.set(normal.x * ring.radius, ring.y, RING_CENTER_Z + normal.z * ring.radius);
+        center.set(at.x + normal.x * ring.radius, at.y + ring.y, at.z + normal.z * ring.radius);
         const facing = normal.dot(ray.direction);
         // Only tiles that show their face.
         if (facing > -0.05) continue;
@@ -355,7 +397,7 @@ export async function createRings(ctx: Context, data: RingData): Promise<Rings> 
         if (along <= 0 || along >= nearest) continue;
         hit.copy(ray.direction).multiplyScalar(along).add(ray.origin).sub(center);
         right.set(normal.z, 0, -normal.x);
-        if (Math.abs(hit.dot(right)) > sizes[i * 2] / 2 || Math.abs(hit.y) > sizes[i * 2 + 1] / 2 + 0.05) continue;
+        if (Math.abs(hit.dot(right)) > sizes[i * 2] / 2 || Math.abs(hit.y) > sizes[i * 2 + 1] / 2 + 0.012) continue;
         nearest = along;
         best = { label: tile.label, ring: tile.ring };
         material.userData.hover = i;

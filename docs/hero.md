@@ -1,50 +1,39 @@
 # The first screen and the app window
 
-> Builds on [`world.md`](world.md), which describes the 3D scene the front page
+> Builds on [`world.md`](world.md), which describes the room the front page
 > stands in. Colour and type come from [`design.md`](design.md).
 
 The top of the front page does three things: it says **what the product is**,
 it offers **one action**, and it lets the reader **use the app** before they
-install it. Until 2026-11-11 all three sat in one hero section with the app
-window under the headline. Now they are the first two chapters of the scene.
+install it. Since 2026-11-11 all three are one picture: the reader sits at the
+desk, and the monitor in front of them is the app.
 
 ---
 
-## Chapter one: the desk at night
+## The first screen
 
-`src/sections/world/HeroChapter.astro`
+`src/sections/room/HeroChapter.astro`
 
-- **The headline is a definition, not a slogan**: "The open-source agent OS for
-  your desktop". A reader should be able to repeat what the product is after
-  this one line. Weight 400, as everywhere (`design.md`).
-- **One line under it** completes the definition (what it runs, how you talk to
-  it, where it runs) and answers the first objection ("bring your own
-  subscription").
-- **One button.** Paper on ink, a pill, at least 48px tall. It names the
+- **The monitor is the app, from the first frame.** The working clone of the
+  app lies exactly where the monitor's screen is (`world.md`, "The dock"). It
+  is in the page's markup, so it is there before the room has loaded, and the
+  room appears around it. Nothing has to be scrolled, opened or started first.
+- **The headline is the LED bar above the monitor.** It is the page's `<h1>`,
+  it is text in the page, and the room draws the same words on the bar's quad
+  (`Text_hero`). The headline is a definition, not a slogan: a reader should be
+  able to repeat what the product is after this one line.
+- **One button**, in the HUD row at the foot of the window. It names the
   reader's own machine, chosen by CSS from `data-os` on `<html>`
-  (`DownloadCta.astro`, `OsProbe.astro`).
-- **Two quiet links**: the repository with its star count from
+  (`DownloadCta.astro`, `OsProbe.astro`). Corners are 8 px, as in the app; no
+  pills.
+- **Two quiet links** beside it: the repository with its star count from
   `src/data/social-counts.json`, and the docs.
-- **The headline is text in the page.** It is painted before any of the scene
-  has loaded, and it is the page's largest paint (`performance.md`).
 
-Behind it the scene comes alive in about two seconds: the monitor wakes, the
-lamp catches, the mascot opens its eyes and makes one small jump. The mascot's
-eyes follow the pointer; pressing it makes it jump again.
+Scrolling rolls the chair back: the live window gives way to the monitor in the
+room, and the desk comes into view with the mascot beside the screen, the
+second monitor, the lamp and the wordmark on the wall.
 
-In a landscape window the copy stands on the left and the desk on the right. In
-a portrait window the copy is on top and the desk below it.
-
-## Chapter two: sit down
-
-`src/sections/world/TryChapter.astro`
-
-The camera flies over the empty chair to the monitor. When it has arrived, the
-monitor's screen **is** the app: the working clone lies exactly where the
-screen came to rest (`world.md`, "The dock"). Scrolling on makes the camera
-stand up again.
-
-Without the scene the same window simply stands in the page.
+Without the scene the same window stands in the page under the headline.
 
 ### The window is a clone of the app
 
@@ -77,19 +66,18 @@ node scripts/gen-app-icons.mjs <app>/dodaios/ui/web/frontend
 node scripts/sync-app-ui.mjs   <app>/dodaios/ui/web/dist/assets
 ```
 
-A section the app has dropped is dropped from the clone in the same change. The
-Verse entries went on 2026-11-11, with the app's own removal of it.
+A section the app has dropped is dropped from the clone in the same change.
 
 ### Size
 
 A real app window, 1360 x 758 CSS px, laid out at that size and scaled as one
 piece. The stage is as wide as the column, or as wide as the window's ratio
-allows the screen's height to hold it together with its caption and the
-starters, whichever is less.
+allows the screen's height to hold it together with the headline bar above it
+and the HUD row below it, whichever is less.
 
 The scale is `stage width / 1360`. **Below 0.46 it stops**: on a phone the
 window keeps 0.46, slides its sidebar out of the left edge and lets its right
-side run out of the frame. The monitor in the scene matches the whole window,
+side run out of the frame. The monitor in the room matches the whole window,
 so on a phone the monitor continues on both sides of the live frame.
 
 ### The window works
@@ -106,16 +94,15 @@ take what is typed, a plugin connects, the round button starts a call.
 answers. Anything else is answered with the truth: this is the demo on the
 website, nothing runs here, and this is what the app would do with it.
 
-Three starters under the window ("Fix the failing test", "What's on my
-calendar?", "Open the Agentic IDE") belong to the page, not to the window.
-
 ## Accessibility
 
 - The window is `aria-hidden="true"` and every control inside it has
   `tabIndex={-1}`. Beside it, a `<p class="sr-only">` says what it shows.
 - While the scene runs and the window is not docked, the stage is
-  `visibility: hidden`, so its starters cannot be reached by the Tab key while
-  they cannot be seen.
+  `visibility: hidden`, so nothing in it can be reached by the Tab key while it
+  cannot be seen.
+- The words drawn in the room are not the accessible ones: the chapter's copy
+  in the page is, and it becomes visible when it takes the keyboard focus.
 - `prefers-reduced-motion`: no tour, no typing, no camera flight
   (`world.md`, "Reduced motion").
 
@@ -124,6 +111,7 @@ calendar?", "Open the Agentic IDE") belong to the page, not to the window.
 - Hand-drawn imitations of the app's UI inside the window.
 - Content from a real session in the clone's data.
 - An answer in the demo that claims work was done.
-- Text in the scene. Words belong to the page.
+- Words that float in the scene. Text in the room is on an object, and the same
+  words are in the page (`world.md`, "Text in the room, and text in the page").
 - Network requests from the demo, `getUserMedia`, or any permission prompt.
 - A mark in the scene without the caption that it implies no partnership.

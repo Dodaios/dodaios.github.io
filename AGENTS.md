@@ -57,14 +57,18 @@ hunted that was gone an hour ago.
 
 ## The 3D world
 
-The site stands in one real-time 3D scene, and the front page is a scrolled
-journey through it. **Read `docs/world.md` before touching `src/world/`,
-`src/sections/world/`, `src/styles/world.css` or `art/`.**
+The site is one real-time 3D room, and the front page is a scrolled tour of
+it that starts seated at the desk, with the working app on the monitor. **Read
+`docs/world.md` before touching `src/world/`, `src/sections/room/`,
+`src/styles/world.css` or `art/`.**
 
 The short version:
 
 - The page works without the scene. Never put a word, a link or a control only
   in the scene.
+- Words in the room are on an object (a sign, a board, a screen), never
+  floating, and the same words are in the page: both come from
+  `src/data/room.ts`.
 - The scene runs in a worker. Nothing in `src/world/World.ts`,
   `src/world/kit.ts` or `src/world/parts/` may touch `window` or `document`.
 - Nothing draws before the page has painted (`docs/performance.md`).

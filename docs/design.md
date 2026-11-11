@@ -25,8 +25,13 @@ on bare `:root` rather than split across a media query.
 Key characteristics:
 
 - Near-black canvas (`--canvas`), never `#000000` as the page floor.
-- Warm off-white ink (`--ink`), never `#ffffff`.
-- **The primary CTA is paper on ink.** This system has no borrowed accent hue.
+- Off-white ink (`--ink`), never `#ffffff`.
+- **Neutral greys, as in the app**: red, green and blue are equal in every
+  surface, text and hairline value. The palette was a warm charcoal until
+  2026-11-11 and moved to the app's own neutral scale with the app's brand.
+- **The primary CTA is paper on ink.** The one hue is the app's own accent,
+  `--accent`, and it marks state (a focus ring, a lit line, a live dot), never
+  the ground of a button.
 - Display weight stays 400 — never bold.
 - Hairline-only depth; no shadows.
 - Five pastel stage colours, scoped to agent-timeline visualisations only.
@@ -34,21 +39,25 @@ Key characteristics:
 
 ## The scene behind the page
 
-Since 2026-11-11 the site stands in a real-time 3D scene
-([`world.md`](world.md)). The scene follows this system rather than adding to
-it:
+Since 2026-11-11 the site is a real-time 3D room ([`world.md`](world.md)).
+The room follows this system rather than adding to it:
 
-- **Its ground is the page's ground.** The canvas is cleared to `--canvas` and
-  the set's outer edges fall off to that colour, so the scene has no frame.
-- **Its colours are light, not paint.** The surfaces are baked textures in the
-  warm charcoal of this palette. The few values the renderer adds at run time
-  are the `--world-*` tokens: the lamp, the monitor's glow, the morning sun.
-  Nothing in the page may use them.
-- **The one warm tone is the lamp.** It is not an accent colour and never
-  colours a control. The primary action is still paper on ink.
-- **Words stay in the page.** No text is drawn in the scene.
-- **Copy never sits straight on the picture.** A patch of `--canvas` fades out
-  under each panel of copy; it has no edge and is not a card.
+- **Its ground is the page's ground.** The canvas is cleared to `--canvas`.
+- **Its colours are light, not paint.** The room's surfaces are the neutral
+  greys of this palette (`art/room/spec.py` holds them), lit and baked. The few
+  values the renderer adds at run time are the `--world-*` tokens: the lamp,
+  the monitor's glow, the morning sun, the accent of a lit line, the gold of
+  the wordmark. Nothing in the page may use them.
+- **Three lights carry the mood**: the lamp's warm pool, the accent line behind
+  the monitors, and the gold wordmark on the back wall. The gold is the
+  wordmark's alone. None of them colours a control; the primary action is still
+  paper on ink.
+- **Words in the room are objects.** A sign, a board, a screen, a sheet of
+  paper: never letters in the air. The same words are in the page
+  (`world.md`, "Text in the room, and text in the page").
+- **The page's own layer over the room is one row.** The HUD at the foot of the
+  window holds the chapter's controls; a note in it brings a small ground of
+  `--canvas` at 72 %. Buttons have the 8 px radius of the app. No pills.
 - **The front page has no rails and no section marker**, and its foot paints
   `--canvas` under the legal text, the one ground a part of the front page
   paints for itself. A frame around a scene with depth reads as a window pane,
@@ -85,10 +94,10 @@ action colour, read the other way round.
 ### Surface
 | Token | Value | Use |
 |---|---|---|
-| `--canvas` | `#060605` | Warm near-black page floor — the page's ONE ground |
-| `--canvas-soft` | `#21201c` | Row hover and toolbar wells inside a card |
-| `--surface-card` | `#191815` | Card surface — a small lift off the floor |
-| `--surface-strong` | `#282620` | Badges, tag pills |
+| `--canvas` | `#0a0a0a` | Near-black page floor, the page's ONE ground (the app's `--background`) |
+| `--canvas-soft` | `#1f1f1f` | Row hover and toolbar wells inside a card |
+| `--surface-card` | `#171717` | Card surface, a small lift off the floor |
+| `--surface-strong` | `#262626` | Badges, tags |
 
 The scale runs the opposite way from a light theme: further from the floor means
 **lighter**, not darker. A card lifts by moving toward the ink.
@@ -110,8 +119,9 @@ Dialled down that far it did not read as alternation. It read as an uneven
 black: three values within two points of each other, and a visible step at
 every joint where one section's gradient ended dark and the next one's began
 light. The maintainer asked for a single background black on 2026-08-29 and
-named the deep sections' ground as the one to keep, which is why `--canvas` is
-`#060605` rather than the old `#0a0a09`.
+named the deep sections' ground as the one to keep. (The values in this
+paragraph are the warm ones of that time; `--canvas` is `#0a0a0a` since the
+palette went neutral.)
 
 The one thing this makes safe: `--surface-card` lifts 15 points off the ground,
 and a tone used to be spent out of that same range — a card on `--tone-raised`
@@ -125,35 +135,36 @@ they protect is the rails.
 ### Ink and text
 | Token | Value | Use |
 |---|---|---|
-| `--ink` | `#f7f7f4` | Display, emphasis, **primary CTA background** |
-| `--ink-active` | `#e0dfd8` | CTA press state |
-| `--body` | `#b4b1a7` | Running text |
-| `--muted` | `#9a978c` | Sub-titles |
-| `--muted-soft` | `#6d6a62` | Disabled text |
-| `--on-ink` | `#060605` | Dark text on a pale CTA |
+| `--ink` | `#fafafa` | Display, emphasis, **primary CTA background** |
+| `--ink-active` | `#e0e0e0` | CTA press state |
+| `--body` | `#c2c2c2` | Running text |
+| `--muted` | `#ababab` | Sub-titles |
+| `--muted-soft` | `#8a8a8a` | Disabled text |
+| `--on-ink` | `#0a0a0a` | Dark text on a pale CTA |
+| `--accent` | `#3d8bff` | The app's accent: focus rings, a link's underline on hover, a live mark |
 
-Against the canvas: `--ink` 18.7:1, `--body` 9.2:1, `--muted` 6.8:1 — all past
-AA, the first two past AAA. `--muted-soft` sits at 3.7:1 and is for disabled
-text only, never for anything a visitor has to read.
+Against the canvas: `--ink` 19.0:1, `--body` 11.1:1, `--muted` 8.6:1, all past
+AAA. `--muted-soft` sits at 5.7:1 and is for disabled text and quiet notes.
+`--accent` is 6.0:1 and never carries running text.
 
 ### Hairlines
-`--hairline` `#2b2925` (1px divider) · `--hairline-soft` `#201f1b` (lighter) ·
-`--hairline-strong` `#46433b` (panel outline).
+`--hairline` `#262626` (1px divider) · `--hairline-soft` `#1c1c1c` (lighter) ·
+`--hairline-strong` `#383838` (panel outline).
 
 "Strong" still means more contrast, which on this ground means lighter. The
 three keep their order; only the direction flipped.
 
 ### The page rule
-`--rule` `#a8a59b` — the two rails and every section boundary, and nothing else.
+`--rule` `#a3a3a3` — the two rails and every section boundary, and nothing else.
 
 Not a fourth hairline: a different job. A hairline bounds an **object** and is
 meant to be found only once the eye is already on it, so it sits a shade off the
 floor. A rule draws the **structure of the page** and has to be legible before
-the reader has decided to look at anything. `--hairline` is 1.4:1 against the
+the reader has decided to look at anything. `--hairline` is 1.3:1 against the
 canvas, which is below the threshold where a 1px line survives a real screen —
 the boundaries were visible in the design and invisible on the maintainer's
-monitor until this token was split out (2026-08-29). `--rule` is 8.1:1, one step
-brighter than `--muted` and one under `--body`.
+monitor until this token was split out (2026-08-29). `--rule` is 7.8:1, one step
+between `--muted-soft` and `--muted`.
 
 **A block as wide as the `content` column takes `--rule` on its outer edge**,
 because that edge is the rail at that height. See docs/layout.md § "Blocks that
@@ -313,8 +324,9 @@ the current-section rule are in [`layout.md`](layout.md) § "The nav".
 tall, `--radius-md`. On this floor that is a pale button — the brightest thing
 on the page, which is what makes it the one action worth taking.
 
-**Secondary CTA** — card-coloured pill on the floor, ink text, 1px
-`--hairline-strong`, 40px tall.
+**Secondary CTA** — card-coloured on the floor, ink text, 1px
+`--hairline-strong`, 44px tall, `--radius-md` (`.button--quiet`). Not a pill:
+the app has no pill-shaped buttons, and neither has the site.
 
 **Tertiary** — inline ink text link.
 

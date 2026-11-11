@@ -12,9 +12,11 @@
  */
 import { loadMarkSheet, openWorld, type WorldLink } from "./link";
 import type { RingData } from "./parts/rings";
+import type { ZoneName } from "./parts/room";
 import { SCRIPT, STILLS } from "./script";
 import {
   CHANNELS_AT_REST,
+  DOCK,
   buildKeys,
   clamp01,
   sample,
@@ -28,6 +30,8 @@ interface WorldData {
   scene: string;
   stargazers: number;
   rings: Omit<RingData, "sheet"> & { sheet: string };
+  /** The words of every label in the room, and their variants (`id:variant`). */
+  labels: Record<string, string[]>;
 }
 
 /** The app window's size and the scale below which it stops shrinking (DemoStage.tsx). */
@@ -37,28 +41,58 @@ const MIN_SCALE = 0.46;
 const SIDEBAR_W = 240;
 
 const RING_ROUTES = ["/plugins", "/skills", "/clis"];
+/** What the pointer's label says over a thing in the room that answers a press. */
+const SPOT_TIPS: Record<string, string> = {
+  install: "Press to copy the command",
+  open: "Open the repository",
+  stars: "Star it on GitHub",
+  quote1: "Read it where it was said",
+  quote2: "Read it where it was said",
+  quote3: "Read it where it was said",
+};
+/** The zone of the room each chapter of the front page stands in (the desk is always there). */
+const CHAPTER_ZONE: Record<string, ZoneName | undefined> = {
+  agents: "right",
+  plugins: "lounge",
+  skills: "lounge",
+  clis: "lounge",
+  stars: "window",
+  open: "corner",
+  install: "corner",
+};
+/** Which zones of the room a still view needs besides the desk. */
+const STILL_ZONES: Record<string, ZoneName[]> = {
+  plugins: ["lounge", "window"],
+  skills: ["lounge", "window"],
+  clis: ["lounge", "window"],
+  quiet: ["window", "lounge"],
+};
 
 const root = document.documentElement;
 const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** Set while a scene is running: tells it that the mascot is being spoken to. */
-let listen: ((on: boolean) => void) | null = null;
+/** Set while a scene is running: the room acts out what happens on the page. */
+let stage: {
+  listen(on: boolean): void;
+  label(id: string, variant?: string): void;
+  act(name: string): void;
+} | null = null;
 
 talk();
+copyCommand();
 
 const firstCanvas = document.querySelector<HTMLCanvasElement>("[data-world]");
 const dataNode = document.getElementById("world-data");
 if (firstCanvas && dataNode && root.classList.contains("world-on")) {
-  // From here on this script answers for the chapters' entrance: until this
-  // class is there nothing is hidden, so a page whose script never arrives
-  // (a stale cached page, a blocked file) still shows all of its copy.
+  // From here on this script answers for the page: until this class is there
+  // nothing is hidden, so a page whose script never arrives still shows itself.
   root.classList.add("world-ready");
   run(firstCanvas, JSON.parse(dataNode.textContent || "{}") as WorldData);
 }
 
 /**
  * Hold to talk. It plays one scripted exchange and belongs to the page, not to
- * the scene: it works on the plain page too, where there is no mascot to lean in.
+ * the scene: it works on the plain page too, where there is no room to act it out.
  */
 function talk(): void {
   const hold = document.querySelector<HTMLButtonElement>("[data-talk-hold]");
@@ -71,11 +105,13 @@ function talk(): void {
   const answer = reply.dataset.text ?? "";
   let typing = 0;
   let pending = 0;
+  let rest = 0;
   let held = false;
 
   const stop = () => {
     window.clearInterval(typing);
     window.clearTimeout(pending);
+    window.clearTimeout(rest);
   };
   const type = (node: HTMLElement, text: string, speed: number, done?: () => void) => {
     window.clearInterval(typing);
@@ -99,10 +135,12 @@ function talk(): void {
     held = true;
     stop();
     hold.setAttribute("aria-pressed", "true");
-    listen?.(true);
+    stage?.listen(true);
+    stage?.label("voice", "listening");
     said.textContent = "";
     reply.textContent = "";
-    if (status) status.textContent = "";
+    // What the sign on the desk says while the button is held, said in the page.
+    if (status) status.textContent = status.dataset.listening ?? "";
     type(said, request, 42);
   };
   const end = () => {
@@ -110,9 +148,13 @@ function talk(): void {
     held = false;
     stop();
     hold.setAttribute("aria-pressed", "false");
-    listen?.(false);
+    stage?.listen(false);
     // Letting go early still sends the whole sentence: this is a simulation.
     said.textContent = request;
+    stage?.label("voice", "heard");
+    stage?.act("voice-run");
+    // The sign goes back to what it says when nobody is talking.
+    rest = window.setTimeout(() => stage?.label("voice"), 9000);
     pending = window.setTimeout(
       () =>
         type(reply, answer, 24, () => {
@@ -154,12 +196,39 @@ function talk(): void {
   });
 }
 
+/** The command for the reader's own system, as the head's probe named it. */
+function commandFor(button: HTMLElement): string {
+  return (root.dataset.os === "windows" ? button.dataset.windows : button.dataset.unix) ?? "";
+}
+
+/** Copy the install command, and say so on the button for a moment. */
+function copyCommand(): boolean {
+  const button = document.querySelector<HTMLButtonElement>("[data-copy-install]");
+  if (!button) return false;
+  const label = button.textContent ?? "";
+  let back = 0;
+  const copy = () => {
+    navigator.clipboard?.writeText(commandFor(button)).then(
+      () => {
+        button.textContent = button.dataset.done ?? label;
+        window.clearTimeout(back);
+        back = window.setTimeout(() => (button.textContent = label), 2200);
+      },
+      () => {
+        // Refused (no permission, no user gesture): the command is still in the page to select.
+      },
+    );
+  };
+  button.addEventListener("click", copy);
+  return true;
+}
+
 function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
   const home = data.scene === "home";
   const small = matchMedia("(max-width: 767px), (pointer: coarse) and (max-width: 1100px)").matches;
   const chapters = home ? Array.from(document.querySelectorAll<HTMLElement>("[data-chapter]")) : [];
   const dockStage = document.querySelector<HTMLElement>("[data-dock-stage]");
-  const podCount = document.querySelector<HTMLElement>("[data-pods-count]");
+  const agentCount = document.querySelector<HTMLElement>("[data-agents-count]");
   const tip = document.querySelector<HTMLElement>("[data-world-tip]");
 
   let canvas = firstCanvas;
@@ -168,13 +237,15 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
   let spans: ChapterSpan[] = [];
   let pinHeight = window.innerHeight;
   let size = { width: 1, height: 1 };
-  /** The content column inside the canvas, as fractions of its width. */
-  let column = { x0: 0, x1: 1 };
-  const columnEdge = document.querySelector<HTMLElement>(".chapter__frame, .container-content");
   let pointerFree = true;
   let dockInView = false;
   let queued = false;
   let stillPaused = false;
+  let current: HTMLElement | null = null;
+  /** Set once the scene has been given up: the page is the plain page from then on. */
+  let gone = false;
+  /** What has to be undone when that happens. */
+  const undo: (() => void)[] = [];
 
   /* ---- The timeline -------------------------------------------------- */
 
@@ -186,16 +257,6 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
       // The scene must draw at exactly the size the poses are worked out for:
       // a scrollbar arriving changes the canvas without any resize event.
       world?.resize(width, height);
-    }
-    if (columnEdge) {
-      const edge = columnEdge.getBoundingClientRect();
-      const origin = canvas.getBoundingClientRect();
-      if (edge.width > 0) {
-        column = {
-          x0: clamp01((edge.left - origin.left) / width),
-          x1: clamp01((edge.right - origin.left) / width),
-        };
-      }
     }
     if (!home) {
       const still = STILLS[data.scene] ?? STILLS.quiet;
@@ -214,22 +275,25 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
     applyScroll();
   };
 
-  /** Tell each chapter how far through it the reader is; CSS does the rest. */
+  /** Tell each chapter how far through it the reader is, and which one they are in. */
   const progress = new WeakMap<HTMLElement, number>();
   const applyScroll = () => {
     queued = false;
+    if (gone) return;
     const y = window.scrollY;
     const view = window.innerHeight;
     dockInView = false;
+    // (A cast, because the compiler does not follow an assignment into a callback.)
+    let reading = null as HTMLElement | null;
     chapters.forEach((el, i) => {
       const span = spans[i];
       if (!span) return;
       const top = span.top - y;
       const bottom = top + span.height;
       const near = bottom > -view * 0.5 && top < view * 1.5;
-      if (near && span.id === "try") dockInView = true;
-      const seen = top < view * 0.62 && bottom > view * 0.2;
-      if (seen !== el.hasAttribute("data-seen")) el.toggleAttribute("data-seen", seen);
+      if (near && span.id === "hero") dockInView = true;
+      // The chapter the middle of the window is in owns the foot of the screen.
+      if (top <= view * 0.5 && bottom > view * 0.5) reading = el;
       if (!near) return;
       const stretch = Math.max(1, span.height - pinHeight);
       const p = Math.round(clamp01(-top / stretch) * 1000) / 1000;
@@ -238,6 +302,11 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
         el.style.setProperty("--p", String(p));
       }
     });
+    if (reading !== current) {
+      current?.removeAttribute("data-current");
+      current = reading;
+      current?.setAttribute("data-current", "");
+    }
   };
 
   const syncPause = () => world?.setPaused(document.hidden || stillPaused);
@@ -272,6 +341,30 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
   window.addEventListener("resize", measure);
   document.addEventListener("visibilitychange", syncPause);
 
+  /*
+   * The keyboard walks the room too. Every chapter's controls are in the tab
+   * order wherever the camera is; when the focus lands in a chapter the reader
+   * is not in, the page goes there and the scene follows. The first chapter has
+   * two places: the app's window with its starters at its start, and its row
+   * of buttons once the chair has rolled back.
+   */
+  const followFocus = (event: FocusEvent) => {
+    if (gone || !root.classList.contains("world-live")) return;
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    const chapter = target?.closest<HTMLElement>("[data-chapter]");
+    if (!target || !chapter) return;
+    const span = spans[chapters.indexOf(chapter)];
+    if (!span) return;
+    const stretch = Math.max(0, span.height - pinHeight);
+    const docked = dockStage?.hasAttribute("data-shown") ?? false;
+    let at: number | null = null;
+    if (target.closest("[data-dock-stage]")) at = docked ? null : 0;
+    else if (span.id === "hero") at = docked || chapter !== current ? 1 : null;
+    else if (chapter !== current) at = 0.5;
+    if (at !== null) window.scrollTo({ top: span.top + stretch * at, behavior: "instant" });
+  };
+  if (home) document.addEventListener("focusin", followFocus);
+
   /* ---- The frame, as the scene asks for it ---------------------------- */
 
   const canvasRect = () => canvas.getBoundingClientRect();
@@ -298,15 +391,22 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
     };
   };
 
+  let ringShown = 1;
   const getFrame = (): FrameInput | null => {
-    if (!world) return null;
+    if (!world || gone) return null;
     const rect = dockInView ? dockRect() : null;
     const dock: DockTarget | null = rect ? { center: world.screen.center, height: world.screen.height, rect } : null;
-    const state = sample(keys, window.scrollY, { ...size, column }, dock, calm);
+    const state = sample(keys, window.scrollY, size, dock, calm);
     if (!state) return null;
-    if (podCount) {
-      const lit = String(Math.round(state.ch.pods));
-      if (podCount.textContent !== lit) podCount.textContent = lit;
+    if (agentCount) {
+      const lit = String(Math.round(state.ch.agents));
+      if (agentCount.textContent !== lit) agentCount.textContent = lit;
+    }
+    // The lightbox behind the holo table names the ring that is lit.
+    const ring = Math.round(state.ch.ring);
+    if (ring >= 1 && ring !== ringShown) {
+      ringShown = ring;
+      stage?.label("reach", String(ring));
     }
     // Behind a page of text the scene is scenery: nothing in it takes the pointer.
     return {
@@ -318,8 +418,7 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
   };
 
   let dockOpacity = -1;
-  let hotKind = "";
-  let tipText = "";
+  let hotKey = "";
   let lastError = Infinity;
   const onFrame = (out: FrameOutput) => {
     lastError = out.dockError;
@@ -333,15 +432,13 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
         dockStage.toggleAttribute("data-live", opacity > 0.96);
       }
     }
-    const kind = out.hot?.kind ?? "";
-    if (kind !== hotKind) {
-      hotKind = kind;
-      root.toggleAttribute("data-world-hot", kind !== "");
-    }
-    if (tip) {
-      const text = out.hot?.kind === "tile" ? out.hot.label : "";
-      if (text !== tipText) {
-        tipText = text;
+    const hot = out.hot;
+    const key = hot ? (hot.kind === "tile" ? `tile:${hot.label}` : hot.kind === "spot" ? `spot:${hot.id}` : hot.kind) : "";
+    if (key !== hotKey) {
+      hotKey = key;
+      root.toggleAttribute("data-world-hot", key !== "");
+      if (tip) {
+        const text = hot?.kind === "tile" ? hot.label : hot?.kind === "spot" ? (SPOT_TIPS[hot.id] ?? "") : "";
         tip.textContent = text;
         tip.toggleAttribute("data-on", text !== "");
       }
@@ -372,6 +469,14 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
     return { x: event.clientX - origin.left, y: event.clientY - origin.top };
   };
 
+  /** A thing in the room was pressed: do what its counterpart in the page does. */
+  const pressSpot = (id: string) => {
+    if (id === "install") document.querySelector<HTMLButtonElement>("[data-copy-install]")?.click();
+    else if (id === "open") document.querySelector<HTMLAnchorElement>("[data-open-repo]")?.click();
+    else if (id === "stars") document.querySelector<HTMLAnchorElement>("#stargazers .hud a")?.click();
+    else if (id.startsWith("quote")) document.querySelector<HTMLAnchorElement>(`[data-quote="${id.slice(5)}"]`)?.click();
+  };
+
   if (home) {
     window.addEventListener(
       "pointermove",
@@ -388,10 +493,12 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
     // A CLICK that did not travel, not a press: a finger put down to scroll, or
     // a drag that selects text, must never send the reader to another page.
     let pressedAt = { x: 0, y: 0 };
+    let byMouse = true;
     window.addEventListener(
       "pointerdown",
       (event) => {
         pressedAt = { x: event.clientX, y: event.clientY };
+        byMouse = event.pointerType === "mouse";
       },
       { passive: true },
     );
@@ -400,13 +507,17 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
       if (Math.hypot(event.clientX - pressedAt.x, event.clientY - pressedAt.y) > 8) return;
       pointerFree = true;
       world.setPointer(point(event));
+      // Under a mouse the scene has already said what the pointer is over. Act
+      // on that at once: copying and opening a page need the press itself, and
+      // an answer that comes back from another thread is no longer the press.
+      const known = byMouse && hotKey.startsWith("spot:") ? hotKey.slice(5) : "";
+      if (known) pressSpot(known);
       void world.press().then((hit) => {
         if (hit?.kind === "tile") window.location.assign(RING_ROUTES[hit.ring] ?? "/plugins");
+        else if (hit?.kind === "spot" && !known) pressSpot(hit.id);
       });
       // A finger leaves no pointer behind; without this the camera stays leaning.
-      if ((event as PointerEvent).pointerType && (event as PointerEvent).pointerType !== "mouse") {
-        world.setPointer(null);
-      }
+      if (!byMouse) world.setPointer(null);
     });
     const release = (event: PointerEvent) => {
       if (event.pointerType !== "mouse") world?.setPointer(null);
@@ -451,17 +562,21 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
    * chapter they were reading (the plain page's chapters are far shorter).
    */
   const giveUp = (error: unknown) => {
+    if (gone) return;
+    gone = true;
     console.warn("[world] no 3D scene; the page continues without it", error);
+    world?.dispose();
+    for (const step of undo.splice(0)) step();
     world = null;
-    listen = null;
-    const reading = chapters.find((el) => {
-      const box = el.getBoundingClientRect();
-      return box.top <= window.innerHeight * 0.5 && box.bottom > window.innerHeight * 0.5;
-    });
+    stage = null;
+    // What the scene counted up is a plain fact again.
+    if (agentCount) agentCount.textContent = agentCount.dataset.total ?? agentCount.textContent;
+    const reading = current;
     const wasScrolled = window.scrollY > 0;
-    root.classList.remove("world-on", "world-live", "world-ready", "world-cut");
+    root.classList.remove("world-on", "world-live", "world-settled", "world-ready", "world-cut");
     root.classList.add("world-off");
     root.removeAttribute("data-world-hot");
+    current?.removeAttribute("data-current");
     if (dockStage) {
       dockStage.style.removeProperty("opacity");
       dockStage.removeAttribute("data-shown");
@@ -474,14 +589,21 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
     if (reading && wasScrolled) reading.scrollIntoView({ block: "start" });
   };
 
+  /** The words of a label, or of one of its variants (`id:variant` in the page's data). */
+  const words = (id: string, variant?: string) => (variant && data.labels[`${id}:${variant}`]) || data.labels[id] || [];
+
   const start = async () => {
     await painted();
     await idle();
+    // The reader's own system decides which command the whiteboard carries.
+    const labels = { ...data.labels };
+    if (root.dataset.os === "windows" && labels["install:windows"]) labels.install = labels["install:windows"];
     let link: WorldLink;
     try {
       const opened = await openWorld(canvas, {
         tier: { small: small || !home, calm, maxPixelRatio: small ? 1.5 : home ? 2 : 1.5 },
         stargazers: data.stargazers,
+        labels,
       });
       canvas = opened.canvas;
       link = opened.link;
@@ -490,32 +612,78 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
       return;
     }
     world = link;
-    listen = (on) => link.setListening(on);
+    stage = {
+      listen: (on) => link.setListening(on),
+      label: (id, variant) => link.setLabel(id, id === "install" ? labels.install : words(id, variant)),
+      act: (name) => link.act(name),
+    };
     link.onLost(() => giveUp(new Error("the graphics context was lost")));
     measure();
     link.resize(size.width, size.height);
     syncPause();
+    // The page opens seated at the monitor: the window is already where it
+    // belongs, so it must not blink out while the scene takes over.
+    if (dockStage && keys[0]?.shot === DOCK && keys[1]?.shot === DOCK && window.scrollY < keys[1].y) {
+      dockOpacity = 1;
+      dockStage.style.opacity = "1";
+      dockStage.setAttribute("data-shown", "");
+      dockStage.setAttribute("data-live", "");
+    }
     link.start(getFrame, onFrame, onCut);
     root.classList.add("world-live");
+    // Two frames on, the page has been laid out as the room's: from here its
+    // rows may fade (world.css).
+    requestAnimationFrame(() => requestAnimationFrame(() => !gone && root.classList.add("world-settled")));
 
-    // The rest streams in behind the first screen, one piece per quiet moment.
-    const first = keys[0]?.ch ?? CHANNELS_AT_REST;
-    await idle();
-    if (home || first.pods > 0) await link.extend({ pods: true });
-    if (home || first.rings > 0) {
-      await idle();
-      try {
-        const sheet = await loadMarkSheet(data.rings.sheet);
-        await link.extend({ rings: { ...data.rings, sheet } });
-      } catch (error) {
-        console.warn("[world] the marks did not load; the orbits stay empty", error);
-      }
+    // The star counter follows the live figure the page fetches (LiveCount).
+    const figure = document.querySelector<HTMLElement>("[data-stars-count]");
+    if (figure) {
+      const unit = data.labels.stars?.[1] ?? "";
+      const tell = () => {
+        const text = figure.textContent?.trim();
+        // Never a zero: the page's figure passes through one while it counts up.
+        if (text && /^[\d.,\s]+$/.test(text) && /[1-9]/.test(text)) link.setLabel("stars", [text, unit]);
+      };
+      const watcher = new MutationObserver(tell);
+      watcher.observe(figure, { childList: true, characterData: true, subtree: true });
+      undo.push(() => watcher.disconnect());
+      tell();
     }
-    if (home) {
-      await idle();
-      await link.extend({ dawn: true });
-      await idle();
-      await link.extend({ edges: true });
+
+    // The rest of the room arrives while the reader is still at the desk, in
+    // the order the tour visits it, one piece per quiet moment.
+    const first = keys[0]?.ch ?? CHANNELS_AT_REST;
+    let zones: ZoneName[] = home ? ["right", "lounge", "window", "corner"] : (STILL_ZONES[data.scene] ?? STILL_ZONES.quiet);
+    // A reader who arrived somewhere else (a link to a chapter) gets that
+    // station first.
+    const here = CHAPTER_ZONE[current?.dataset.chapter ?? ""];
+    if (home && here) zones = [here, ...zones.filter((zone) => zone !== here)];
+    try {
+      for (const zone of zones) {
+        await idle();
+        if (gone) return;
+        await link.extend({ zones: [zone] });
+        if (zone === "lounge" && (home || first.rings > 0)) {
+          try {
+            const sheet = await loadMarkSheet(data.rings.sheet);
+            if (gone) return;
+            await link.extend({ rings: { ...data.rings, sheet } });
+          } catch (error) {
+            console.warn("[world] the marks did not load; the hologram stays empty", error);
+          }
+        }
+      }
+      if (home) {
+        await idle();
+        if (gone) return;
+        await link.extend({ dawn: true });
+        await idle();
+        if (gone) return;
+        await link.extend({ edges: true });
+      }
+    } catch (error) {
+      // A station that did not arrive would leave its chapter with no words.
+      giveUp(error);
     }
   };
 
@@ -525,7 +693,6 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
       threaded: world?.threaded ?? null,
       line: world?.debug() ?? null,
       hidden: document.hidden,
-      focused: document.hasFocus(),
       size,
       canvas: [canvas.clientWidth, canvas.clientHeight],
       dockInView,
@@ -533,7 +700,7 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
       dockError: lastError,
       keys: keys.map((key) => `${key.chapter}@${Math.round(key.y)}`),
       pinHeight,
-      column,
+      current: current?.dataset.chapter ?? null,
       scrollY: window.scrollY,
       innerHeight: window.innerHeight,
     });

@@ -29,11 +29,20 @@ let world: World | null = null;
 let latest: FrameInput | null = null;
 let sentError = Infinity;
 let sentHot = "";
+let received = 0;
+let pulseAt = 0;
 
 const hotKey = (hot: FrameOutput["hot"]) => (hot ? (hot.kind === "tile" ? `tile:${hot.label}:${hot.ring}` : hot.kind) : "");
 
 /** Only what changed crosses back: the page has nothing to do with the rest. */
 const report = (out: FrameOutput) => {
+  // A sign of life about twice a second, so the page can tell a scene that is
+  // drawing from one that has stopped.
+  const now = performance.now();
+  if (now - pulseAt > 500) {
+    pulseAt = now;
+    scope.postMessage({ type: "pulse", frames: world?.frames ?? 0, received });
+  }
   const key = hotKey(out.hot);
   const moved =
     Number.isFinite(out.dockError) !== Number.isFinite(sentError) || Math.abs(out.dockError - sentError) > 0.2;
@@ -49,24 +58,37 @@ scope.onmessage = (event) => {
     case "init":
       World.create(message.options).then(
         (created) => {
-          world = created;
-          message.options.canvas.addEventListener("webglcontextlost", (lost) => {
-            lost.preventDefault();
-            world?.stop();
-            scope.postMessage({ type: "lost" });
-          });
-          created.start(
-            () => latest,
-            report,
-            () => scope.postMessage({ type: "cut" }),
-          );
-          scope.postMessage({ type: "ready", screen: created.screen });
+          // Anything that throws in here must still reach the page as a
+          // failure, or the page would wait for a scene that never answers.
+          try {
+            world = created;
+            message.options.canvas.addEventListener("webglcontextlost", (lost) => {
+              lost.preventDefault();
+              world?.stop();
+              scope.postMessage({ type: "lost" });
+            });
+            created.start(
+              () => latest,
+              report,
+              () => scope.postMessage({ type: "cut" }),
+            );
+            scope.postMessage({ type: "ready", screen: created.screen });
+          } catch (error) {
+            scope.postMessage({ type: "failed", message: String(error) });
+          }
         },
         (error: unknown) => scope.postMessage({ type: "failed", message: String(error) }),
       );
       break;
     case "frame":
       latest = message.input;
+      received++;
+      // The page posts one of these per frame of its own. If this thread's own
+      // frame loop has gone quiet while they keep arriving (seen in Chrome: a
+      // worker's animation frames can stop while the page's carry on), draw on
+      // the page's beat instead, so the scene keeps following the scroll and
+      // the app's window still arrives when the camera reaches the monitor.
+      if (world && world.idleFor > 150) world.step();
       break;
     case "pointer":
       world?.setPointer(message.point);

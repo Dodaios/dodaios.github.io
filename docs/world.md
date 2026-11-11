@@ -63,8 +63,14 @@ There are two states and the first needs no script.
   draw the scene. A chapter becomes a tall track with one screen pinned inside
   it. The class is set before the first paint because it decides the layout.
 
+`world-ready` is added by `boot.ts` the moment it runs, and only then may a
+chapter's copy be hidden for its entrance. A page whose script never arrives (a
+stale cached page, a blocked file) therefore still shows all of its copy.
+
 `world-live` is added when the scene has drawn its first frame. If the scene
-cannot start, `boot.ts` removes `world-on` again and the page is the plain one.
+cannot start, or its graphics context is lost later, `boot.ts` removes the
+classes again, clears what the scene wrote on the page, and keeps the reader in
+the chapter they were reading: the page is the plain one from then on.
 
 Two switches for checking, both in the address:
 
@@ -88,6 +94,19 @@ the page).
 
 Where a worker cannot take a canvas, the same code runs on the page's thread.
 Both paths answer to `WorldLink`; nothing above `link.ts` knows which it got.
+
+Two guards keep a worker from leaving the page waiting:
+
+- **A worker that neither starts nor fails** is given 25 seconds, then the
+  page's own thread takes over on a fresh canvas.
+- **A worker whose frame loop goes quiet.** In Chrome a worker's animation
+  frames were seen to stop while the page's carried on (about one cold load in
+  a hundred on the test machine, with the window in the background). The page
+  posts one message per frame of its own; when the worker has not drawn for
+  150 ms and such a message arrives, it draws on that message instead
+  (`world.worker.ts`). Checked by removing the worker's
+  `requestAnimationFrame`: the camera still reaches the monitor and the app's
+  window still arrives.
 
 ### The timeline
 
@@ -129,6 +148,15 @@ forwards every change of the canvas's size, not only window resizes.
 Until the two line up, the monitor shows `src/assets/world/screen.webp`, a
 picture of the app window in its opening state. After the app's look changes,
 take it again (see "The models").
+
+### What the pointer does
+
+Only on the front page, and only where no control of the page is under it: the
+mascot's eyes follow it, the camera leans a few degrees, a tile shows its name.
+A tile or the mascot answers a **click that did not travel**, never a press: a
+finger put down to scroll, or a drag that selects text, must not send the
+reader to another page. Behind a page of text nothing in the scene takes the
+pointer.
 
 ### Reduced motion
 

@@ -39,16 +39,123 @@ const SIDEBAR_W = 240;
 const RING_ROUTES = ["/plugins", "/skills", "/clis"];
 
 const root = document.documentElement;
+const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** Set while a scene is running: tells it that the mascot is being spoken to. */
+let listen: ((on: boolean) => void) | null = null;
+
+talk();
+
 const firstCanvas = document.querySelector<HTMLCanvasElement>("[data-world]");
 const dataNode = document.getElementById("world-data");
-
 if (firstCanvas && dataNode && root.classList.contains("world-on")) {
+  // From here on this script answers for the chapters' entrance: until this
+  // class is there nothing is hidden, so a page whose script never arrives
+  // (a stale cached page, a blocked file) still shows all of its copy.
+  root.classList.add("world-ready");
   run(firstCanvas, JSON.parse(dataNode.textContent || "{}") as WorldData);
+}
+
+/**
+ * Hold to talk. It plays one scripted exchange and belongs to the page, not to
+ * the scene: it works on the plain page too, where there is no mascot to lean in.
+ */
+function talk(): void {
+  const hold = document.querySelector<HTMLButtonElement>("[data-talk-hold]");
+  const said = document.querySelector<HTMLElement>("[data-talk-said]");
+  const reply = document.querySelector<HTMLElement>("[data-talk-reply]");
+  const status = document.querySelector<HTMLElement>("[data-talk-status]");
+  if (!hold || !said || !reply) return;
+
+  const request = said.dataset.text ?? "";
+  const answer = reply.dataset.text ?? "";
+  let typing = 0;
+  let pending = 0;
+  let held = false;
+
+  const stop = () => {
+    window.clearInterval(typing);
+    window.clearTimeout(pending);
+  };
+  const type = (node: HTMLElement, text: string, speed: number, done?: () => void) => {
+    window.clearInterval(typing);
+    if (calm) {
+      node.textContent = text;
+      done?.();
+      return;
+    }
+    let shown = node.textContent?.length ?? 0;
+    typing = window.setInterval(() => {
+      shown += 1;
+      node.textContent = text.slice(0, shown);
+      if (shown >= text.length) {
+        window.clearInterval(typing);
+        done?.();
+      }
+    }, speed);
+  };
+  const begin = () => {
+    if (held) return;
+    held = true;
+    stop();
+    hold.setAttribute("aria-pressed", "true");
+    listen?.(true);
+    said.textContent = "";
+    reply.textContent = "";
+    if (status) status.textContent = "";
+    type(said, request, 42);
+  };
+  const end = () => {
+    if (!held) return;
+    held = false;
+    stop();
+    hold.setAttribute("aria-pressed", "false");
+    listen?.(false);
+    // Letting go early still sends the whole sentence: this is a simulation.
+    said.textContent = request;
+    pending = window.setTimeout(
+      () =>
+        type(reply, answer, 24, () => {
+          // Read out once, whole, instead of letter by letter.
+          if (status) status.textContent = `You: ${request} Dodaios: ${answer}`;
+        }),
+      calm ? 0 : 420,
+    );
+  };
+
+  hold.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    hold.setPointerCapture(event.pointerId);
+    begin();
+  });
+  hold.addEventListener("pointerup", end);
+  hold.addEventListener("pointercancel", end);
+  hold.addEventListener("contextmenu", end);
+  hold.addEventListener("keydown", (event) => {
+    if ((event.key === " " || event.key === "Enter") && !event.repeat) {
+      event.preventDefault();
+      begin();
+    }
+  });
+  hold.addEventListener("keyup", (event) => {
+    if (event.key === " " || event.key === "Enter") {
+      // Otherwise the space bar's own click would start a second round.
+      event.preventDefault();
+      end();
+    }
+  });
+  hold.addEventListener("blur", end);
+  // A screen reader presses a button with a click and nothing else: no key
+  // goes down, no pointer. Such a click (`detail` is 0) plays the whole round.
+  hold.addEventListener("click", (event) => {
+    if (event.detail !== 0 || held) return;
+    begin();
+    window.setTimeout(end, calm ? 0 : 1100);
+  });
 }
 
 function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
   const home = data.scene === "home";
-  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const small = matchMedia("(max-width: 767px), (pointer: coarse) and (max-width: 1100px)").matches;
   const chapters = home ? Array.from(document.querySelectorAll<HTMLElement>("[data-chapter]")) : [];
   const dockStage = document.querySelector<HTMLElement>("[data-dock-stage]");
@@ -201,7 +308,13 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
       const lit = String(Math.round(state.ch.pods));
       if (podCount.textContent !== lit) podCount.textContent = lit;
     }
-    return { pose: state.pose, ch: state.ch, dockRect: state.ch.dock > 0.02 ? rect : null, pointerFree };
+    // Behind a page of text the scene is scenery: nothing in it takes the pointer.
+    return {
+      pose: state.pose,
+      ch: state.ch,
+      dockRect: state.ch.dock > 0.02 ? rect : null,
+      pointerFree: home && pointerFree,
+    };
   };
 
   let dockOpacity = -1;
@@ -235,7 +348,13 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
     }
   };
 
+  // The class has to come off again, or its animation would hold the canvas's
+  // opacity for good.
+  root.addEventListener("animationend", (event) => {
+    if (event.animationName === "world-cut") root.classList.remove("world-cut");
+  });
   const onCut = () => {
+    if (!home) return;
     root.classList.remove("world-cut");
     // Reading a layout property restarts the animation on the same frame.
     void canvas.offsetWidth;
@@ -248,97 +367,52 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
     target instanceof Element &&
     target.closest("a, button, input, textarea, select, label, iframe, summary, [data-ui]") !== null;
 
-  const point = (event: PointerEvent) => {
+  const point = (event: MouseEvent) => {
     const origin = canvasRect();
     return { x: event.clientX - origin.left, y: event.clientY - origin.top };
   };
 
-  window.addEventListener(
-    "pointermove",
-    (event) => {
-      pointerFree = !isUi(event.target);
-      world?.setPointer(point(event));
-      if (tip) {
-        tip.style.setProperty("--x", `${event.clientX}px`);
-        tip.style.setProperty("--y", `${event.clientY}px`);
-      }
-    },
-    { passive: true },
-  );
-  window.addEventListener("pointerdown", (event) => {
-    if (!world || event.button !== 0 || isUi(event.target)) return;
-    pointerFree = true;
-    world.setPointer(point(event));
-    void world.press().then((hit) => {
-      if (hit?.kind === "tile") window.location.assign(RING_ROUTES[hit.ring] ?? "/plugins");
-    });
-  });
-  const release = (event: PointerEvent) => {
-    // A finger leaves no pointer behind; without this the camera stays leaning.
-    if (event.pointerType !== "mouse") world?.setPointer(null);
-  };
-  window.addEventListener("pointerup", release, { passive: true });
-  window.addEventListener("pointercancel", release, { passive: true });
-  document.addEventListener("pointerleave", () => world?.setPointer(null));
-
-  /* ---- Hold to talk --------------------------------------------------- */
-
-  const hold = document.querySelector<HTMLButtonElement>("[data-talk-hold]");
-  const said = document.querySelector<HTMLElement>("[data-talk-said]");
-  const reply = document.querySelector<HTMLElement>("[data-talk-reply]");
-  if (hold && said && reply) {
-    const request = said.dataset.text ?? "";
-    const answer = reply.dataset.text ?? "";
-    let timer = 0;
-    let held = false;
-    const type = (node: HTMLElement, text: string, speed: number) => {
-      window.clearInterval(timer);
-      if (calm) {
-        node.textContent = text;
-        return;
-      }
-      let shown = node.textContent?.length ?? 0;
-      timer = window.setInterval(() => {
-        shown += 1;
-        node.textContent = text.slice(0, shown);
-        if (shown >= text.length) window.clearInterval(timer);
-      }, speed);
-    };
-    const begin = () => {
-      if (held) return;
-      held = true;
-      hold.setAttribute("aria-pressed", "true");
-      world?.setListening(true);
-      said.textContent = "";
-      reply.textContent = "";
-      type(said, request, 42);
-    };
-    const end = () => {
-      if (!held) return;
-      held = false;
-      hold.setAttribute("aria-pressed", "false");
-      world?.setListening(false);
-      // Letting go early still sends the whole sentence: this is a simulation.
-      window.clearInterval(timer);
-      said.textContent = request;
-      window.setTimeout(() => type(reply, answer, 24), calm ? 0 : 420);
-    };
-    hold.addEventListener("pointerdown", (event) => {
-      hold.setPointerCapture(event.pointerId);
-      begin();
-    });
-    hold.addEventListener("pointerup", end);
-    hold.addEventListener("pointercancel", end);
-    hold.addEventListener("keydown", (event) => {
-      if ((event.key === " " || event.key === "Enter") && !event.repeat) {
-        event.preventDefault();
-        begin();
+  if (home) {
+    window.addEventListener(
+      "pointermove",
+      (event) => {
+        pointerFree = !isUi(event.target);
+        world?.setPointer(point(event));
+        if (tip) {
+          tip.style.setProperty("--x", `${event.clientX}px`);
+          tip.style.setProperty("--y", `${event.clientY}px`);
+        }
+      },
+      { passive: true },
+    );
+    // A CLICK that did not travel, not a press: a finger put down to scroll, or
+    // a drag that selects text, must never send the reader to another page.
+    let pressedAt = { x: 0, y: 0 };
+    window.addEventListener(
+      "pointerdown",
+      (event) => {
+        pressedAt = { x: event.clientX, y: event.clientY };
+      },
+      { passive: true },
+    );
+    window.addEventListener("click", (event) => {
+      if (!world || event.button !== 0 || isUi(event.target)) return;
+      if (Math.hypot(event.clientX - pressedAt.x, event.clientY - pressedAt.y) > 8) return;
+      pointerFree = true;
+      world.setPointer(point(event));
+      void world.press().then((hit) => {
+        if (hit?.kind === "tile") window.location.assign(RING_ROUTES[hit.ring] ?? "/plugins");
+      });
+      // A finger leaves no pointer behind; without this the camera stays leaning.
+      if ((event as PointerEvent).pointerType && (event as PointerEvent).pointerType !== "mouse") {
+        world.setPointer(null);
       }
     });
-    hold.addEventListener("keyup", (event) => {
-      if (event.key === " " || event.key === "Enter") end();
-    });
-    hold.addEventListener("blur", end);
+    const release = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") world?.setPointer(null);
+    };
+    window.addEventListener("pointercancel", release, { passive: true });
+    document.addEventListener("pointerleave", () => world?.setPointer(null));
   }
 
   /* ---- Start ---------------------------------------------------------- */
@@ -371,28 +445,52 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
       setTimeout(done, 1500);
     });
 
+  /**
+   * The scene is gone or never came: hand the page back as the plain page,
+   * with nothing the scene wrote left on it, and with the reader still in the
+   * chapter they were reading (the plain page's chapters are far shorter).
+   */
   const giveUp = (error: unknown) => {
     console.warn("[world] the 3D scene could not start; the page continues without it", error);
     world = null;
-    root.classList.remove("world-on", "world-live");
+    listen = null;
+    const reading = chapters.find((el) => {
+      const box = el.getBoundingClientRect();
+      return box.top <= window.innerHeight * 0.5 && box.bottom > window.innerHeight * 0.5;
+    });
+    const wasScrolled = window.scrollY > 0;
+    root.classList.remove("world-on", "world-live", "world-ready", "world-cut");
     root.classList.add("world-off");
+    root.removeAttribute("data-world-hot");
+    if (dockStage) {
+      dockStage.style.removeProperty("opacity");
+      dockStage.removeAttribute("data-shown");
+      dockStage.removeAttribute("data-live");
+    }
+    if (tip) {
+      tip.textContent = "";
+      tip.removeAttribute("data-on");
+    }
+    if (reading && wasScrolled) reading.scrollIntoView({ block: "start" });
   };
 
   const start = async () => {
     await painted();
     await idle();
+    let link: WorldLink;
     try {
       const opened = await openWorld(canvas, {
         tier: { small: small || !home, calm, maxPixelRatio: small ? 1.5 : home ? 2 : 1.5 },
         stargazers: data.stargazers,
       });
       canvas = opened.canvas;
-      world = opened.link;
+      link = opened.link;
     } catch (error) {
       giveUp(error);
       return;
     }
-    const link = world;
+    world = link;
+    listen = (on) => link.setListening(on);
     link.onLost(() => giveUp(new Error("the graphics context was lost")));
     measure();
     link.resize(size.width, size.height);
@@ -425,6 +523,9 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
   if (/[?&]world=debug/.test(window.location.search)) {
     (window as unknown as { __world: () => unknown }).__world = () => ({
       threaded: world?.threaded ?? null,
+      line: world?.debug() ?? null,
+      hidden: document.hidden,
+      focused: document.hasFocus(),
       size,
       canvas: [canvas.clientWidth, canvas.clientHeight],
       dockInView,

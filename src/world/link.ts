@@ -34,6 +34,8 @@ export interface WorldLink {
   extend(extras: Partial<Extras>): Promise<void>;
   /** Called once if the graphics context is lost for good. */
   onLost(callback: () => void): void;
+  /** What the line knows about itself, for `?world=debug`. */
+  debug(): Record<string, unknown>;
 }
 
 export interface OpenOptions {
@@ -88,6 +90,7 @@ async function openLocal(canvas: HTMLCanvasElement, shared: Shared): Promise<Wor
     onLost: (callback) => {
       lost = callback;
     },
+    debug: () => ({ frames: world.frames }),
   };
 }
 
@@ -101,6 +104,7 @@ function openThreaded(canvas: HTMLCanvasElement, shared: Shared): Promise<WorldL
     let lost: (() => void) | null = null;
     let paused = false;
     let settled = false;
+    const seen = { posted: 0, pulses: 0, frames: 0, received: 0, pulseAt: 0, messages: 0 };
 
     const ask = <T>(message: Record<string, unknown>, transfer: Transferable[] = []): Promise<T> =>
       new Promise((done) => {
@@ -110,17 +114,30 @@ function openThreaded(canvas: HTMLCanvasElement, shared: Shared): Promise<WorldL
       });
 
     const fail = (error: unknown) => {
-      if (settled) return;
+      if (settled) {
+        // The worker broke after it had started. Nobody may be left waiting
+        // for an answer, and the page has to learn that the scene is gone.
+        for (const done of waiting.values()) done({ hot: null });
+        waiting.clear();
+        lost?.();
+        return;
+      }
       settled = true;
+      window.clearTimeout(patience);
       worker.terminate();
       reject(error instanceof Error ? error : new Error(String(error)));
     };
-    worker.onerror = (event) => fail(new Error(event.message || "the scene's worker failed to load"));
+    worker.onerror = (event) => fail(new Error(event.message || "the scene's worker failed"));
+    worker.onmessageerror = () => fail(new Error("the scene's worker sent something unreadable"));
+    // A worker that neither starts nor fails must not hold the page for ever.
+    const patience = window.setTimeout(() => fail(new Error("the scene's worker did not answer")), 25_000);
 
     worker.onmessage = (event: MessageEvent) => {
       const message = event.data as { type: string; [key: string]: unknown };
+      seen.messages++;
       if (message.type === "ready") {
         settled = true;
+        window.clearTimeout(patience);
         resolve({
           screen: message.screen as WorldLink["screen"],
           threaded: true,
@@ -132,7 +149,10 @@ function openThreaded(canvas: HTMLCanvasElement, shared: Shared): Promise<WorldL
               requestAnimationFrame(tick);
               if (paused) return;
               const input = getFrame();
-              if (input) worker.postMessage({ type: "frame", input });
+              if (input) {
+                worker.postMessage({ type: "frame", input });
+                seen.posted++;
+              }
             };
             requestAnimationFrame(tick);
           },
@@ -151,7 +171,13 @@ function openThreaded(canvas: HTMLCanvasElement, shared: Shared): Promise<WorldL
           onLost(callback) {
             lost = callback;
           },
+          debug: () => ({ ...seen, paused, sincePulse: Math.round(performance.now() - seen.pulseAt) }),
         });
+      } else if (message.type === "pulse") {
+        seen.pulses++;
+        seen.frames = message.frames as number;
+        seen.received = message.received as number;
+        seen.pulseAt = performance.now();
       } else if (message.type === "failed") fail(new Error(String(message.message)));
       else if (message.type === "frame") onFrame?.(message.out as FrameOutput);
       else if (message.type === "cut") onCut?.();

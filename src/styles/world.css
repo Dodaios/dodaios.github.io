@@ -57,9 +57,11 @@ html.world-live .world-canvas--still {
   transition: opacity 400ms ease;
 }
 
-/* Reduced motion: the camera does not travel, the picture changes in a blink. */
-html.world-cut .world-canvas {
-  animation: world-cut 520ms ease both;
+/* Reduced motion: the camera does not travel, the picture changes in a blink.
+ * Not on a still: its opacity belongs to the rule above, and an animation that
+ * ends on full strength would take it over. */
+html.world-cut .world-canvas:not(.world-canvas--still) {
+  animation: world-cut 520ms ease;
 }
 
 @keyframes world-cut {
@@ -321,8 +323,9 @@ html.world-on .stars3d__head::before {
 }
 
 /* Each line of a chapter's copy arrives a beat after the one above it. Only
- * where the scene runs: on the plain page nothing is ever hidden. */
-html.world-on .chapter:not([data-seen]) .reveal {
+ * once boot.ts has taken charge (`world-ready`): on the plain page, and on a
+ * page whose script never arrived, nothing is ever hidden. */
+html.world-ready .chapter:not([data-seen]) .reveal {
   opacity: 0;
   translate: 0 1.25rem;
 }
@@ -335,7 +338,7 @@ html.world-on .reveal {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.world-on .chapter:not([data-seen]) .reveal {
+  html.world-ready .chapter:not([data-seen]) .reveal {
     translate: none;
   }
 

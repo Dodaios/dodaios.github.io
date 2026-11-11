@@ -272,9 +272,26 @@ export class World {
     return { width: this.width, height: this.height };
   }
 
+  /** Frames drawn so far; a host can watch it to see that the scene is alive. */
+  frames = 0;
+
   private readonly tick = (): void => {
     if (!this.running) return;
     this.frame = requestAnimationFrame(this.tick);
+    this.step();
+  };
+
+  /** Milliseconds since the last frame was worked out. */
+  get idleFor(): number {
+    return performance.now() - this.last;
+  }
+
+  /**
+   * Work out and draw one frame. The frame loop calls it; a host may call it
+   * too when the loop has gone quiet (see world.worker.ts).
+   */
+  step(): void {
+    if (!this.running) return;
     const now = performance.now();
     const elapsed = Math.max(0, (now - this.last) / 1000);
     this.last = now;
@@ -360,13 +377,19 @@ export class World {
     this.rings?.update(this.ch, time, { x: pose.sx, y: pose.sy });
 
     this.renderer.render(this.scene, this.camera);
+    this.frames++;
 
     this.out.dockError = input.dockRect ? this.dockError(input.dockRect) : Infinity;
+    if (!free && this.hover) {
+      // The pointer left the scene: no tile may stay lit behind it.
+      this.hover = null;
+      this.rings?.setHover(null);
+    }
     this.out.hot = free ? this.probe() : null;
     this.onFrame?.(this.out);
 
     this.watchSpeed(dt);
-  };
+  }
 
   /** The worst distance between a screen corner and the matching corner of `rect`. */
   private dockError(rect: Rect): number {
@@ -410,7 +433,9 @@ export class World {
    */
   private watchSpeed(dt: number): void {
     if (this.reveal < 1) return;
-    if (dt > 0.026) this.slowFrames++;
+    // Under 25 frames a second. Not "under 60": a screen held at 30 Hz to save
+    // its battery draws every frame with ease, and must keep its sharp picture.
+    if (dt > 0.04) this.slowFrames++;
     else this.fastFrames++;
     if (this.slowFrames + this.fastFrames < 90) return;
     const slow = this.slowFrames > 45;

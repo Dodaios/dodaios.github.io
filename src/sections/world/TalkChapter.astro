@@ -24,10 +24,13 @@ const REPLY = "On it. I wrote the brief and typed it into pane T1.";
         <span class="talk__dot" aria-hidden="true"></span>
         Hold to talk
       </button>
-      <div class="talk__lines" aria-live="polite">
+      {/* The lines are typed letter by letter, which is for the eye only: a
+          screen reader gets the finished exchange once, from the status line. */}
+      <div class="talk__lines" aria-hidden="true">
         <p class="talk__line"><span class="talk__who">You</span><span data-talk-said data-text={SAID}></span></p>
         <p class="talk__line"><span class="talk__who">Dodaios</span><span data-talk-reply data-text={REPLY}></span></p>
       </div>
+      <p class="sr-only" role="status" data-talk-status></p>
       <p class="fine" id="talk-note">A simulation. This page never opens your microphone.</p>
     </div>
   </div>

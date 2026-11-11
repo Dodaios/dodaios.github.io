@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-11-10T13:46:08.735Z",
+  "generatedAt": "2026-11-11T12:57:24.508Z",
   "platforms": {
     "youtube": {
-      "value": 63,
-      "readAt": "2026-11-09T14:20:40.175Z",
+      "value": 65,
+      "readAt": "2026-11-11T12:57:24.508Z",
       "source": "youtube-channel-page",
       "account": "@Dodaios"
     },
@@ -14,8 +14,8 @@
       "account": "@PersonalJarvis"
     },
     "github": {
-      "value": 358,
-      "readAt": "2026-11-10T13:46:08.735Z",
+      "value": 361,
+      "readAt": "2026-11-11T12:57:24.508Z",
       "source": "github-rest-api",
       "account": "Dodaios/Dodaios"
     },

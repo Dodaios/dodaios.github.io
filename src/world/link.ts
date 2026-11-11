@@ -21,6 +21,7 @@ import monoMediumUrl from "@/assets/app/jetbrains-mono-latin-500-normal.woff2?ur
 
 import type { LabelTexts } from "./parts/labels";
 import type { RingData } from "./parts/rings";
+import type { GlobeData } from "./parts/globe";
 import type { Extras, FrameInput, FrameOutput, WorldOptions } from "./World";
 
 export interface WorldLink {
@@ -53,6 +54,7 @@ export interface OpenOptions {
   tier: Tier;
   stargazers: number;
   labels: LabelTexts;
+  globe: GlobeData;
 }
 
 /** The values of the scene's colour tokens, read from the page's stylesheet. */
@@ -242,6 +244,7 @@ export async function openWorld(
     tier: options.tier,
     stargazers: options.stargazers,
     labels: options.labels,
+    globe: options.globe,
     // The app's own two typefaces (SIL OFL), the files its clone already loads.
     fonts: [
       { family: "Inter", url: interUrl, weight: "100 900" },

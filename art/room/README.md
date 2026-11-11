@@ -18,8 +18,8 @@ file is about building it.
 | `zone_desk.py` | The desk at the back wall and the wordmark above it. |
 | `zone_right.py` | The agents wall on the right wall and the shelf in the back-right corner. |
 | `zone_lounge.py` | The holo table, the armchair, the lightbox on the front wall, the door. |
-| `zone_window.py` | The window in the left wall, the star counter on its sill, the corkboard. |
-| `zone_corner.py` | The whiteboard on the back wall, the blueprint on the left wall. |
+| `zone_window.py` | The window in the left wall, the star counter on its sill, the globe's floor stand, the corkboard. |
+| `zone_corner.py` | The whiteboard on the back wall, the display for the repository on the left wall. |
 | `bake_shell.py` | Walls, floor and ceiling, baked with every zone standing in them. |
 | `fonts/` | Inter at two weights (SIL Open Font License 1.1), instanced from the variable font with overlapping contours removed, for lettering that is geometry (the wordmark). |
 

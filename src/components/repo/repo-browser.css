@@ -1,0 +1,375 @@
+/*
+ * The repository browser on the room's wall display (RepoBrowser.tsx).
+ *
+ * It wears the look of the site it reads from, in that site's dark theme, so a
+ * visitor knows at a glance what they are looking at. The colours are the
+ * `--site-*` and `--chrome-*` tokens. The window has the display's own shape
+ * (art/room/spec.py, `Screen_repo`: 1.04 x 0.65 m): where the room runs, the
+ * camera puts that display exactly under it. Its content flows inside that
+ * shape and scrolls there.
+ */
+.repo-window {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  width: 100%;
+  aspect-ratio: 1.04 / 0.65;
+  overflow: hidden;
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-sm);
+  background: var(--site-canvas);
+  color: var(--chrome-text);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.repo-window a {
+  color: var(--site-link);
+}
+
+.repo-window a:hover,
+.repo-window a:focus-visible {
+  text-decoration: underline;
+}
+
+.repo-window button {
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.repo-window :focus-visible {
+  outline: 2px solid var(--site-link);
+  outline-offset: -2px;
+}
+
+.repo__dim {
+  color: var(--chrome-muted);
+}
+
+.repo__add {
+  color: var(--success);
+}
+
+.repo__del {
+  color: var(--error);
+}
+
+.repo__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.625rem 0.875rem 0.5rem;
+  background: color-mix(in srgb, var(--site-canvas) 70%, var(--canvas));
+}
+
+.repo__name {
+  font-size: 0.9375rem;
+}
+
+.repo__badge {
+  margin-left: 0.5rem;
+  padding: 0.0625rem 0.4375rem;
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-lg);
+  color: var(--chrome-muted);
+  font-size: 0.6875rem;
+  vertical-align: 0.1em;
+}
+
+.repo__facts {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.repo__out {
+  padding: 0.1875rem 0.625rem;
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--site-border) 45%, transparent);
+}
+
+.repo-window .repo__out {
+  color: var(--chrome-text);
+}
+
+.repo__tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.625rem;
+  border-bottom: 1px solid var(--site-border);
+  background: color-mix(in srgb, var(--site-canvas) 70%, var(--canvas));
+}
+
+.repo__tabs button {
+  padding: 0.4375rem 0.625rem;
+  border-bottom: 2px solid transparent;
+  color: var(--chrome-muted);
+}
+
+.repo__tabs button[aria-current="page"] {
+  border-bottom-color: var(--site-orange);
+  color: var(--chrome-text);
+  font-weight: 600;
+}
+
+.repo__branch {
+  margin-left: auto;
+  padding: 0.0625rem 0.5rem;
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--chrome-muted);
+}
+
+.repo__body {
+  overflow: auto;
+  padding: 0.625rem 0.875rem 0.875rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--site-border) transparent;
+}
+
+.repo__body[aria-busy="true"] {
+  cursor: progress;
+}
+
+.repo__crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.repo__crumbs button {
+  color: var(--site-link);
+}
+
+.repo__crumbs .repo__back {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 0.25rem;
+  place-items: center;
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-sm);
+  color: var(--chrome-text);
+}
+
+.repo__icon {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  fill: var(--chrome-muted);
+  color: var(--chrome-muted);
+}
+
+.repo__icon[data-kind="dir"] {
+  fill: var(--site-link);
+}
+
+.repo__latest {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--site-border);
+  border-bottom: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: color-mix(in srgb, var(--site-border) 35%, transparent);
+  text-align: left;
+}
+
+.repo__latest-title,
+.repo__row-name {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo__rows {
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-sm);
+}
+
+.repo__latest + .repo__rows {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.repo__rows li + li {
+  border-top: 1px solid var(--site-border);
+}
+
+.repo__rows button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.375rem 0.75rem;
+  text-align: left;
+}
+
+.repo__rows button:hover {
+  background: color-mix(in srgb, var(--site-border) 30%, transparent);
+}
+
+.repo__rows .repo__dim {
+  flex: none;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.repo__wait {
+  padding: 0.625rem 0.75rem;
+  color: var(--chrome-muted);
+}
+
+.repo__file-facts {
+  margin-bottom: 0.375rem;
+  font-size: 0.75rem;
+}
+
+.repo__code {
+  overflow-x: auto;
+  padding: 0.5rem 0;
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-sm);
+  counter-reset: line;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.repo__code li {
+  display: flex;
+  counter-increment: line;
+  white-space: pre;
+}
+
+.repo__code li::before {
+  content: counter(line);
+  flex: none;
+  width: 3.25rem;
+  padding-right: 0.875rem;
+  color: var(--chrome-muted);
+  text-align: right;
+  user-select: none;
+}
+
+.repo__commit-title {
+  margin: 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.repo__commit-body {
+  margin-bottom: 0.5rem;
+  color: var(--chrome-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+}
+
+.repo__diff {
+  margin-top: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--site-border);
+  border-radius: var(--radius-sm);
+}
+
+.repo__diff-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  background: color-mix(in srgb, var(--site-border) 35%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.repo__patch {
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+.repo__patch span {
+  display: block;
+  padding-inline: 0.75rem;
+  white-space: pre;
+}
+
+.repo__patch [data-kind="add"] {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+}
+
+.repo__patch [data-kind="del"] {
+  background: color-mix(in srgb, var(--error) 16%, transparent);
+}
+
+.repo__patch [data-kind="hunk"] {
+  color: var(--chrome-muted);
+  background: color-mix(in srgb, var(--site-link) 9%, transparent);
+}
+
+.repo__foot {
+  padding: 0.3125rem 0.875rem;
+  border-top: 1px solid var(--site-border);
+  color: var(--chrome-muted);
+  font-size: 0.6875rem;
+}
+
+.repo-window[data-source="live"] .repo__foot::before {
+  content: "";
+  display: inline-block;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  margin-right: 0.4375rem;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+/* A phone: the wall display would be a few lines high, so the window is a
+ * panel of its own height there (boot.ts shows it without docking it). The
+ * condition is the one boot.ts calls `small`. */
+@media (max-width: 767px), (pointer: coarse) and (max-width: 1100px) {
+  html.world-on .repo-window {
+    aspect-ratio: auto;
+    height: min(62svh, 34rem);
+  }
+}
+
+/* Less chrome on a narrow window, the list first. */
+@media (max-width: 640px) {
+  .repo-window {
+    font-size: 0.75rem;
+  }
+
+  .repo__head {
+    padding: 0.4375rem 0.625rem 0.375rem;
+  }
+
+  .repo__facts .repo__dim,
+  .repo__badge {
+    display: none;
+  }
+
+  .repo__body {
+    padding: 0.4375rem 0.5rem 0.625rem;
+  }
+
+  .repo__foot {
+    display: none;
+  }
+}

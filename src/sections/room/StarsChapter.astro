@@ -27,7 +27,8 @@ const github = SOCIAL_STATS.find((stat) => stat.id === "github")!;
     <span class="sr-only"> {STARS.unit}</span>
   </h2>
   <p class="lede">{STARS.lede}</p>
-  <ul class="quotes" aria-label="What people say">
+  <h3 class="quotes__title">{STARS.board}</h3>
+  <ul class="quotes" aria-label={STARS.board}>
     {
       STARS.cards.map((card, i) => (
         <li class="contents">
@@ -47,6 +48,6 @@ const github = SOCIAL_STATS.find((stat) => stat.id === "github")!;
       <GitHubMark className="button__mark" />
       {STARS.link} <span aria-hidden="true">→</span>
     </a>
-    <span class="hud__note">Each light is one star · the cards are real quotes, press one to read it where it was said</span>
+    <span class="hud__note hud__note--world">A pin for every place a stargazer lives · the cards are real quotes: press one to read it where it was said</span>
   </Fragment>
 </Chapter>

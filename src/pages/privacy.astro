@@ -13,6 +13,10 @@
  *                  (StarsChapter.astro), calls api.github.com from the browser
  *                  when the figure comes into view and caches the number in
  *                  sessionStorage.
+ *   repository     RepoBrowser.tsx, in the front page's open-source chapter
+ *                  (OpenChapter.astro), calls api.github.com from the browser
+ *                  when it comes into view, and again for each folder, file or
+ *                  commit the visitor opens; answers are kept in sessionStorage.
  *   nothing else   no cookies, no analytics, no web fonts from a CDN, no forms,
  *                  no video embeds. The 3D scene is drawn in the browser from
  *                  files this site serves itself. The YouTube gallery and the
@@ -88,23 +92,27 @@ import { IMPRINT_HREF, OPERATOR } from "@/lib/legal";
 
   <h2>Live figures from GitHub</h2>
   <p>
-    The project's star count is fetched live from GitHub's public API
-    (api.github.com) when the figure comes into view on the front page. For
-    this, your browser connects
-    directly to GitHub, which receives your IP address and browser
+    Two things on the front page are fetched live from GitHub's public API
+    (api.github.com): the project's star count, when the figure comes into
+    view, and the view of the project's repository, when it comes into view,
+    which shows the repository's public files, its latest commits and what a
+    commit changed, each fetched when you open it. For this, your browser
+    connects directly to GitHub, which receives your IP address and browser
     information. No login and no cookie is involved, and we do not receive any
     of this data.
   </p>
   <p>
     The legal basis is Article 6(1)(f) GDPR: our legitimate interest in
-    showing a current figure instead of an outdated one. GitHub, Inc. is based
+    showing the current figure and the repository as it is, instead of
+    outdated copies. GitHub, Inc. is based
     in the USA and certified under the EU–U.S. Data Privacy Framework.
   </p>
   <p>
-    So that the number is not fetched again on every page view, your browser
-    keeps it in its session storage until you close the tab. This stores only
-    the public number, no personal data, and is strictly necessary for the
-    function you see (Section 25(2) No. 2 TDDDG).
+    So that nothing is fetched again on every page view, your browser keeps
+    the number, and the answers about the repository it has received, in its
+    session storage until you close the tab. This stores only public data of
+    the project, no personal data, and is strictly necessary for the function
+    you see (Section 25(2) No. 2 TDDDG).
   </p>
 
   <h2>Links to other sites</h2>

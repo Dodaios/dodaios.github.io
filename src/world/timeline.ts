@@ -69,14 +69,16 @@ export interface Channels {
   rings: number;
   /** Which ring is lit: 1 plugins, 2 skills, 3 command-line tools. 0 none. */
   ring: number;
-  /** The set shows its wireframe. */
-  wire: number;
   /** The stargazer lights are up. */
   stars: number;
   /** The mascot listens. */
   voice: number;
-  /** The camera is docked onto the monitor. */
+  /** The camera is docked onto the desk's monitor. */
   dock: number;
+  /** The camera is docked onto the repository display on the wall. */
+  repo: number;
+  /** The globe by the window is the subject. */
+  globe: number;
 }
 
 export const CHANNELS_AT_REST: Channels = {
@@ -84,26 +86,39 @@ export const CHANNELS_AT_REST: Channels = {
   agents: 0,
   rings: 0,
   ring: 0,
-  wire: 0,
   stars: 0,
   voice: 0,
   dock: 0,
+  repo: 0,
+  globe: 0,
 };
 
-/** The one shot that is not written down: it is read off the page. */
-export const DOCK = "dock" as const;
+/**
+ * A shot that is not written down but read off the page: the camera stands
+ * straight in front of one of the room's screens, at the one distance where
+ * that screen covers its element in the page exactly.
+ */
+export interface DockShot {
+  dock: "desk" | "repo";
+}
+/** Seated at the desk: the monitor is the app. */
+export const DOCK: DockShot = { dock: "desk" };
+/** In front of the display on the wall: it is the repository. */
+export const DOCK_REPO: DockShot = { dock: "repo" };
+
+export const isDock = (shot: Shot | DockShot): shot is DockShot => "dock" in shot;
 
 export interface Beat {
   /** Position inside the chapter's pinned stretch, 0..1. */
   at: number;
-  shot: Shot | typeof DOCK;
+  shot: Shot | DockShot;
   ch?: Partial<Channels>;
 }
 
 export interface Key {
   /** Scroll position in px. */
   y: number;
-  shot: Shot | typeof DOCK;
+  shot: Shot | DockShot;
   ch: Channels;
   chapter: string;
 }
@@ -128,12 +143,19 @@ export interface Viewport {
   column?: { x0: number; x1: number };
 }
 
-/** The monitor's screen in the world, and the element it has to land on. */
-export interface DockTarget {
+/** A screen of the room, as a rectangle in the world. */
+export interface ScreenQuad {
   /** Centre of the screen quad, world space. */
   center: Vec3;
-  /** Height of the screen quad in metres. */
+  /** Size of the screen quad in metres. */
+  width: number;
   height: number;
+  /** The way it faces, degrees about the vertical axis: 0 faces +Z, 90 faces +X. */
+  yaw: number;
+}
+
+/** A screen in the world, and the element it has to land on. */
+export interface DockTarget extends ScreenQuad {
   /** The element's rectangle in the window, px. */
   rect: { left: number; top: number; width: number; height: number };
 }
@@ -237,7 +259,7 @@ export function resolveDock(dock: DockTarget, viewport: Viewport): Pose {
     tx: dock.center[0],
     ty: dock.center[1],
     tz: dock.center[2],
-    az: 0,
+    az: dock.yaw,
     el: 0,
     dist: (dock.height * viewport.height) / (2 * height * tan),
     fov: DOCK_FOV,
@@ -292,10 +314,11 @@ export function lerpChannels(a: Channels, b: Channels, t: number): Channels {
     agents: lerp(a.agents, b.agents, t),
     rings: lerp(a.rings, b.rings, t),
     ring: lerp(a.ring, b.ring, t),
-    wire: lerp(a.wire, b.wire, t),
     stars: lerp(a.stars, b.stars, t),
     voice: lerp(a.voice, b.voice, t),
     dock: lerp(a.dock, b.dock, t),
+    repo: lerp(a.repo, b.repo, t),
+    globe: lerp(a.globe, b.globe, t),
   };
 }
 
@@ -316,16 +339,15 @@ export function sample(
   keys: readonly Key[],
   y: number,
   viewport: Viewport,
-  dock: DockTarget | null,
+  docks: Partial<Record<DockShot["dock"], DockTarget>>,
   calm = false,
 ): Sample | null {
   if (keys.length === 0) return null;
-  const resolve = (key: Key): Pose =>
-    key.shot === DOCK
-      ? dock
-        ? resolveDock(dock, viewport)
-        : resolveShot(FALLBACK_SHOT, viewport)
-      : resolveShot(key.shot, viewport);
+  const resolve = (key: Key): Pose => {
+    if (!isDock(key.shot)) return resolveShot(key.shot, viewport);
+    const dock = docks[key.shot.dock];
+    return dock ? resolveDock(dock, viewport) : resolveShot(FALLBACK_SHOTS[key.shot.dock], viewport);
+  };
 
   let i = 0;
   while (i < keys.length - 1 && keys[i + 1].y <= y) i++;
@@ -348,14 +370,13 @@ export function sample(
 }
 
 /** Used only if a dock beat is sampled before the page has told us where the screen goes. */
-const FALLBACK_SHOT: Shot = {
-  target: [0, 1.16, -2.38],
-  az: 0,
-  el: 0,
-  fit: 0.45,
-  fov: DOCK_FOV,
+const FALLBACK_BOXES = {
   wide: { x0: 0.1, y0: 0.1, x1: 0.9, y1: 0.9 },
   tall: { x0: 0, y0: 0.25, x1: 1, y1: 0.75 },
+};
+const FALLBACK_SHOTS: Record<DockShot["dock"], Shot> = {
+  desk: { target: [0, 1.16, -2.38], az: 0, el: 0, fit: 0.45, fov: DOCK_FOV, ...FALLBACK_BOXES },
+  repo: { target: [-3.555, 1.6, -1.85], az: 90, el: 0, fit: 0.62, fov: DOCK_FOV, reach: 2.6, ...FALLBACK_BOXES },
 };
 
 /** Where the camera stands for a pose, as a point in the world. */

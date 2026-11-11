@@ -69,6 +69,7 @@ const VERTEX = /* glsl */ `
   uniform vec3 uRingR;
   uniform vec3 uPhase;
   uniform float uRings;
+  uniform float uFocus;
   uniform float uHover;
   uniform float uTime;
   /* 1 for the tiles themselves; more for the glow drawn around them. */
@@ -87,13 +88,15 @@ const VERTEX = /* glsl */ `
     float ring = aPlace.y;
     float radius = pick(uRingR, ring);
     float angle = aPlace.x + pick(uPhase, ring);
-    // The rings are projected out of the table: each tile rises into its place.
-    float appear = smoothstep(aPlace.z * 0.6, aPlace.z * 0.6 + 0.4, uRings);
+    // The hologram shows one ring at a time. Its tiles rise out of the table
+    // into their places, one after another; the others are folded back into it.
+    float shown = uRings * (1.0 - clamp(abs(uFocus - (ring + 1.0)), 0.0, 1.0));
+    float appear = smoothstep(aPlace.z * 0.5, aPlace.z * 0.5 + 0.5, shown);
     float hover = 1.0 - step(0.5, abs(uHover - aIndex));
     vec2 size = aSize * appear * (1.0 + 0.12 * hover) * uGrow;
     vec3 center = uCenter + vec3(
       sin(angle) * radius,
-      pick(uRingY, ring) * appear + sin(uTime * 0.6 + aPlace.z * 40.0) * 0.012 - (1.0 - appear) * 0.5,
+      pick(uRingY, ring) * appear + sin(uTime * 0.6 + aPlace.z * 40.0) * 0.012 - (1.0 - appear) * 0.72,
       cos(angle) * radius
     );
     vec3 right = vec3(cos(angle), 0.0, -sin(angle));
@@ -205,10 +208,11 @@ const GLOW_FRAGMENT = /* glsl */ `
 const COLUMNS = 10;
 const ROWS = 8;
 /** Tile sizes in metres. */
-const MARK_TILE = 0.16;
-const CARD_TILE = { width: 0.255, height: 0.16 };
-/** How many skills fit their ring without touching. */
-const SKILL_CARDS = 16;
+const MARK_TILE = 0.21;
+const CARD_TILE = { width: 0.36, height: 0.225 };
+/** How many tiles fit a ring of one metre's radius without touching. */
+const MARK_TILES = 24;
+const SKILL_CARDS = 14;
 
 export async function createRings(ctx: Context, data: RingData, at: Vector3): Promise<Rings> {
   const scale = ctx.tier.small ? 1 : 2;
@@ -243,14 +247,25 @@ export async function createRings(ctx: Context, data: RingData, at: Vector3): Pr
     const x = (cell % COLUMNS) * cellW;
     const y = Math.floor(cell / COLUMNS) * cellH;
     const pad = 16 * scale;
-    g.font = `500 ${15 * scale}px "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace`;
-    let label = name;
-    while (label.length > 4 && g.measureText(label).width > cellW - pad * 2) label = `${label.slice(0, -2)}…`;
-    g.fillText(label, x + pad, y + pad + 14 * scale);
-    for (let line = 0; line < 4; line++) {
-      const width = (cellW - pad * 2) * [0.92, 0.74, 0.86, 0.48][line];
-      g.globalAlpha = 0.34;
-      g.fillRect(x + pad, y + pad + (34 + line * 16) * scale, width, 5 * scale);
+    // The name in up to two lines, then a few lines of "text": a skill is a text file.
+    g.font = `600 ${19 * scale}px "Inter", system-ui, "Segoe UI", sans-serif`;
+    const words = name.split(" ");
+    const rows: string[] = [];
+    let row = "";
+    for (const word of words) {
+      const next = row ? `${row} ${word}` : word;
+      if (row && g.measureText(next).width > cellW - pad * 2) {
+        rows.push(row);
+        row = word;
+      } else row = next;
+    }
+    if (row) rows.push(row);
+    rows.slice(0, 2).forEach((text, line) => g.fillText(text, x + pad, y + pad + (18 + line * 24) * scale));
+    const top = pad + (18 + Math.min(rows.length, 2) * 24) * scale;
+    for (let line = 0; line < 3; line++) {
+      const width = (cellW - pad * 2) * [0.9, 0.7, 0.44][line];
+      g.globalAlpha = 0.3;
+      g.fillRect(x + pad, y + top + line * 13 * scale, width, 4 * scale);
       g.globalAlpha = 1;
     }
   });
@@ -272,13 +287,14 @@ export async function createRings(ctx: Context, data: RingData, at: Vector3): Pr
   }
   const clis = new Set(data.clis);
   const tiles: Tile[] = [];
-  data.marks.forEach((name, cell) => {
-    if (!clis.has(name)) tiles.push({ ring: 0, cell, square: true, label: name });
-  });
+  const marksOf = (ring: number, wanted: boolean) =>
+    data.marks
+      .map((name, cell) => ({ ring, cell, square: true, label: name }))
+      .filter((tile) => clis.has(tile.label) === wanted)
+      .slice(0, MARK_TILES);
+  tiles.push(...marksOf(0, false));
   skills.forEach((name, i) => tiles.push({ ring: 1, cell: firstSkillCell + i, square: false, label: name }));
-  data.marks.forEach((name, cell) => {
-    if (clis.has(name)) tiles.push({ ring: 2, cell, square: true, label: name });
-  });
+  tiles.push(...marksOf(2, true));
 
   const count = tiles.length;
   const perRing = [0, 1, 2].map((ring) => tiles.filter((tile) => tile.ring === ring).length);
@@ -364,6 +380,7 @@ export async function createRings(ctx: Context, data: RingData, at: Vector3): Pr
   const right = new Vector3();
   const hit = new Vector3();
   let rings = 0;
+  let focus = 0;
   let time = 0;
 
   return {
@@ -372,11 +389,11 @@ export async function createRings(ctx: Context, data: RingData, at: Vector3): Pr
     update(ch, now) {
       time = calm ? 0 : now;
       rings = ch.rings;
+      focus = ch.ring;
       phase.set(RINGS[0].speed * time, RINGS[1].speed * time, RINGS[2].speed * time);
       material.uniforms.uRings.value = ch.rings;
       material.uniforms.uFocus.value = ch.ring;
       material.uniforms.uTime.value = time;
-      material.uniforms.uDim.value = 1 - 0.5 * ch.wire;
       mesh.visible = ch.rings > 0.002;
     },
 
@@ -386,6 +403,7 @@ export async function createRings(ctx: Context, data: RingData, at: Vector3): Pr
       let nearest = Infinity;
       for (let i = 0; i < count; i++) {
         const tile = tiles[i];
+        if (Math.abs(focus - (tile.ring + 1)) > 0.3) continue;
         const ring = RINGS[tile.ring];
         const angle = places[i * 3] + ring.speed * time;
         normal.set(Math.sin(angle), 0, Math.cos(angle));

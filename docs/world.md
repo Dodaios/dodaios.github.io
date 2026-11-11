@@ -25,11 +25,11 @@ there:
 | Station | `data-chapter` | What stands there | Where its words are |
 |---|---|---|---|
 | The desk | `hero` | The monitor is the app, and it can be used at once. | An LED bar above the monitor (`Text_hero`). |
-| Voice | `talk` | The mascot at its microphone; the second monitor runs what was said. | A small lightbox on the desk (`Text_voice`). |
+| Voice | `talk` | The mascot at its microphone; the second monitor plays the thread that the order starts. | A small lightbox on the desk (`Text_voice`). |
 | Agents | `agents` | Six screens on the right wall, each a coding agent at work in a terminal. | Lettering on the wall above them (`Text_agents`). |
-| Plugins, Skills, CLIs | `plugins`, `skills`, `clis` | A hologram of three rings over the table in the lounge. | A cinema lightbox on the wall behind (`Text_reach`). |
-| Stars | `stars` | One light outside the window for each person who starred the repository; the corkboard beside it holds what people wrote. | A counter on the sill (`Text_stars`), cards on the board (`Text_quote1..3`). |
-| Open source | `open` | A blueprint of the room on the wall; the room shows the lines it is built from. | The blueprint (`Text_open`). |
+| Plugins, Skills, CLIs | `plugins`, `skills`, `clis` | A hologram over the table in the lounge. It shows one thing per chapter: the apps, then the skills, then the command-line tools. | A cinema lightbox on the wall behind (`Text_reach`). |
+| Stars | `stars` | A globe that turns, with a pin for every place a stargazer lives; one light outside the window for each of them; the corkboard beside it with what people wrote. | A counter on the sill (`Text_stars`), a title strip and cards on the board (`Text_board`, `Text_quote1..3`). |
+| Open source | `open` | A display on the wall that IS the repository, live: the camera docks onto it as it does onto the monitor. | The display itself (`Screen_repo`). |
 | Install | `install` | The whiteboard, at first light; then the whole room in the morning. | The whiteboard (`Text_install`). |
 
 ### Text in the room, and text in the page
@@ -45,7 +45,7 @@ they cannot drift apart.
 What stays on the glass is the HUD: one row at the foot of the window with the
 chapter's controls (a button, a link, the command to copy). A press on the
 object in the room does the same as its control in the HUD: the whiteboard
-copies the command, the blueprint opens the repository.
+copies the command, a card opens the place where it was said.
 
 Every chapter's row is in the tab order wherever the camera is. A row that is
 not on screen is transparent, not hidden; when a control in it takes the focus,
@@ -68,11 +68,15 @@ src/world/
   parts/
     room.ts         the room's zones, their baked light, the quads and anchors
     labels.ts       the words on the room's objects
-    terminals.ts    the agents' terminals on the wall and the second monitor
+    terminals.ts    the agents' terminals on the wall
+    second.ts       the desk's second monitor: the app's thread view, playing
     rings.ts        the hologram
+    globe.ts        the globe by the window and its pins
     mascot.ts       the mascot
     sky.ts          the lights outside the window, the dust in the lamp's cone
 src/data/room.ts    the copy of every station, for the page and for the room
+src/data/sessions.ts  what the wall's terminals show
+src/components/repo/  the repository browser that lies on the wall display
 src/sections/room/  the chapters' markup
 src/styles/world.css  the canvas's box, the chapters, the HUD
 src/components/world/WorldCanvas.astro  the canvas, the data, the boot script
@@ -176,7 +180,7 @@ the last beat of one to the first beat of the next. Every stretch is eased at
 both ends, so the camera rests on each beat.
 
 A beat can also set **channels**: numbers the scene reads besides the camera
-(`dawn`, `agents`, `rings`, `ring`, `wire`, `stars`, `voice`, `dock`).
+(`dawn`, `agents`, `rings`, `ring`, `stars`, `voice`, `dock`, `repo`, `globe`).
 
 `boot.ts` writes on each chapter what CSS needs: `--p`, the progress through
 the pinned stretch, `data-seen`, and `data-current` on the one chapter whose HUD
@@ -184,12 +188,20 @@ row is showing.
 
 ### The dock
 
-At the desk the monitor's screen has to land exactly on the app window in the
-page. `resolveDock` computes the one camera distance and lens shift at which
-the screen quad covers the window's rectangle; a plane parallel to the image
-plane keeps its shape under a shifted lens, so all four corners match. The
-scene reports the worst corner's distance in px each frame, and `boot.ts` shows
-the live window while that distance is near zero.
+Two screens of the room carry a piece of the page. At the desk the monitor's
+screen has to land exactly on the app window; in the corner the wall display
+has to land exactly on the repository browser. `resolveDock` computes, for a
+screen facing any way round the room, the one camera distance and lens shift at
+which the screen quad covers its element's rectangle; a plane parallel to the
+image plane keeps its shape under a shifted lens, so all four corners match.
+The scene reports the worst corner's distance in px each frame, and `boot.ts`
+shows the live element while that distance is near zero.
+
+A dock is a stage in the page (`[data-dock-stage="desk"]`, `"repo"`), a window
+inside it that has the screen's own shape, a `DockShot` in the script (`DOCK`,
+`DOCK_REPO`) and a channel (`dock`, `repo`). The desk's screen comes from the
+model; the wall display's place is `REPO_SCREEN` in `script.ts`, the same
+numbers as `Screen_repo` in `spec.py`.
 
 The page opens docked: the hero's first beat is the dock, so the app window is
 on screen and usable before the scene has loaded, and the room appears around
@@ -203,6 +215,45 @@ forwards every change of the canvas's size, not only window resizes.
 When the camera leaves the chair the monitor shows
 `src/assets/world/screen.webp`, a picture of the app window in its opening
 state. After the app's look changes, take it again (see "The models").
+
+### The first frame
+
+The room is not there at the first paint: it starts after the page has painted
+and takes a moment more. Until then a picture of it stands behind the app's
+window (`.dock__poster` in `world.css`, `src/assets/world/poster.webp`): the
+room as the docked camera sees it, laid so that the picture's monitor is the
+window. So the first thing a visitor sees is a place, and the live room fades
+in over its own picture. On a window wide enough the monitor takes about three
+quarters of the width, not all of it, for the same reason.
+
+To take the picture again (after the desk's model or light changed), let the
+scene run docked in a large window with the stage held narrow, hide the page's
+own layer, and note where the stage stood: the three numbers in the poster's
+rule are the stage's left, top and the picture's width, in hundredths of the
+stage's width.
+
+### The hologram, the globe, the second monitor, the wall display
+
+- **The hologram** (`rings.ts`) shows one ring at a time. The ring of the
+  chapter the reader is in rises out of the table tile by tile; the others are
+  folded back into it. The lightbox behind says in plain words what the ring
+  is, then how many there are.
+- **The globe** (`globe.ts`) is drawn by the scene on the stand the window zone
+  models (anchor `GlobeCenter`). Its land is the site's own land mask; each pin
+  is a place from `src/data/stargazers.json`, never a person. A pin under the
+  pointer shows the place's name.
+- **The second monitor** (`second.ts`) plays the app's thread view as a short
+  run of pictures, `src/assets/world/thread-NN.webp`. They are frames of the
+  working clone on this site, filmed while it plays its errand, so the screen
+  shows the app's own look and the clone's own words. Hold to talk restarts
+  the run.
+- **The wall display** is the repository browser
+  (`src/components/repo/RepoBrowser.tsx`): real markup in the page, docked onto
+  the display. It reads GitHub's public API from the visitor's browser when it
+  comes into view and again for whatever the visitor opens, keeps the answers
+  for the session, and falls back to the snapshot in `src/data/repo-map.json`
+  (refreshed daily by the `social-counts` workflow). The privacy page states
+  these requests; change them together.
 
 ### What the pointer does
 
@@ -252,8 +303,8 @@ zone, against one contract:
 | `room-desk.glb` | desk, chair, monitors, PC, shelves and the wordmark on the back wall |
 | `room-right.glb` | the agents wall: six screens, their creatures, the shelf under them |
 | `room-lounge.glb` | armchair, rug, the holo table, the lightbox, the door side |
-| `room-window.glb` | window, sill, radiator, telescope, corkboard |
-| `room-corner.glb` | whiteboard, blueprint, sideboard, printer |
+| `room-window.glb` | window, sill, radiator, telescope, the globe's stand, corkboard |
+| `room-corner.glb` | whiteboard, the wall display, sideboard, printer |
 | `mascot.glb` | the mascot (`Body`, `Cape`, `Face`, `EyeL`, `EyeR`), lit at run time so it can move |
 
 Lighting is rendered ahead of time with Cycles on the GPU and stored in
@@ -265,18 +316,19 @@ is how `room.ts` finds the atlas files.
 Besides its mesh a zone's file holds:
 
 - **Quads**: flat rectangles the site draws on at run time, named in
-  `spec.py` (`Screen`, `Screen2`, `Wall_1..6`, `Text_*`). The model only
+  `spec.py` (`Screen`, `Screen2`, `Screen_repo`, `Wall_1..6`, `Text_*`). The model only
   provides the object around them: the monitor's shell, the lightbox's frame,
   the whiteboard's surface.
 - **Anchors**: empties that mark a place (`MascotAnchor`, `LampBulb`,
-  `LampPool`, `MicTip`, `Wordmark`, `HoloCenter`).
+  `LampPool`, `MicTip`, `Wordmark`, `HoloCenter`, `GlobeCenter`).
 
 `Screen` is one quad with the app window's own ratio (1360 : 758), exactly
-vertical and facing +Z. The dock depends on that.
+vertical and facing +Z; `Screen_repo` is exactly vertical and faces +X. The
+docks depend on that.
 
 The first screen needs `shell` and `desk`; the other zones load one after
-another once the first frame is drawn, then the morning atlases, then the
-edges for the wireframe.
+another once the first frame is drawn, the zone the reader is in first, then
+the second monitor's frames, then the morning atlases.
 
 To rebuild a zone and ship it:
 
@@ -289,13 +341,14 @@ node scripts/build-world-assets.mjs
 A zone's light falls on its neighbours, so after a change that moves a lamp or
 a large object, bake the shell again as well. `art/*/out/` and
 `art/room/cache/` are not committed. `build-world-assets.mjs` writes what the
-site ships into `src/assets/world/`: geometry compressed with meshopt, the
-atlases as WebP in a full and a half size, and the room's hard edges for the
-wireframe.
+site ships into `src/assets/world/`: geometry compressed with meshopt, and the
+atlases as WebP in a full and a half size.
 
 The monitor's picture is a screenshot of the app clone's window at 1360 x 758,
 taken from the plain page (`/?world=off`) right after the window has loaded and
-before its tour starts.
+before its tour starts. The second monitor's frames are taken the same way,
+later in the tour: one picture of the window for each step of the thread, from
+the first work line to the open pull request.
 
 ## The marks in the hologram
 

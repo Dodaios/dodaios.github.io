@@ -1,6 +1,6 @@
 /**
- * What the room's terminals show: six coding agents on the wall, each at a job,
- * and pane T1 on the desk, where a spoken order lands. The room draws these
+ * What the room's terminals show: six coding agents on the wall, each at a job.
+ * The room draws these
  * line by line (src/world/parts/terminals.ts) and the page lists them
  * (src/sections/room/), so the two cannot say different things.
  *
@@ -145,17 +145,4 @@ export const AGENT_SESSIONS: readonly Session[] = [
       ],
     ],
   },
-];
-
-/** The upright monitor at the desk: pane T1, where a spoken order lands. */
-export const T1_IDLE: readonly Line[] = [note("Ready. Say what you need.", 2.4)];
-export const T1_RUN: readonly Line[] = [
-  ask("Run the tests"),
-  step("Bash npm test", 1.3),
-  out("auth        12 passed"),
-  out("share       31 passed"),
-  out("threads     58 passed"),
-  out("voice       27 passed", 0.5),
-  ok("128 passed in 14.2s", 1.2),
-  note("The result is read back to you.", 4),
 ];

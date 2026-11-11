@@ -78,8 +78,8 @@ ZONE_CAMERAS = {
     "desk": ["hero", "desk_medium", "mascot", "desk_wide"],
     "right": ["agents", "agents_close", "finale"],
     "lounge": ["holo", "finale"],
-    "window": ["window", "corkboard"],
-    "corner": ["whiteboard", "blueprint"],
+    "window": ["window", "globe", "corkboard"],
+    "corner": ["whiteboard", "repo"],
 }
 
 T0 = time.time()
@@ -611,6 +611,20 @@ def mascot_proxy():
     a = ANCHORS["MascotAnchor"]
     bm.transform(xform(a["at"], a.get("yaw", 0.0)))
     ob = finish(bm, "MascotProxy", _proxy_material(), weighted=False)
+    ob["proxy"] = True
+    return ob
+
+
+def globe_proxy():
+    """A mid-grey sphere of the globe's size at GlobeCenter, for the bake only (never exported):
+    the site draws the globe itself, but its shadow and its bounce belong in the baked light."""
+    ob = bpy.data.objects.get("GlobeProxy")
+    if ob is not None:
+        return ob
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=32, v_segments=18, radius=spec.GLOBE["radius"])
+    bm.transform(xform(ANCHORS["GlobeCenter"]["at"], 0.0))
+    ob = finish(bm, "GlobeProxy", _proxy_material(), weighted=False)
     ob["proxy"] = True
     return ob
 
@@ -1814,6 +1828,7 @@ def _populate_room(zone_being_built, build_others=False):
     """Shell, mascot proxy, and the other zones as stand-ins (or their real build())."""
     shell = build_shell()
     mascot_proxy()
+    globe_proxy()
     others = {}
     for z in ZONES:
         if z == zone_being_built:

@@ -1,5 +1,5 @@
 # ruff: noqa: E501
-"""Zone "window": the left wall's window, the star counter on its sill, the corkboard.
+"""Zone "window": the left wall's window, the star counter on its sill, the globe's floor stand, the corkboard.
 
 Run headless (with common.py):
   blender --background --factory-startup --python zone_window.py -- [--skip-bake] [--previews-only] [--samples N]
@@ -23,7 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-from spec import ANCHORS, CAMERAS, EMISSION, LIGHTS, PALETTE, QUADS, WINDOW, ZONES  # noqa: E402
+from spec import ANCHORS, CAMERAS, EMISSION, GLOBE, LIGHTS, PALETTE, QUADS, WINDOW, ZONES  # noqa: E402
 
 ARGS = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 STANDALONE = "--standalone" in ARGS
@@ -381,6 +381,7 @@ SILL_TOP = 0.918
 SILL_NOSE = -3.34
 FX0, FX1 = -3.735, -3.665  # window frame depth inside the reveal
 CASE_W = 0.05
+UNDER_WINDOW_X = -2.7  # under the window the zone reaches out this far (the globe, the telescope)
 
 
 def build_reveal_and_casing():
@@ -447,7 +448,7 @@ def build_frame():
     hy = 1.42
     for zc, sgn in ((edges[1] - 0.004 - sw / 2, -1), (edges[4] + 0.004 + sw / 2, 1)):
         xf = sxc + sd / 2
-        rbox("win_handle_rose", "metal", (0.012, 0.07, 0.026), (xf + 0.006, hy, zc), bev=0.005, segs=2)
+        rbox("win_handle_rose", "metal", (0.012, 0.07, 0.026), (xf + 0.006, hy, zc), bev=0.005, segs=1)
         p0 = G(xf + 0.01, hy + 0.012, zc)
         p1 = G(xf + 0.03, hy + 0.012, zc)
         p2 = G(xf + 0.034, hy - 0.075, zc + sgn * 0.004)
@@ -477,7 +478,7 @@ def build_blind():
     top = G(fx + 0.002, hem_y - 0.019, cz)
     bot = G(fx + 0.004, hem_y - 0.30, cz)
     finish(tube([top, top.lerp(bot, 0.5), bot], 0.0016, sides=5), "blind_cord", "paper_dim", sharp_deg=80)
-    tog = lathe([(0, 0), (0.007, 0.002), (0.011, 0.014), (0.011, 0.026), (0.006, 0.04), (0.0025, 0.044), (0, 0.044)], segs=14)
+    tog = lathe([(0, 0), (0.007, 0.002), (0.011, 0.014), (0.011, 0.026), (0.006, 0.04), (0.0025, 0.044), (0, 0.044)], segs=10)
     tog.transform(align_matrix(bot + Vector((0, 0, 0.004)), Vector((0, 0, -1))))
     finish(tog, "blind_toggle", "furniture_top", sharp_deg=60)
 
@@ -487,12 +488,12 @@ def build_curtain_and_rod():
     rz0, rz1 = -0.92, 1.40
     finish(tube([G(rod_x, rod_y, rz0), G(rod_x, rod_y, rz1)], 0.011, sides=12), "curtain_rod", "metal", sharp_deg=60)
     for zc, sgn in ((rz0 - 0.014, -1), (rz1 + 0.014, 1)):
-        b = lathe([(0, -0.014), (0.007, -0.014), (0.016, -0.006), (0.017, 0.002), (0.012, 0.012), (0.004, 0.016), (0, 0.016)], segs=14)
+        b = lathe([(0, -0.014), (0.007, -0.014), (0.016, -0.006), (0.017, 0.002), (0.012, 0.012), (0.004, 0.016), (0, 0.016)], segs=10)
         b.transform(align_matrix(G(rod_x, rod_y, zc), G(0, 0, sgn) - G(0, 0, 0)))
         finish(b, "curtain_finial", "metal", sharp_deg=60)
     # wall brackets
     for zc in (-0.900, 1.355):
-        b = lathe([(0, 0), (0.022, 0), (0.022, 0.006), (0.016, 0.009), (0, 0.009)], segs=16)
+        b = lathe([(0, 0), (0.022, 0), (0.022, 0.006), (0.016, 0.009), (0, 0.009)], segs=10)
         b.transform(align_matrix(G(WX, rod_y, zc), G(1, 0, 0) - G(0, 0, 0)))
         finish(b, "rod_bracket_plate", "metal", sharp_deg=50)
         finish(tube([G(WX + 0.008, rod_y - 0.004, zc), G(rod_x - 0.006, rod_y - 0.004, zc)], 0.0055, sides=8), "rod_bracket_arm", "metal")
@@ -528,7 +529,7 @@ def build_curtain_and_rod():
         s = (k + 0.25) / folds * (folds / 5.5)
         zc = z0 + 0.012 + k * (0.235 / 5)
         _ = s
-        finish(torus(G(rod_x, rod_y, zc), G(0, 0, 1) - G(0, 0, 0), 0.02, 0.0028, nseg=10, nside=4), "curtain_ring", "metal", sharp_deg=80)
+        finish(torus(G(rod_x, rod_y, zc), G(0, 0, 1) - G(0, 0, 0), 0.02, 0.0028, nseg=8, nside=4), "curtain_ring", "metal", sharp_deg=80)
         finish(tube([G(rod_x, rod_y - 0.022, zc), G(rod_x, ytop - 0.004, zc)], 0.0016, sides=4, caps=False), "curtain_hook", "metal", sharp_deg=80)
 
 
@@ -689,24 +690,39 @@ def build_radiator():
         rose = lathe([(0, 0), (0.017, 0), (0.017, 0.004), (0, 0.004)], segs=14)
         rose.transform(T(xc + 0.01, 0.0, pz))
         finish(rose, "radiator_floor_rose", "metal", sharp_deg=50)
-    v = lathe([(0, 0), (0.013, 0), (0.013, 0.025), (0.021, 0.03), (0.022, 0.085), (0.019, 0.092), (0, 0.093)], segs=16)
+    v = lathe([(0, 0), (0.013, 0), (0.013, 0.025), (0.021, 0.03), (0.022, 0.085), (0.019, 0.092), (0, 0.093)], segs=12)
     v.transform(T(xc + 0.01, y0 + 0.05, pz_a))
     finish(v, "radiator_valve", "paper_dim", sharp_deg=45)
     return z0, z0 + n * pitch
 
 
+def box_in(origin, xa, ya, za, sx, sy, sz, bev=0.003, segs=1):
+    """A bevelled box in the frame (xa, ya, za) at Blender-space `origin`; sizes along those axes."""
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    for v in bm.verts:
+        v.co = Vector((v.co.x * sx, v.co.y * sy, v.co.z * sz))
+    bevel(bm, min(bev, min(sx, sy, sz) * 0.45), segs)
+    bm.transform(basis_matrix(origin, xa, ya, za))
+    return bm
+
+
 def build_telescope():
-    mx, mz = -3.13, -0.50
+    """A small refractor parked at the front end of the window, close to the wall: legs pulled in,
+    the tube aimed high through the upper lights. It stands clear of the star counter (z < 0.62),
+    of the globe, and of the lounge's snake plant."""
+    mx, mz = -3.22, 0.835
     plate_y = 1.0
+    spread = 0.23
     parts = []  # (bm, key)
     # tripod: three two-section legs with clamps, rubber feet and a spreader tray
     spread_y = 0.42
     tray_pts = []
-    for ang in (20.0, 140.0, 260.0):
+    for ang in (195.0, 75.0, -45.0):
         a = math.radians(ang)
         ca, sa = math.cos(a), math.sin(a)
         top = G(mx + 0.05 * ca, plate_y - 0.01, mz + 0.05 * sa)
-        foot = G(mx + 0.33 * ca, 0.012, mz + 0.33 * sa)
+        foot = G(mx + spread * ca, 0.012, mz + spread * sa)
         mid = top.lerp(foot, 0.5)
         parts.append((tube([top, mid + (foot - top).normalized() * 0.05], 0.0135, sides=8), "metal"))
         parts.append((tube([mid, foot], 0.0095, sides=8), "metal"))
@@ -714,12 +730,12 @@ def build_telescope():
         cl = lathe([(0, -0.022), (0.017, -0.022), (0.018, 0.022), (0, 0.022)], segs=8)
         cl.transform(align_matrix(c, foot - top))
         parts.append((cl, "device"))
-        ft = lathe([(0, 0), (0.016, 0), (0.016, 0.02), (0.01, 0.03), (0, 0.03)], segs=10)
+        ft = lathe([(0, 0), (0.016, 0), (0.016, 0.02), (0.01, 0.03), (0, 0.03)], segs=8)
         ft.transform(Matrix.Translation(foot - Vector((0, 0, 0.012))))
         parts.append((ft, "device"))
         tt = (spread_y - 0.012) / (plate_y - 0.01 - 0.012)
         tray_pts.append(foot.lerp(top, tt))
-        hinge = lathe([(0, -0.02), (0.02, -0.02), (0.02, 0.02), (0, 0.02)], segs=10)
+        hinge = lathe([(0, -0.02), (0.02, -0.02), (0.02, 0.02), (0, 0.02)], segs=8)
         hinge.transform(align_matrix(top, foot - top))
         parts.append((hinge, "device"))
     ctr = G(mx, spread_y, mz)
@@ -729,52 +745,54 @@ def build_telescope():
     tray.transform(Matrix.Translation(ctr))
     parts.append((tray, "device"))
     # head
-    head = lathe([(0, 0), (0.07, 0), (0.072, 0.01), (0.072, 0.026), (0.06, 0.032), (0.045, 0.034), (0.045, 0.07), (0, 0.07)], segs=16)
+    head = lathe([(0, 0), (0.07, 0), (0.072, 0.01), (0.072, 0.026), (0.06, 0.032), (0.045, 0.034), (0.045, 0.07), (0, 0.07)], segs=12)
     head.transform(T(mx, plate_y - 0.02, mz))
     parts.append((head, "device"))
-    # optical tube
-    D = (G(-0.93, 0.36, 0.06) - G(0, 0, 0)).normalized()
+    # the tube's direction: toward the window and a little along it, 50 degrees up
+    alt = math.radians(50.0)
+    hz = Vector((-0.92, 0.0, 0.39)).normalized()
+    D = (G(hz.x * math.cos(alt), math.sin(alt), hz.z * math.cos(alt)) - G(0, 0, 0)).normalized()
     up = (Vector((0, 0, 1)) - D * D.z).normalized()
     side = D.cross(up).normalized()
-    Tc = G(mx, 1.205, mz)
+    hdir = (G(hz.x, 0.0, hz.z) - G(0, 0, 0)).normalized()
+    # alt-az head: a post on the tripod head, the altitude hub, a saddle that clamps the dovetail
+    P = G(mx, plate_y + 0.115, mz)  # the altitude axis
+    post = box_in(G(mx, plate_y + 0.05 + 0.03, mz), side, hdir, Vector((0, 0, 1)), 0.066, 0.056, 0.075, bev=0.008, segs=2)
+    parts.append((post, "device"))
+    hub = lathe([(0, -0.043), (0.031, -0.043), (0.035, -0.039), (0.035, 0.039), (0.031, 0.043), (0, 0.043)], segs=12)
+    hub.transform(align_matrix(P, side))
+    parts.append((hub, "device"))
+    Tc = P + up * 0.09
+    parts.append((box_in(P + up * 0.02, side, D, up, 0.052, 0.11, 0.034, bev=0.004, segs=1), "device"))
+    kn = lathe([(0, 0), (0.016, 0), (0.018, 0.004), (0.018, 0.016), (0.014, 0.02), (0, 0.02)], segs=10)
+    kn.transform(align_matrix(P + side * 0.043, side))
+    parts.append((kn, "device_key"))
+    # optical tube
     back_len, front_len = 0.30, 0.42
     back = Tc - D * back_len
     L = back_len + front_len
     prof = [(0.0, 0.0), (0.040, 0.0), (0.046, 0.004), (0.046, 0.04), (0.0475, 0.043), (0.0475, L - 0.165), (0.053, L - 0.16), (0.054, L), (0.050, L + 0.002), (0.049, L - 0.02), (0.045, L - 0.12), (0.0, L - 0.12)]
     mats = [1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1]
-    bm = lathe(prof, segs=24, mat_of_seg=mats)
+    bm = lathe(prof, segs=20, mat_of_seg=mats)
     bm.transform(align_matrix(back, D))
     # mid grey, not white: the tube stands in the dawn sun and must stay below clipping
     finish(bm, "scope_tube", ["book_a", "device"], sharp_deg=40)
-    # tube rings and dovetail bar
+    # tube rings on their posts, and the dovetail bar
     for off in (-0.08, 0.12):
-        r = lathe([(0.0475, -0.013), (0.055, -0.013), (0.056, -0.009), (0.056, 0.009), (0.055, 0.013), (0.0475, 0.013)], segs=16)
+        r = lathe([(0.0475, -0.013), (0.055, -0.013), (0.056, -0.009), (0.056, 0.009), (0.055, 0.013), (0.0475, 0.013)], segs=12)
         r.transform(align_matrix(Tc + D * off, D))
         parts.append((r, "device"))
-    dov_c = Tc - up * 0.064 + D * 0.02
-    bar = rbox_bm((0.036, 0.014, 0.30), (0, 0, 0), bev=0.003, segs=1)
-    bar.transform(basis_matrix(dov_c, side, D, up) @ Matrix.Rotation(math.radians(-90), 4, "X"))
-    parts.append((bar, "device"))
-    for off in (-0.08, 0.12):
-        post = rbox_bm((0.022, 0.03, 0.016), (0, 0, 0), bev=0.003, segs=1)
-        post.transform(basis_matrix(Tc - up * 0.054 + D * off, side, D, up) @ Matrix.Rotation(math.radians(-90), 4, "X"))
-        parts.append((post, "device"))
-    # alt-az block between the head and the dovetail, with a clamp knob and a pan handle
-    blk_top = dov_c - up * 0.007
-    blk_bot = G(mx, plate_y + 0.05, mz)
-    blk = rbox_bm((0.07, (blk_top.z - blk_bot.z) + 0.01, 0.075), (mx, (blk_top.z + blk_bot.z) / 2, mz), bev=0.008, segs=2)
-    parts.append((blk, "device"))
-    kn = lathe([(0, 0), (0.016, 0), (0.018, 0.004), (0.018, 0.016), (0.014, 0.02), (0, 0.02)], segs=12)
-    kn.transform(align_matrix(G(mx, (blk_top.z + blk_bot.z) / 2, mz + 0.0375), G(0, 0, 1) - G(0, 0, 0)))
-    parts.append((kn, "device_key"))
-    h0 = G(mx + 0.03, (blk_top.z + blk_bot.z) / 2 - 0.01, mz - 0.03)
-    h1 = h0 + (G(0.17, -0.14, -0.08) - G(0, 0, 0))
+        parts.append((box_in(Tc - up * 0.057 + D * off, side, D, up, 0.024, 0.02, 0.016, bev=0.003), "device"))
+    parts.append((box_in(Tc - up * 0.07 + D * 0.02, side, D, up, 0.036, 0.30, 0.014, bev=0.003), "device"))
+    # pan handle: back and down from the saddle, under the tube
+    h0 = P - D * 0.05 - up * 0.004 + side * 0.012
+    h1 = h0 - D * 0.21 - up * 0.075 + side * 0.03
     parts.append((tube([h0, h1], 0.007, sides=8), "metal"))
     grip = lathe([(0, 0), (0.012, 0), (0.012, 0.07), (0.009, 0.08), (0, 0.08)], segs=10)
     grip.transform(align_matrix(h1 - (h1 - h0).normalized() * 0.06, h1 - h0))
     parts.append((grip, "device"))
     # focuser, star diagonal and eyepiece at the back
-    foc = lathe([(0, 0), (0.026, 0), (0.026, 0.02), (0.021, 0.024), (0.021, 0.075), (0, 0.075)], segs=12)
+    foc = lathe([(0, 0), (0.026, 0), (0.026, 0.02), (0.021, 0.024), (0.021, 0.075), (0, 0.075)], segs=10)
     foc.transform(align_matrix(back + D * 0.001, -D))
     parts.append((foc, "device"))
     fk = lathe([(0, -0.032), (0.009, -0.032), (0.009, 0.032), (0, 0.032)], segs=10)
@@ -784,12 +802,12 @@ def build_telescope():
     diag = rbox_bm((0.036, 0.036, 0.036), (0, 0, 0), bev=0.006, segs=2)
     diag.transform(basis_matrix(dg, side, D, up))
     parts.append((diag, "metal"))
-    ep = lathe([(0, 0), (0.016, 0), (0.016, 0.03), (0.019, 0.034), (0.019, 0.075), (0.011, 0.074), (0, 0.074)], segs=12)
+    ep = lathe([(0, 0), (0.016, 0), (0.016, 0.03), (0.019, 0.034), (0.019, 0.075), (0.011, 0.074), (0, 0.074)], segs=10)
     ep.transform(align_matrix(dg + up * 0.016, up))
     parts.append((ep, "device"))
     # finder scope on two small posts
     fc = Tc + up * 0.082 + D * 0.08
-    fd = lathe([(0, 0), (0.011, 0), (0.013, 0.006), (0.013, 0.17), (0.015, 0.175), (0.015, 0.2), (0.012, 0.201), (0, 0.19)], segs=12)
+    fd = lathe([(0, 0), (0.011, 0), (0.013, 0.006), (0.013, 0.17), (0.015, 0.175), (0.015, 0.2), (0.012, 0.201), (0, 0.19)], segs=10)
     fd.transform(align_matrix(fc - D * 0.1, D))
     parts.append((fd, "book_a"))
     for off in (-0.05, 0.05):
@@ -802,36 +820,73 @@ def build_telescope():
         finish(b, "scope_" + k, k, sharp_deg=45)
 
 
-def build_cushion():
-    cx, cz = -3.07, 0.30
-    prof = [(0.0, 0.006), (0.20, 0.0), (0.255, 0.012), (0.278, 0.045), (0.283, 0.078), (0.281, 0.09), (0.283, 0.102), (0.276, 0.135), (0.25, 0.163), (0.17, 0.18), (0.06, 0.176), (0.015, 0.162), (0.0, 0.16)]
-    bm = lathe(prof, segs=32)
-    # soft, slightly squashed: make it a touch oval and uneven
-    for v in bm.verts:
-        a = math.atan2(v.co.y, v.co.x)
-        k = 1.0 + 0.035 * math.cos(2 * a + 0.4) + 0.012 * math.sin(3 * a)
-        v.co.x *= k
-        v.co.y *= 1.0 / k
-        if v.co.z > 0.12:
-            v.co.z += 0.008 * math.sin(2 * a + 1.0) * min(1.0, math.hypot(v.co.x, v.co.y) / 0.2)
-    bm.transform(T(cx, 0.0, cz) @ RY(20))
-    finish(bm, "cushion", "fabric", sharp_deg=60)
-    # piping seam round the belly
-    finish(torus(G(cx, 0.09, cz), Vector((0, 0, 1)), 0.284, 0.006, nseg=32, nside=4), "cushion_piping", "fabric", sharp_deg=80)
-    b = lathe([(0, 0), (0.016, 0), (0.016, 0.006), (0, 0.009)], segs=12)
-    b.transform(T(cx, 0.157, cz))
-    finish(b, "cushion_button", "furniture", sharp_deg=60)
-    # a book left open, face down, on the cushion
-    M = T(cx + 0.06, 0.175, cz - 0.05) @ RY(-35) @ RX(3)
-    for sgn in (-1, 1):
-        cov = rbox_bm((0.003, 0.002, 0.2), (0, 0, 0), bev=0.0, segs=1)
-        cov = rbox_bm((0.115, 0.003, 0.19), (sgn * 0.0575, 0.0, 0.0), bev=0.0012, segs=1, M=M @ RZ(sgn * 9.0) @ T(0, 0.018, 0))
-        finish(cov, "cushion_book_cover", "book_b", sharp_deg=50)
-        pg = rbox_bm((0.108, 0.014, 0.182), (sgn * 0.056, -0.008, 0.0), bev=0.002, segs=1, M=M @ RZ(sgn * 9.0) @ T(0, 0.018, 0))
-        finish(pg, "cushion_book_pages", "paper_dim", sharp_deg=50)
-    sp = lathe([(0, -0.095), (0.006, -0.095), (0.006, 0.095), (0, 0.095)], segs=8)
-    sp.transform(M @ T(0, 0.0205, 0) @ RX(90))
-    finish(sp, "cushion_book_spine", "book_b", sharp_deg=60)
+# --------------------------------------------------------------------------- #
+# The globe's floor stand. The site draws the sphere itself at GlobeCenter; this is everything
+# around it: a weighted base, a slim column, a cradle, and a half-meridian arc with the two pole
+# pins. The arc lies in the vertical plane through the centre, on the wall side of the sphere.
+# --------------------------------------------------------------------------- #
+def build_globe_stand():
+    cx, cy, cz = ANCHORS["GlobeCenter"]["at"]
+    R = GLOBE["radius"]
+    n = math.hypot(GLOBE["axis"][0], GLOBE["axis"][1])
+    ax, ay = GLOBE["axis"][0] / n, GLOBE["axis"][1] / n  # the axis, in the plane z = cz
+    px, py = -ay, ax  # at right angles to it, toward the wall
+    r_in, r_out, hw = 0.262, 0.270, 0.009  # the arc: 8 mm thick, 18 mm wide
+    nadir = 180.0 + math.degrees(math.atan2(ax, ay))  # arc angle of the point straight under the centre
+
+    def arc_pt(t_deg, r, dz=0.0):
+        """Angle from the north pole, opening toward the wall; 180 is the south pole."""
+        t = math.radians(t_deg)
+        ux = math.cos(t) * ax + math.sin(t) * px
+        uy = math.cos(t) * ay + math.sin(t) * py
+        return G(cx + r * ux, cy + r * uy, cz + dz)
+
+    def band(t0, t1, r0, r1, w, ch, step):
+        """A curved bar about the centre; r1 may be a function of u in -1..1 along the bar."""
+        k = max(2, int(round((t1 - t0) / step)) + 1)
+        rings = []
+        for i in range(k):
+            f = i / (k - 1)
+            ro = r1(2 * f - 1) if callable(r1) else r1
+            sec = [(r0, -w + ch), (r0 + ch, -w), (ro - ch, -w), (ro, -w + ch), (ro, w - ch), (ro - ch, w), (r0 + ch, w), (r0, w - ch)]
+            rings.append([arc_pt(t0 + (t1 - t0) * f, r, dz) for r, dz in sec])
+        return loft(rings)
+
+    # the half meridian, carried on past the south pole into the cradle under the sphere
+    finish(band(-3.0, nadir + 9.0, r_in, r_out, hw, 0.0018, 4.5), "globe_arc", "metal", sharp_deg=30, texel=6.0)  # a thin bar seen from 1.4 m: at weight 1 it is 4 texels wide
+    # pole pins: a boss on the inside of the arc, the pin reaching in to the sphere, a cap nut outside
+    pins = bmesh.new()
+    for sgn in (1, -1):
+        axis = G(sgn * ax, sgn * ay, 0.0) - G(0, 0, 0)
+        b = lathe([(0.0, R), (0.003, R), (0.003, r_in - 0.007), (0.0075, r_in - 0.005), (0.0075, r_in + 0.001), (0.0, r_in + 0.001)], segs=8)
+        b.transform(align_matrix(G(cx, cy, cz), axis))
+        merge_bm(pins, b)
+        b = lathe([(0.0, r_out - 0.001), (0.0078, r_out - 0.001), (0.0078, r_out + 0.005), (0.005, r_out + 0.009), (0.0, r_out + 0.0095)], segs=8)
+        b.transform(align_matrix(G(cx, cy, cz), axis))
+        merge_bm(pins, b)
+    finish(pins, "globe_pins", "metal", sharp_deg=40, texel=3.0)
+    # the cradle: a cast shoe under the sphere that clasps the arc, thickest over the column,
+    # with a clamp screw on the room side
+    r_shoe = r_out + 0.016
+    finish(band(nadir - 17.0, nadir + 17.0, r_in - 0.003, lambda u: r_out + 0.004 + 0.012 * (1.0 - u * u), 0.015, 0.003, 3.4),
+           "globe_cradle", "metal", sharp_deg=30, texel=2.5)
+    kn = lathe([(0.0, 0.0), (0.006, 0.0), (0.006, 0.004), (0.0115, 0.005), (0.0125, 0.014), (0.0095, 0.017), (0.0, 0.017)], segs=10)
+    kn.transform(align_matrix(G(cx, cy - (r_in + r_out) / 2 - 0.004, cz + 0.0145), G(0, 0, 1) - G(0, 0, 0)))
+    finish(kn, "globe_clamp", "furniture", sharp_deg=40, texel=2.0)
+    # the turned hub the shoe sits in, the slim column, the weighted base
+    yh = cy - r_shoe  # underside of the shoe, straight under the centre
+    hub = lathe([(0.0, yh - 0.11), (0.0175, yh - 0.11), (0.0195, yh - 0.104), (0.0195, yh - 0.062), (0.027, yh - 0.036), (0.034, yh - 0.02), (0.034, yh + 0.004), (0.03, yh + 0.008), (0.0, yh + 0.008)], segs=20)
+    hub.transform(T(cx, 0.0, cz))
+    finish(hub, "globe_hub", "furniture", sharp_deg=35, texel=1.6)
+    col = lathe([(0.0, 0.07), (0.0165, 0.07), (0.0165, 0.10), (0.014, yh - 0.105), (0.0, yh - 0.105)], segs=14)
+    col.transform(T(cx, 0.0, cz))
+    finish(col, "globe_column", "metal", sharp_deg=35, texel=1.0)
+    base = lathe([(0.0, 0.0), (0.186, 0.0), (0.19, 0.004), (0.19, 0.014), (0.186, 0.018), (0.172, 0.0195), (0.168, 0.023), (0.12, 0.033), (0.05, 0.048), (0.027, 0.066), (0.0245, 0.09), (0.02, 0.096), (0.0, 0.096)],
+                 segs=32, mat_of_seg=[0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1])
+    base.transform(T(cx, 0.0, cz))
+    finish(base, "globe_base", ["furniture", "metal"], sharp_deg=35, texel=1.2)
+    if common is not None:
+        common.make_anchor("GlobeCenter")
 
 
 # --------------------------------------------------------------------------- #
@@ -880,8 +935,8 @@ def build_corkboard():
         q = QUADS[name]
         qz, qy = q["at"][2], q["at"][1]
         w, h = q["size"]
-        cw, ch = w + 0.022, h + 0.05
-        cy = qy + 0.012  # extra paper at the top for the pin
+        cw, ch = w + 0.022, h + 0.042
+        cy = qy + 0.009  # extra paper at the top for the pin
         M = WL(qz, cy, CORK_FACE, rot)
         merge_bm(cards, rbox_bm((cw, ch, card_t), (0, 0, card_t / 2), bev=0.0, segs=1, M=M))
         merge_bm(pins[pkey], pin(M @ T(-pin_dz, ch / 2 - 0.014, card_t), pkey, tilt=(4, -3 + 3 * i)))
@@ -940,22 +995,20 @@ def build_corkboard():
         bm.transform(M)
         merge_bm(papers[key], bm)
 
-    # --- the top band, above the cards
-    mA = instant(1.598, 1.962, 7.0, "paper", moon=True)
-    print_(1.775, 1.948, -4.0, "device")
-    sticky(1.858, 1.985, 9.0, "paper", lift=0.0012)
-    # a postcard: a stamp in the corner, a few lines of writing
-    M = WL(2.03, 1.94, CORK_FACE, 2.5)
-    sheet(M, "paper_dim", 0.135, 0.092)
-    flat(M, "book_c", 0.018, 0.022, 0.048, 0.026, 0.0007)
-    for k in range(4):
-        flat(M, "book_a", 0.05 - 0.008 * (k % 2), 0.0016, 0.032, -0.006 - 0.012 * k, 0.0007)
-    flat(M, "book_a", 0.0012, 0.07, -0.003, -0.002, 0.0007)
-    put_pin(M, -0.045, 0.034, 0.0005, "device", (3, -4))
-    mE = instant(2.255, 1.972, -8.0, "device")
+    # --- the title: a strip of paper across the top, under quad Text_board, pinned at both ends
+    q = QUADS["Text_board"]
+    sw, sh = q["size"][0] + 0.052, q["size"][1] + 0.016
+    M = WL(q["at"][2], q["at"][1] + 0.001, CORK_FACE, 0.0)
+    merge_bm(cards, rbox_bm((sw, sh, card_t), (0, 0, card_t / 2), bev=0.0, segs=1, M=M))
+    for sgn, tilt in ((-1, (4, -4)), (1, (3, 5))):
+        merge_bm(pins["device"], pin(M @ T(sgn * (sw / 2 - 0.013), 0.002 * sgn, card_t), "device", tilt=tilt))
+    make_quad("Text_board")
+    # --- beside the title, in the two top corners: one print, one ticket stub. Nothing else up here:
+    # the title and the three cards are the subject.
+    instant(1.607, 1.972, 6.0, "device", moon=True)
     # ticket stub with a torn, perforated end
-    tw, th = 0.125, 0.052
-    M = WL(2.468, 1.936, CORK_FACE, 14.0)
+    tw, th = 0.112, 0.05
+    M = WL(2.487, 1.966, CORK_FACE, 9.0)
     pts = [(-tw / 2, -th / 2), (tw / 2 - 0.004, -th / 2)]
     for k in range(7):
         yy = -th / 2 + th * (k + 0.5) / 7
@@ -964,10 +1017,10 @@ def build_corkboard():
     tb = flat_poly(pts, 0.0005, 0.0)
     tb.transform(M)
     merge_bm(papers["paper_dim"], tb)
-    flat(M, "book_c", 0.0025, th - 0.014, tw / 2 - 0.03, 0.0, 0.0007)
-    flat(M, "book_a", 0.05, 0.006, -0.012, 0.01, 0.0007)
-    flat(M, "book_a", 0.034, 0.004, -0.02, -0.006, 0.0007)
-    put_pin(M, -tw / 2 + 0.016, 0.0, 0.0005, "paper", (2, 5))
+    flat(M, "book_c", 0.0025, th - 0.014, tw / 2 - 0.027, 0.0, 0.0007)
+    flat(M, "book_a", 0.045, 0.006, -0.012, 0.01, 0.0007)
+    flat(M, "book_a", 0.03, 0.004, -0.019, -0.006, 0.0007)
+    put_pin(M, -tw / 2 + 0.014, 0.0, 0.0005, "paper", (2, 5))
     # --- the bottom band, under the cards
     # a photo-booth strip
     M = WL(1.585, 1.302, CORK_FACE, -3.0)
@@ -1001,17 +1054,6 @@ def build_corkboard():
         flat(M, "book_a", 0.06 - 0.012 * k, 0.0016, -0.008, 0.052 - 0.012 * k, 0.0007)
     put_pin(M, 0.03, 0.063, 0.0005, "device", (3, 4))
     sticky(2.462, 1.33, 9.0, "paper")
-    # string: from pin to pin across the top band, sagging over the prints
-    a = mA @ G(0.0, 0.04, 0.0008)
-    b = mE @ G(0.0, 0.04, 0.0008)
-    path = []
-    for k in range(17):
-        t = k / 16
-        p = a.lerp(b, t)
-        p.z -= 0.05 * 4 * t * (1 - t)
-        p.x = CORK_FACE + 0.0032 + 0.0005 * math.sin(t * math.pi)
-        path.append(p)
-    finish(tube(path, 0.0011, sides=5), "cork_string", "paper_dim", sharp_deg=80, texel=0.6)
     finish(cards, "cork_cards", "paper_dim", smooth=False, texel=2.0, recalc=False)
     for k, bm in papers.items():
         # everything paper on the board is paper_dim: the lounge lamp hangs 0.8 m in front of it
@@ -1060,8 +1102,8 @@ def drop_faces_into_walls(eps=0.003):
 TEXEL = [
     ("cork_back", 0.2), ("cork_frame", 1.1), ("cork", 1.5),
     ("radiator_sections", 0.6), ("radiator", 0.35),
-    ("scope_tube", 1.0), ("scope", 0.7),
-    ("cushion", 0.8), ("curtain_rod", 0.5), ("curtain_ring", 0.3), ("curtain_hook", 0.2), ("curtain", 0.9), ("rod_", 0.3), ("blind", 0.6),
+    ("scope_tube", 1.0), ("scope", 0.7), ("globe", 1.2),
+    ("curtain_rod", 0.5), ("curtain_ring", 0.3), ("curtain_hook", 0.2), ("curtain", 0.9), ("rod_", 0.3), ("blind", 0.6),
     ("win_jamb", 0.8), ("win_head", 0.7), ("win_reveal_sill", 0.9), ("win_stool", 1.4), ("win_apron", 0.6), ("win_casing", 0.9),
     ("win_sash", 0.8), ("win_handle", 0.4), ("win_", 1.0),
     ("stars_led", 0.2), ("stars", 1.3), ("plant", 0.9), ("book", 1.0), ("mug", 1.0),
@@ -1078,7 +1120,7 @@ def build():
     build_sill_things()
     build_radiator()
     build_telescope()
-    build_cushion()
+    build_globe_stand()
     build_corkboard()
     for ob in CREATED:
         if ob.get("texel", 1.0) != 1.0:
@@ -1101,6 +1143,22 @@ def build():
         for k, n in sorted(per.items(), key=lambda kv: -kv[1]):
             log(f"  {n:6d}  {k}")
     log(f"built {len(CREATED)} objects, {tris} triangles (budget {ZONES['window']['triangles']})")
+    # the zone's box; under the window the zone may reach out to x = UNDER_WINDOW_X
+    x0, x1, z0, z1, y1 = ZONES["window"]["box"]
+    lo, hi, reach = Vector((1e9, 1e9, 1e9)), Vector((-1e9, -1e9, -1e9)), -1e9
+    for ob in CREATED:
+        if ob.type != "MESH":
+            continue
+        for v in ob.data.vertices:
+            p = ob.matrix_world @ v.co
+            g = Vector((p.x, p.z, -p.y))
+            lo = Vector((min(lo.x, g.x), min(lo.y, g.y), min(lo.z, g.z)))
+            hi = Vector((max(hi.x, g.x), max(hi.y, g.y), max(hi.z, g.z)))
+            if not OZ0 - CASE_W <= g.z <= OZ1 + CASE_W:
+                reach = max(reach, g.x)
+    ok = lo.x >= WO - 1e-4 and hi.x <= UNDER_WINDOW_X and reach <= x1 + 1e-4 and lo.z >= z0 - 1e-4 and hi.z <= z1 + 1e-4 and hi.y <= y1 + 1e-4
+    log(f"bounds x {lo.x:.3f}..{hi.x:.3f} (beside the window: ..{reach:.3f}), y {lo.y:.3f}..{hi.y:.3f}, z {lo.z:.3f}..{hi.z:.3f}; "
+        f"box x {x0}..{x1} (under the window ..{UNDER_WINDOW_X}), z {z0}..{z1}, y ..{y1}: {'inside' if ok else 'OUTSIDE THE BOX'}")
 
 
 # --------------------------------------------------------------------------- #
@@ -1146,6 +1204,16 @@ def standalone_shell():
     box("standin_lounge_seat", "fabric", -3.1, -2.3, 0.0, 0.45, 1.5, 2.4)
     box("standin_holo", "furniture", -1.9, -1.0, 0.0, 0.7, 0.9, 1.6)
     box("standin_corner_board", "paper", -3.3, -1.7, 1.0, 2.0, -2.7, -2.65)
+    # the globe the site draws (common.globe_proxy() in a real run)
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=32, v_segments=18, radius=GLOBE["radius"])
+    bm.transform(T(*ANCHORS["GlobeCenter"]["at"]))
+    me = bpy.data.meshes.new("standin_globe")
+    bm.to_mesh(me)
+    bm.free()
+    me.shade_smooth()
+    me.materials.append(mat("book_a"))
+    bpy.context.collection.objects.link(bpy.data.objects.new("standin_globe", me))
 
 
 def standalone_lights(state):
@@ -1251,6 +1319,6 @@ def standalone():
 
 if __name__ == "__main__":
     if common is not None:
-        common.run_zone("window", build, cameras=["window", "corkboard", "finale"])
+        common.run_zone("window", build, cameras=["window", "globe", "corkboard", "finale"])
     else:
         standalone()

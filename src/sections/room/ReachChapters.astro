@@ -7,8 +7,7 @@
  * The marks on the tiles identify third-party services; the note at the foot
  * of the first chapter says what docs/LOGOS.md requires wherever they are shown.
  */
-import catalog from "@/data/app-catalog.json";
-import { REACH } from "@/data/room";
+import { REACH, REACH_SKILLS } from "@/data/room";
 import { detailHref } from "@/lib/nav";
 import Chapter from "./Chapter.astro";
 
@@ -29,9 +28,9 @@ const chapters = [
       <p class="lede">{entry.lede}</p>
       {/* The names on the hologram's middle ring: the skills that ship with the app. */}
       {entry.chapter === "skills" && (
-        <ul class="tags" aria-label="Skills that ship with the app">
-          {catalog.skills.slice(0, 16).map((skill) => (
-            <li>{skill.name}</li>
+        <ul class="tags" aria-label="Some of the skills that ship with the app">
+          {REACH_SKILLS.map((name) => (
+            <li>{name}</li>
           ))}
         </ul>
       )}

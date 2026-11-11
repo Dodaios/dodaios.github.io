@@ -6,7 +6,6 @@
  * It is a simulation and says so; this page never asks for the microphone.
  */
 import { VOICE } from "@/data/room";
-import { T1_RUN } from "@/data/sessions";
 import Chapter from "./Chapter.astro";
 ---
 
@@ -23,16 +22,7 @@ import Chapter from "./Chapter.astro";
     </p>
   </div>
   <p class="sr-only" role="status" data-talk-status data-listening={VOICE.listening[0]}></p>
-  {/* What pane T1 on the desk shows once the order has been heard. */}
-  <div class="session">
-    <p class="session__head">
-      <span class="session__agent">T1</span>
-      <span class="session__tool">Claude Code</span>
-    </p>
-    <ol class="session__lines">
-      {T1_RUN.map((line) => <li data-kind={line.kind}>{line.text}</li>)}
-    </ol>
-  </div>
+  <p class="fine">{VOICE.second}</p>
 
   <Fragment slot="hud">
     <button class="button button--quiet talk__hold" type="button" data-talk-hold aria-pressed="false" aria-describedby="talk-note">

@@ -13,9 +13,9 @@
  * move the page under the reader.
  */
 import { marks } from "@/components/logos/marks";
-import catalog from "@/data/app-catalog.json";
-import { roomLabels } from "@/data/room";
+import { REACH_SKILLS, roomLabels } from "@/data/room";
 import counts from "@/data/social-counts.json";
+import stargazers from "@/data/stargazers.json";
 import { CLI_MARKS, MARK_SHEET_COLUMNS } from "@/world/marks";
 
 interface Props {
@@ -29,12 +29,20 @@ const data = {
   scene,
   stargazers: counts.platforms.github.value,
   labels: roomLabels(),
+  // A pin stands for a place, never for a person: the snapshot groups the
+  // stargazers who state a location by city or country.
+  globe: {
+    pins: stargazers.clusters.flatMap((place) => [Math.round(place.lat * 100) / 100, Math.round(place.lon * 100) / 100, place.count]),
+    labels: stargazers.clusters.map((place) =>
+      place.label === place.country ? `${place.label} · ${place.count}` : `${place.label}, ${place.country} · ${place.count}`,
+    ),
+  },
   rings: {
     sheet: "/world/marks.svg",
     columns: MARK_SHEET_COLUMNS,
     marks: marks.map((mark) => mark.name),
     clis: CLI_MARKS,
-    skills: catalog.skills.map((skill) => skill.name),
+    skills: REACH_SKILLS,
   },
 };
 ---

@@ -11,12 +11,12 @@ visible Chrome so the scene is drawn by the real graphics card.
 
 | | Phone profile (slow 4G, 4x slower processor) | Desktop profile |
 | --- | --- | --- |
-| Performance score | 100 (three runs) | 100 (two runs) |
+| Performance score | 99 (three runs) | 100 (two runs) |
 | First paint | 1.2 to 1.3 s | 0.4 s |
-| Largest paint | 1.3 to 1.4 s | 0.5 s |
-| Blocking time | 25 to 40 ms | 0 ms |
+| Largest paint | 2.0 s | 0.5 s |
+| Blocking time | 15 to 60 ms | 0 ms |
 | Layout shift | 0 | 0 |
-| Downloaded with the whole room | about 2.4 MB in 51 requests | about 3.5 MB in 51 requests |
+| Downloaded with the whole room | about 2.7 MB in 59 requests | about 3.8 MB in 59 requests |
 
 Accessibility, best practices and SEO: 100 each. `/plugins`: 99 on the phone
 profile.
@@ -50,8 +50,8 @@ so compare runs taken back to back.
 - **The scene's downloads ask for low priority** and arrive in pieces: first
   the room's shell, the desk, the mascot and their night textures; then, one
   piece per idle moment and in the order the tour visits them, the agents wall,
-  the lounge with the hologram, the window, the whiteboard corner, the morning
-  textures and the wireframe.
+  the lounge with the hologram, the window, the whiteboard corner, the second
+  monitor's frames and the morning textures.
 - **The baked light comes in two sizes.** A phone, and every route that only
   shows a still view, gets the half-size textures.
 - **The canvas draws fewer pixels when frames run long** (`watchSpeed` in
@@ -67,6 +67,11 @@ so compare runs taken back to back.
   redraws at most one pane per frame.
 - **The chapters' layout is decided in the `<head>`** (`world-on`), so nothing
   moves after the first paint: layout shift is 0.
+- **The first frame is a picture.** A 38 kB still of the room stands behind
+  the app's window until the room itself has loaded (`docs/world.md`, "The
+  first frame"); a phone does not show it and, being lazy, does not fetch it.
+- **The repository view asks GitHub nothing until it is in view**
+  (`client:visible`), and then only for what the reader opens.
 - **Nothing large is painted when the room arrives.** A chapter shows its copy
   and its row until then; at that instant they leave the picture without a
   fade (`world-settled` in `docs/world.md`). A fade there once made an unseen

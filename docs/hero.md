@@ -18,6 +18,10 @@ desk, and the monitor in front of them is the app.
   app lies exactly where the monitor's screen is (`world.md`, "The dock"). It
   is in the page's markup, so it is there before the room has loaded, and the
   room appears around it. Nothing has to be scrolled, opened or started first.
+- **A place from the first paint.** Until the room has loaded, a picture of
+  it stands behind the window (`world.md`, "The first frame"), and on a wide
+  window the monitor takes about three quarters of the width so that the desk
+  around it is part of the first look.
 - **The headline is the LED bar above the monitor.** It is the page's `<h1>`,
   it is text in the page, and the room draws the same words on the bar's quad
   (`Text_hero`). The headline is a definition, not a slogan: a reader should be

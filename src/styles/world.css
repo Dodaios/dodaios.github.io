@@ -392,11 +392,11 @@ html.world-live .chapter[data-current] .hud > * {
 
 /* Seated at the monitor, the app's window and its starters are the whole
  * screen: the chapter's row waits until the chair has rolled back. */
-html.world-live .chapter[data-current]:has(.dock__stage[data-shown]) .hud {
+html.world-live .chapter[data-chapter="hero"][data-current]:has(.dock__stage[data-shown]) .hud {
   opacity: 0;
 }
 
-html.world-live .chapter[data-current]:has(.dock__stage[data-shown]) .hud > * {
+html.world-live .chapter[data-chapter="hero"][data-current]:has(.dock__stage[data-shown]) .hud > * {
   pointer-events: none;
 }
 
@@ -445,6 +445,77 @@ html.world-on .hud__note {
   min-width: min(100%, 20rem);
 }
 
+/* In the room the monitor is not the whole picture: on a window with the width
+ * for it, the desk around the monitor stays in view, so the first frame reads
+ * as a place and not as a page. */
+@media (min-width: 960px) {
+  html.world-on .dock__stage:not(.dock__stage--repo) {
+    width: min(74%, calc((100svh - var(--nav-height) - 9.25rem) * 1.36));
+  }
+}
+
+/* The first frame. The room takes a moment to arrive, and until it does the
+ * first screen would be the app's window on a black page. So a picture of the
+ * room stands behind the window from the first paint: the room as the camera
+ * sees it from the chair, laid so that the picture's monitor is the window.
+ * Its three numbers are where the stage stood in that picture, in hundredths of
+ * the stage's width (docs/world.md says how to take it again). A phone shows
+ * the monitor edge to edge and needs none. */
+.dock__poster {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  html.world-on .chapter[data-chapter="hero"] .chapter__pin {
+    overflow: clip;
+  }
+
+  html.world-on .dock__poster {
+    position: absolute;
+    z-index: -1;
+    inset-inline-start: -106.91cqi;
+    inset-block-start: -10.95cqi;
+    display: block;
+    width: 313.68cqi;
+    max-width: none;
+    height: auto;
+    pointer-events: none;
+    transition:
+      opacity 700ms ease,
+      visibility 0s linear 700ms;
+  }
+
+  html.world-live .dock__poster {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* The display on the wall: as wide as its own shape lets the screen's height
+ * hold it, above the chapter's row. 1.6 is the display's width over its height. */
+.dock__stage--repo {
+  width: min(100%, 62rem, calc((100svh - var(--nav-height) - 9.5rem) * 1.6));
+}
+
+/* On the plain page, and while the room loads, the chapter reads from the top:
+ * its words, then the repository, then its row. */
+html:not(.world-live) .chapter[data-chapter="open"] .copy {
+  order: 1;
+}
+
+html:not(.world-live) .chapter[data-chapter="open"] .dock {
+  order: 2;
+  height: auto;
+}
+
+html:not(.world-live) .chapter[data-chapter="open"] .hud {
+  order: 3;
+}
+
+html.world-on:not(.world-live) .dock__stage--repo {
+  width: min(100%, 40rem);
+}
+
 /* Seated at the monitor there is no column to keep to: the screen may take all
  * the width the window's height allows it. */
 html.world-on .chapter[data-chapter="hero"] .chapter__frame {
@@ -487,6 +558,8 @@ html.world-live .dock__stage:not([data-live]) {
 }
 
 .dock__stage {
+  /* The poster behind the window is placed against the stage, in the stage's own units. */
+  position: relative;
   container-type: inline-size;
 }
 
@@ -577,10 +650,6 @@ html.world-on .talk__lines {
   background: var(--surface-card);
 }
 
-.copy > .session {
-  margin-top: var(--space-lg);
-}
-
 .session__head {
   display: flex;
   align-items: baseline;
@@ -642,31 +711,18 @@ html.world-on .talk__lines {
   color: var(--muted);
 }
 
-.plan {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-top: var(--space-lg);
-}
-
-.plan li {
-  display: grid;
-  gap: 0.125rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-sm);
+.quotes__title {
+  margin-top: var(--space-xl);
   font-family: var(--font-mono);
-  font-size: var(--text-caption);
-}
-
-.plan__name {
-  color: var(--ink);
-  letter-spacing: 0.08em;
+  font-size: var(--text-caption-upper);
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  color: var(--muted);
 }
 
-.plan__role {
-  color: var(--muted);
+.quotes__title + .quotes {
+  margin-top: var(--space-base);
 }
 
 .quotes {

@@ -95,9 +95,9 @@ ZONES = {
     "right": {"box": (1.7, 3.6, -2.7, 2.7, 3.0), "triangles": 28000},
     # Front-left: the holo table, a seat, the lightbox on the front wall, the door.
     "lounge": {"box": (-3.15, 1.7, 0.75, 2.7, 3.0), "triangles": 22000},
-    # Left wall, front and middle: the window, the star counter, the corkboard.
+    # Left wall, front and middle: the window, the star counter, the globe, the corkboard.
     "window": {"box": (-3.6, -3.15, -0.95, 2.7, 3.0), "triangles": 16000},
-    # Back-left corner: the whiteboard on the back wall, the blueprint on the left wall.
+    # Back-left corner: the whiteboard on the back wall, the repository display on the left wall.
     "corner": {"box": (-3.6, -1.5, -2.7, -1.0, 3.0), "triangles": 16000},
 }
 
@@ -131,8 +131,9 @@ QUADS = {
     "Screen": {"zone": "desk", "kind": "screen", "at": (0.0, 1.16, -2.38), "size": (0.42 * APP_RATIO, 0.42), "yaw": 0, "lean": 0},
     # A light bar hung just above the monitor: the page's headline, in light.
     "Text_hero": {"zone": "desk", "kind": "ledbar", "at": (0.0, 1.425, -2.37), "size": (0.42 * APP_RATIO, 0.07), "yaw": 0, "lean": 0},
-    # A second monitor, upright, right of the main one, turned toward the seat.
-    "Screen2": {"zone": "desk", "kind": "screen", "at": (0.74, 1.13, -2.30), "size": (0.34, 0.604), "yaw": -20, "lean": 0},
+    # A second monitor, landscape (16:9), right of the main one, turned toward
+    # the seat. The site shows the app's thread mode on it.
+    "Screen2": {"zone": "desk", "kind": "screen", "at": (0.77, 1.115, -2.28), "size": (0.62, 0.349), "yaw": -24, "lean": 0},
     # A small lit sign on the desk, left front: the voice chapter's line.
     "Text_voice": {"zone": "desk", "kind": "lightbox", "at": (-0.95, 0.85, -2.02), "size": (0.36, 0.16), "yaw": 24, "lean": 6},
     # --- right wall ----------------------------------------------------------
@@ -151,6 +152,8 @@ QUADS = {
     # --- window -----------------------------------------------------------
     # A counter standing on the window sill: the number of GitHub stars.
     "Text_stars": {"zone": "window", "kind": "ledbar", "at": (-3.36, 1.05, 0.2), "size": (0.8, 0.2), "yaw": 90, "lean": 4},
+    # A strip of paper pinned across the top of the corkboard: the board's title.
+    "Text_board": {"zone": "window", "kind": "surface", "at": (-3.5635, 1.895, 2.05), "size": (0.66, 0.085), "yaw": 90, "lean": 0},
     # Three cards pinned to the corkboard: what people said.
     "Text_quote1": {"zone": "window", "kind": "surface", "at": (-3.5635, 1.62, 1.72), "size": (0.29, 0.36), "yaw": 90, "lean": 0},
     "Text_quote2": {"zone": "window", "kind": "surface", "at": (-3.5635, 1.62, 2.05), "size": (0.29, 0.36), "yaw": 90, "lean": 0},
@@ -158,8 +161,11 @@ QUADS = {
     # --- corner -----------------------------------------------------------
     # The whiteboard on the back wall: the install command, in marker.
     "Text_install": {"zone": "corner", "kind": "surface", "at": (-2.5, 1.5, -2.6585), "size": (1.6, 1.0), "yaw": 0, "lean": 0},
-    # A framed blueprint on the left wall: the open-source chapter.
-    "Text_open": {"zone": "corner", "kind": "surface", "at": (-3.5735, 1.65, -1.85), "size": (1.0, 0.7), "yaw": 90, "lean": 0},
+    # A display mounted flat on the left wall: the site lays a live view of the
+    # GitHub repository on it, to the pixel, as it does with the app on the main
+    # monitor. Exactly vertical, exactly facing +X. Nothing may stand between it
+    # and the point (-1.6, 1.6, -1.85), with 6 cm to spare around that pyramid.
+    "Screen_repo": {"zone": "corner", "kind": "screen", "at": (-3.555, 1.6, -1.85), "size": (1.04, 0.65), "yaw": 90, "lean": 0},
 }
 
 # --------------------------------------------------------------------------- #
@@ -183,7 +189,17 @@ ANCHORS = {
     # rings of small tiles around it, radius up to 1.2 m, 0.6 m high in all:
     # keep that cylinder free of everything.
     "HoloCenter": {"zone": "lounge", "at": (-1.45, 1.2, 1.25), "yaw": 0},
+    # The centre of the globe on its floor stand by the window. The site draws
+    # the globe itself (a sphere of radius 0.24 m that turns, with a pin for
+    # every place a stargazer lives); the zone models the stand and the meridian
+    # arc around it and leaves the sphere out. Its axis is tilted 23.4 degrees
+    # from the vertical toward +X: direction (0.397, 0.918, 0).
+    "GlobeCenter": {"zone": "window", "at": (-2.98, 1.0, -0.45), "yaw": 0},
 }
+
+# The globe the site draws at `GlobeCenter` (for the stand, and for a dark
+# stand-in sphere in the bake).
+GLOBE = {"radius": 0.24, "axis": (0.397, 0.918, 0.0)}
 
 # --------------------------------------------------------------------------- #
 # Light. ONE rig for every zone, so the zones agree. `common.setup_lights(state)`
@@ -209,7 +225,8 @@ LIGHTS = {
         {"name": "TrackSpotA", "type": "SPOT", "at": (2.55, 2.9, -1.0), "aim": (3.55, 1.75, -1.0), "kelvin": 3300, "watts": 26, "spot_deg": 78},
         {"name": "TrackSpotB", "type": "SPOT", "at": (2.55, 2.9, 0.0), "aim": (3.55, 1.75, 0.0), "kelvin": 3300, "watts": 26, "spot_deg": 78},
         {"name": "TrackSpotC", "type": "SPOT", "at": (2.55, 2.9, 1.0), "aim": (3.55, 1.75, 1.0), "kelvin": 3300, "watts": 26, "spot_deg": 78},
-        {"name": "BlueprintLight", "type": "SPOT", "at": (-3.0, 2.85, -1.85), "aim": (-3.57, 1.65, -1.85), "kelvin": 3000, "watts": 14, "spot_deg": 62},
+        # A small spot from the ceiling on the globe by the window.
+        {"name": "GlobeLight", "type": "SPOT", "at": (-2.5, 2.9, -0.2), "aim": (-2.98, 1.0, -0.45), "kelvin": 3200, "watts": 30, "spot_deg": 38},
         {"name": "Moon", "type": "SUN", "direction": (0.82, -0.5, -0.28), "color": "#9db4d6", "strength": 0.8},
         {"name": "Ambient", "type": "WORLD", "color": "#0c0d10", "strength": 1.0},
     ],
@@ -242,7 +259,8 @@ CAMERAS = {
     "holo": ((-0.15, 1.5, -0.55), (-1.45, 1.3, 1.25), 40),
     "window": ((0.3, 1.6, 0.75), (-3.6, 1.6, 0.9), 42),
     "corkboard": ((-1.9, 1.6, 1.6), (-3.56, 1.62, 2.05), 32),
-    "blueprint": ((-1.6, 1.55, -1.5), (-3.57, 1.6, -1.85), 34),
+    "repo": ((-1.75, 1.6, -1.85), (-3.555, 1.6, -1.85), 36),  # straight in front of the wall display
+    "globe": ((-1.75, 1.3, 0.1), (-2.98, 1.0, -0.45), 30),
     "whiteboard": ((-2.3, 1.5, -0.6), (-2.5, 1.5, -2.66), 36),
     "finale": ((2.9, 1.9, 2.2), (-0.6, 1.25, -1.0), 50),  # the whole room from the front-right corner
 }

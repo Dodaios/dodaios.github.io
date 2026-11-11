@@ -16,10 +16,11 @@ import bmesh  # noqa: E402
 import bpy  # noqa: E402
 import numpy as np  # noqa: E402
 from mathutils import Matrix, Vector  # noqa: E402
+from mathutils.bvhtree import BVHTree  # noqa: E402
 
 import common  # noqa: E402
 from common import G, bevel, bm_box, finish, lathe, loft, merge_bm, rrect_pts, tube, xform  # noqa: E402
-from spec import QUADS  # noqa: E402
+from spec import CAMERAS, QUADS, ROOM, ZONES  # noqa: E402
 
 TOP = 0.74  # desk top height
 DESK_Z0, DESK_Z1 = -2.68, -1.92  # back and front edge of the desk top
@@ -67,7 +68,11 @@ def disc(r, h, segs=32, bev=0.002):
 
 
 def cable(name, pts, r=0.0035, texel=0.5, n=22):
-    return finish(tube(common.bezier_path(pts, n=n), r, sides=6), name, "device", sharp_deg=80, texel=texel)
+    path = common.bezier_path(pts, n=n)
+    for p in path:  # the spline swings past its points: keep it out of the back wall and the floor
+        p.y = min(p.y, -ROOM["z"][0] - r - 0.0005)
+        p.z = max(p.z, r + 0.0005)
+    return finish(tube(path, r, sides=6), name, "device", sharp_deg=80, texel=texel)
 
 
 # --------------------------------------------------------------------------- #
@@ -142,40 +147,68 @@ def build_monitor():
     return (cx, TOP + 0.08, neck_z - 0.01)
 
 
+def quad_frame(name):
+    """A quad's centre, right, up and front normal as Blender vectors, and its size."""
+    q = QUADS[name]
+    R = common.quad_matrix(q).to_3x3()
+    return G(*q["at"]), R @ Vector((1, 0, 0)), R @ Vector((0, 0, 1)), R @ Vector((0, -1, 0)), q["size"]
+
+
+def quad_corners(name):
+    """The quad's four corners in glTF: bottom left, bottom right, top right, top left (seen from its front)."""
+    c, right, up, _, (w, h) = quad_frame(name)
+    return [common.to_gltf(c + right * (sx * w / 2) + up * (sy * h / 2)) for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+
+
 def build_monitor2():
+    """The second monitor: landscape, right of the main one, turned toward the seat.
+    Same family as the main monitor: thin panel, rounded rear housing, metal neck and foot plate."""
     q = QUADS["Screen2"]
     w, h = q["size"]
-    at = q["at"]
-    yaw = q["yaw"]
-    side, chin = 0.007, 0.014
+    at, yaw = q["at"], q["yaw"]
+    assert abs(q.get("lean", 0.0)) < 1e-9, "the stand is built for an upright panel"
+    side, chin, gap, pd = 0.007, 0.016, 0.0012, 0.016  # bezel, chin, quad-to-glass gap, panel depth
     bw, bh = w + 2 * side, h + side + chin
+    by = at[1] + (side - chin) / 2  # the panel's centre height
     M = common.quad_matrix(q)
+    cs, sn = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
 
-    def loc(x, y, z):
-        """quad-local (x right, y up, z toward the back, metres) -> Blender."""
-        return M @ Vector((x, z, y))
-    # panel (built in quad-local, then transformed)
-    b = bm_box((bw, bh, 0.016), (0, (side - chin) / 2, 0))
+    def P(lx, y, d):
+        """lx along the screen's right, y the height, d the distance behind the quad -> glTF."""
+        return (at[0] + lx * cs - d * sn, y, at[2] - lx * sn - d * cs)
+    # thin panel: its front face lies `gap` behind the quad (quad-local depth is Blender +Y)
+    b = bm_box((bw, bh, pd), (0, (side - chin) / 2, 0))
     bevel(b, 0.003, 3)
-    b.transform(Matrix.Translation(Vector((0, 0.0012 + 0.008, 0))) @ Matrix.Rotation(math.radians(0), 4, "X"))
-    # bm_box puts depth along -Blender Y (glTF z); the quad-local frame has depth along +Y
-    b.transform(M)
-    finish(b, "mon2_panel", "device", texel=0.8)
-    b = bm_box((0.20, 0.30, 0.026), (0, -0.04, -0.0012 - 0.016 - 0.013))
-    bevel(b, 0.01, 3)
-    b.transform(M)
-    finish(b, "mon2_back", "device", texel=0.3)
-    # neck straight down to a foot on the desk
-    base_local = loc(0, 0, 0.065)
-    base_g = common.to_gltf(base_local)
-    neck_top = (base_g[0], at[1] - 0.05, base_g[2])
-    rbox("mon2_neck", "metal", (0.045, neck_top[1] - TOP, 0.026), (base_g[0], (neck_top[1] + TOP) / 2, base_g[2]), bev=0.01, yaw=yaw, texel=0.4)
-    rbox("mon2_link", "metal", (0.06, 0.06, 0.05), (base_g[0], at[1] - 0.05, base_g[2] + 0.02 * 0), bev=0.008, yaw=yaw, texel=0.3)
-    bm = rounded_slab(0.10, 0.085, 0.04, TOP, TOP + 0.011, 0.004, n=6)
-    bm.transform(xform((base_g[0], 0, base_g[2] + 0.03), yaw))
-    finish(bm, "mon2_foot", "metal", texel=0.5, drop_bottom=True)
+    b.transform(M @ Matrix.Translation((0, gap + pd / 2, 0)))
+    finish(b, "mon2_panel", "device", texel=1.0)
+    # rear housing: a rounded bulge on the panel's back (rounded_slab's height turned to point backward)
+    bm = rounded_slab(0.235, 0.132, 0.045, 0, 0.031, 0.011, n=6)
+    bm.transform(M @ Matrix.Translation((0, gap + pd - 0.001, (side - chin) / 2 - 0.018)) @ Matrix.Rotation(math.radians(-90), 4, "X"))
+    finish(bm, "mon2_back", "device", texel=0.4)
+    # stand: a link block on the housing, a neck straight down, a foot plate on the desk
+    link_d = gap + pd + 0.034
+    neck_d = gap + pd + 0.059
+    neck_top = by - 0.012
+    rbox("mon2_link", "metal", (0.08, 0.08, 0.04), P(0, by - 0.03, link_d), bev=0.01, segs=2, yaw=yaw, texel=0.3)
+    rbox("mon2_neck", "metal", (0.052, neck_top - (TOP + 0.008), 0.028), P(0, (neck_top + TOP + 0.008) / 2, neck_d), bev=0.011, yaw=yaw, texel=0.9)
+    foot_c = P(0, 0.0, neck_d - 0.022)
+    bm = rounded_slab(0.108, 0.086, 0.042, TOP, TOP + 0.012, 0.004, n=6)
+    bm.transform(xform(foot_c, yaw))
+    finish(bm, "mon2_foot", "metal", texel=0.8, drop_bottom=True)
+    # a clip on the neck's back holds the two cables that come down from the ports
+    clip_y = TOP + 0.13
+    rbox("mon2_clip", "device", (0.040, 0.014, 0.012), P(0, clip_y, neck_d + 0.014 + 0.005), bev=0.003, segs=1, yaw=yaw, texel=0.2)
     common.make_quad("Screen2")
-    return (base_g[0], TOP + 0.05, base_g[2])
+    # the cables: out of the housing's lower edge on either side of the neck, around it, through the clip,
+    # down its back, over the foot plate and onto the desk
+    port_y = by - 0.018 - 0.132 + 0.012
+    back = neck_d + 0.0215
+    runs = []
+    for s in (-1, 1):
+        runs.append([P(s * 0.045, port_y, gap + pd + 0.020), P(s * 0.046, port_y - 0.038, neck_d - 0.010), P(s * 0.034, clip_y + 0.042, back + 0.001),
+                     P(s * 0.011, clip_y + 0.018, back), P(s * 0.011, clip_y - 0.02, back), P(s * 0.011, TOP + 0.055, back + 0.003),
+                     P(s * 0.016, TOP + 0.0172, neck_d + 0.056), P(s * 0.024, TOP + 0.0045, neck_d + 0.105)])
+    return runs
 
 
 # --------------------------------------------------------------------------- #
@@ -396,41 +429,42 @@ def build_speakers():
 
 
 def build_headphones():
-    hx, hz = 0.97, -2.10
-    b = lathe([(0, 0), (0.060, 0), (0.062, 0.003), (0.062, 0.012), (0.058, 0.016), (0.012, 0.018), (0, 0.018)], segs=32)
-    b.transform(Matrix.Translation(G(hx, TOP, hz)))
-    finish(b, "hp_stand_base", "metal", texel=0.5, drop_bottom=True)
-    top = TOP + 0.285
-    finish(tube([G(hx, TOP + 0.015, hz), G(hx, top - 0.01, hz)], 0.007, sides=12), "hp_stand_post", "metal", texel=0.3)
-    # cradle: a short curved saddle across the post top (along the headband direction, glTF z)
-    pts = [G(hx, top - 0.004 - 0.02 * (1 - math.cos(a)), hz + 0.045 * math.sin(a) / math.sin(0.9)) for a in np.linspace(-0.9, 0.9, 9)]
-    finish(tube(pts, 0.009, sides=10), "hp_stand_cradle", "device", texel=0.3)
-    # headband: arc in the glTF YZ plane over the cradle, earcups hanging at both sides
-    R = 0.088
-    cy = top + 0.006 - R
-    band = [G(hx, cy + R * math.cos(a), hz + R * math.sin(a)) for a in np.linspace(-1.75, 1.75, 31)]
-    b = tube(band, 0.0105, sides=10)
-    finish(b, "hp_band", "fabric", texel=0.5)
-    inner = [G(hx, cy + (R - 0.012) * math.cos(a), hz + (R - 0.012) * math.sin(a)) for a in np.linspace(-1.55, 1.55, 25)]
-    finish(tube(inner, 0.0045, sides=8), "hp_band_steel", "metal", texel=0.2)
+    """Headphones put down on the desk right of the mouse pad: the band flat on the top, the ear cups
+    swivelled flat on their cushions. (A stand would reach into the view of the second monitor.)"""
+    hx, hz, yaw = 0.765, -2.092, -14.0
+    M = xform((hx, TOP, hz), yaw)
+
+    def L(x, y, z):
+        return M @ G(x, y, z)
+    R, cup_z, yoke_r, amax = 0.084, 0.072, 0.051, 1.6
+
+    def rise(a):  # the band rests on the desk at its middle and climbs to the yokes at its ends
+        return 0.0105 + 0.019 * (a / amax) ** 2
+    band = [L(R * math.sin(a), rise(a), -R * math.cos(a)) for a in np.linspace(-amax, amax, 23)]
+    finish(tube(band, 0.0105, sides=8), "hp_band", "fabric", texel=0.7)
+    inner = [L((R - 0.012) * math.sin(a), rise(a), -(R - 0.012) * math.cos(a)) for a in np.linspace(-amax + 0.2, amax - 0.2, 15)]
+    finish(tube(inner, 0.0045, sides=6), "hp_band_steel", "metal", texel=0.3)
+    ex, ez = R * math.sin(amax), -R * math.cos(amax)
     for s in (-1, 1):
-        a = s * 1.75
-        p = G(hx, cy + R * math.cos(a) - 0.03, hz + s * (R * abs(math.sin(a)) + 0.012))
-        # yoke
-        finish(tube([G(hx, cy + R * math.cos(a), hz + s * R * abs(math.sin(a))), p + Vector((0, 0, 0.02))], 0.004, sides=8), "hp_yoke", "metal", texel=0.2)
-        cup = lathe([(0, 0), (0.040, 0), (0.046, 0.005), (0.047, 0.020), (0.044, 0.026), (0.0, 0.028)], segs=28)
-        cush = lathe([(0.026, 0.0), (0.042, 0.0), (0.047, -0.006), (0.046, -0.016), (0.040, -0.021), (0.028, -0.021), (0.024, -0.012), (0.026, 0.0)], segs=28)
-        Mc = Matrix.Translation(p - Vector((0, 0, 0.03))) @ Matrix.Rotation(math.radians(-90 * s), 4, "X")
-        # cup axis along glTF z (Blender y): cushion faces the other cup
-        Mc = Matrix.Translation(p + Vector((0, 0, -0.035))) @ common.align_matrix(Vector((0, 0, 0)), Vector((0, -s, 0)))
-        cup.transform(Mc @ Matrix.Translation((0, 0, 0.0)))
-        finish(cup, "hp_cup", "device", texel=0.6)
+        # slider from the band's end, then a fork around the cup's rear half
+        finish(tube([L(s * ex, rise(amax), ez), L(s * ex, 0.031, cup_z - yoke_r)], 0.0055, sides=8), "hp_slider", "metal", texel=0.3)
+        fork = [L(s * ex + yoke_r * math.cos(t), 0.031, cup_z + yoke_r * math.sin(t)) for t in np.linspace(math.pi, 2 * math.pi, 11)]
+        finish(tube(fork, 0.004, sides=6), "hp_yoke", "metal", texel=0.3)
+        for t in (math.pi, 2 * math.pi):  # the two pivots
+            pv = lathe([(0, -0.004), (0.006, -0.004), (0.006, 0.004), (0, 0.004)], segs=8)
+            pv.transform(Matrix.Translation(L(s * ex + (yoke_r - 0.002) * math.cos(t), 0.031, cup_z)) @ Matrix.Rotation(math.radians(yaw), 4, "Z") @ Matrix.Rotation(math.radians(90), 4, "Y"))
+            finish(pv, "hp_pivot", "device_key", texel=0.2)
+        cup = lathe([(0, 0), (0.040, 0), (0.046, 0.005), (0.047, 0.020), (0.044, 0.026), (0.0, 0.028)], segs=22)
+        cush = lathe([(0.026, 0.0), (0.042, 0.0), (0.047, -0.006), (0.046, -0.016), (0.040, -0.021), (0.028, -0.021), (0.024, -0.012), (0.026, 0.0)], segs=22)
+        Mc = Matrix.Translation(L(s * ex, 0.021, cup_z))
+        cup.transform(Mc)
+        finish(cup, "hp_cup", "device", texel=0.8)
         cush.transform(Mc)
-        finish(cush, "hp_cushion", "fabric", texel=0.5)
+        finish(cush, "hp_cushion", "fabric", texel=0.6)
 
 
 def build_mug():
-    x, z = 0.36, -2.29
+    x, z = 0.425, -2.265  # in reach right of the keyboard, clear of the mouse cable and below both screens
     prof = [(0.0, 0.0), (0.034, 0.0), (0.039, 0.004), (0.041, 0.02), (0.041, 0.09), (0.0405, 0.096), (0.038, 0.097), (0.0365, 0.093), (0.0365, 0.072), (0.0, 0.072)]
     bm = lathe(prof, segs=28, mat_of_seg=[0, 0, 0, 0, 0, 0, 0, 0, 1])
     bm.transform(Matrix.Translation(G(x, TOP, z)))
@@ -493,21 +527,25 @@ def build_sticky_notes():
 
 
 def build_plant():
-    px, pz = 1.0, -2.55
-    prof = [(0.0, 0.0), (0.050, 0.0), (0.054, 0.004), (0.062, 0.13), (0.064, 0.138), (0.059, 0.14), (0.056, 0.125), (0.0, 0.125)]
+    """A small succulent at the desk's front right corner. It is kept lower than the second monitor's
+    lower edge, so it can never stand in front of that screen."""
+    px, pz = 1.02, -2.025
+    prof = [(0.0, 0.0), (0.036, 0.0), (0.039, 0.003), (0.045, 0.092), (0.0465, 0.098), (0.043, 0.0995), (0.0405, 0.088), (0.0, 0.088)]
     bm = lathe(prof, segs=28, mat_of_seg=[0, 0, 0, 0, 0, 0, 1])
     bm.transform(Matrix.Translation(G(px, TOP, pz)))
-    finish(bm, "plant_pot", ["pot", "device"], texel=0.6, drop_bottom=True)
+    finish(bm, "plant_pot", ["pot", "device"], texel=0.8, drop_bottom=True)
     rng = np.random.default_rng(11)
     leaves = bmesh.new()
-    for i in range(9):
-        a = 2 * math.pi * i / 9 + rng.uniform(-0.25, 0.25)
-        h = rng.uniform(0.17, 0.30)
-        lean = rng.uniform(0.05, 0.14)
-        wid = rng.uniform(0.032, 0.045)
-        rad = 0.012 + 0.025 * rng.uniform()
-        segs = 7
-        base = Vector((px + rad * math.cos(a), TOP + 0.12, pz + rad * math.sin(a)))
+    n_leaves = 12
+    for i in range(n_leaves):
+        a = 2 * math.pi * i / n_leaves + rng.uniform(-0.25, 0.25)
+        inner = i % 2 == 0  # an inner ring of upright leaves, an outer ring that leans out
+        h = rng.uniform(0.070, 0.092) if inner else rng.uniform(0.045, 0.065)
+        lean = rng.uniform(0.012, 0.03) if inner else rng.uniform(0.04, 0.058)
+        wid = rng.uniform(0.022, 0.03)
+        rad = 0.006 + 0.008 * rng.uniform() if inner else 0.016 + 0.008 * rng.uniform()
+        segs = 6
+        base = Vector((px + rad * math.cos(a), TOP + 0.084, pz + rad * math.sin(a)))
         outdir = Vector((math.cos(a), 0, math.sin(a)))
         side = Vector((-math.sin(a + 0.6), 0, math.cos(a + 0.6)))
         rows = []
@@ -768,12 +806,18 @@ def build_rug():
 # Cables
 # --------------------------------------------------------------------------- #
 
-def build_cables(tray_z, tray_y, mon_back, mon2_back, kb_back, mouse_back, spk_backs, voice_back, lamp_base):
+def build_cables(tray_z, tray_y, mon_back, mon2_runs, kb_back, mouse_back, spk_backs, voice_back, lamp_base):
     gap_z = DESK_Z0 - 0.009  # between the desk's back edge and the wall
     drop = tray_y + 0.01
     cable("cab_mon_power", [mon_back, (mon_back[0] + 0.01, TOP + 0.006, mon_back[2] - 0.08), (0.02, TOP + 0.006, DESK_Z0 + 0.02), (0.03, TOP - 0.01, gap_z), (0.04, TOP - 0.06, gap_z), (0.06, drop, tray_z)], r=0.0035)
     cable("cab_mon_dp", [(mon_back[0] - 0.012, mon_back[1], mon_back[2]), (mon_back[0] - 0.02, TOP + 0.006, mon_back[2] - 0.07), (-0.03, TOP + 0.006, DESK_Z0 + 0.025), (-0.035, TOP - 0.01, gap_z), (-0.04, drop, tray_z)], r=0.003)
-    cable("cab_mon2", [mon2_back, (mon2_back[0] - 0.03, TOP + 0.006, mon2_back[2] - 0.12), (0.62, TOP + 0.006, DESK_Z0 + 0.02), (0.60, TOP - 0.01, gap_z), (0.55, drop, tray_z)], r=0.0032)
+    # the second monitor's two cables: `mon2_runs` brings each from its port down the neck onto the desk
+    # (they cross the desk's back edge right of the speaker and reach the tray left of its hanger, over its back wall)
+    for run, r, x_edge, x_tray in zip(mon2_runs, (0.0030, 0.0034), (0.59, 0.63), (0.45, 0.50)):
+        end = run[-1]
+        cable("cab_mon2", run + [((end[0] + x_edge) / 2 + 0.02, TOP + 0.004, (end[2] + DESK_Z0) / 2 - 0.02), (x_edge, TOP + 0.005, DESK_Z0 + 0.022),
+                                 (x_edge - 0.01, TOP - 0.012, gap_z), (x_edge - 0.07, tray_y + 0.085, gap_z + 0.004),
+                                 ((x_edge - 0.07 + x_tray) / 2, tray_y + 0.074, tray_z - 0.058), (x_tray, drop, tray_z)], r=r, n=48)
     cable("cab_kb", [kb_back, (kb_back[0] + 0.03, TOP + 0.003, kb_back[2] - 0.08), (0.09, TOP + 0.003, -2.30), (0.07, TOP + 0.003, -2.42), (0.12, TOP + 0.004, DESK_Z0 + 0.03), (0.13, TOP - 0.01, gap_z), (0.15, drop, tray_z)], r=0.0025)
     cable("cab_mouse", [mouse_back, (mouse_back[0] - 0.02, TOP + 0.004, mouse_back[2] - 0.08), (0.30, TOP + 0.003, -2.42), (0.26, TOP + 0.004, DESK_Z0 + 0.02), (0.25, TOP - 0.01, gap_z), (0.24, drop, tray_z)], r=0.0022)
     for i, sb in enumerate(spk_backs):
@@ -792,10 +836,119 @@ def build_cables(tray_z, tray_y, mon_back, mon2_back, kb_back, mouse_back, spk_b
 
 # --------------------------------------------------------------------------- #
 
+# Where the site looks at each screen from. Nothing may stand between a screen and these points.
+# Screen: the spec's point, with 6 cm to spare around the pyramid. Screen2: the two cameras that
+# show it and a point above the seat.
+SCREEN_VIEWS = {
+    "Screen": ([(0.0, 1.16, -0.2)], 0.06),
+    "Screen2": ([CAMERAS["desk_medium"][0], CAMERAS["desk_wide"][0], (0.3, 1.2, -1.2)], 0.02),
+}
+SCREEN_OWN = {"Screen": ("mon_", "bar_"), "Screen2": ("mon2_",)}  # each screen's own housing
+
+
+def _is(o, prefixes):
+    return o.name.startswith(tuple(prefixes))
+
+
+def _tree(objs):
+    verts, polys = [], []
+    for o in objs:
+        n0 = len(verts)
+        verts.extend(o.matrix_world @ v.co for v in o.data.vertices)
+        polys.extend(tuple(n0 + i for i in p.vertices) for p in o.data.polygons)
+    return verts, BVHTree.FromPolygons(verts, polys)
+
+
+def clearance(a, b):
+    """The smallest distance between two groups of objects (0 when their surfaces cross)."""
+    (va, ta), (vb, tb) = _tree(a), _tree(b)
+    if ta.overlap(tb):
+        return 0.0
+    return min(min(tb.find_nearest(v)[3] for v in va), min(ta.find_nearest(v)[3] for v in vb))
+
+
+def view_blockers(quad, eye, margin, objs):
+    """Objects with a vertex inside the pyramid from `eye` (glTF) to the quad, widened by `margin`."""
+    c, right, up, normal, (w, h) = quad_frame(quad)
+    e = G(*eye)
+    axis = c - e
+    depth = axis.dot(normal)
+    hits = {}
+    for o in objs:
+        for v in o.data.vertices:
+            p = o.matrix_world @ v.co
+            s = (p - e).dot(normal) / depth  # 0 at the eye, 1 on the quad's plane
+            if not 0.02 < s < 0.999:
+                continue
+            off = p - e - axis * s
+            if abs(off.dot(right)) < s * w / 2 + margin and abs(off.dot(up)) < s * h / 2 + margin:
+                k = o.name.split(".")[0]
+                hits[k] = hits.get(k, 0) + 1
+    return hits
+
+
+def check_layout(objs):
+    """Log, and fail on, what the desk must keep: the second monitor's clearances, its foot on the
+    desk top, both screens free from where they are looked at, the zone's box and its triangle budget."""
+    meshes = [o for o in objs if o.type == "MESH" and not o.get("quad") and o.data.polygons]
+    mon2 = [o for o in meshes if _is(o, ["mon2_"])]
+    corners = quad_corners("Screen2")
+    common.log("Screen2 corners (bl, br, tr, tl): " + ", ".join("(%.3f, %.3f, %.3f)" % c for c in corners))
+    # the housing's glass face lies 1 to 2 mm behind the quad, and nothing of the monitor is in front of it
+    c, right, up, normal, (w, h) = quad_frame("Screen2")
+    panel = next(o for o in mon2 if o.name.startswith("mon2_panel"))
+    behind = min(-(v.co - c).dot(normal) for v in panel.data.vertices)
+    common.log("mon2: glass %.2f mm behind the quad" % (behind * 1000))
+    assert 0.001 <= behind <= 0.002, "the second monitor's glass must lie 1 to 2 mm behind its quad"
+    # the foot stands on the desk top, inside its edges
+    foot = next(o for o in mon2 if o.name.startswith("mon2_foot"))
+    fp = [common.to_gltf(v.co) for v in foot.data.vertices]
+    fx0, fx1, fz0, fz1 = min(p[0] for p in fp), max(p[0] for p in fp), min(p[2] for p in fp), max(p[2] for p in fp)
+    edge = min(DESK_X - fx1, fx0 + DESK_X, fz0 - DESK_Z0, DESK_Z1 - fz1)
+    common.log("mon2 foot: x %.3f..%.3f, z %.3f..%.3f, stands at y %.3f; %.0f mm inside the desk's nearest edge" % (fx0, fx1, fz0, fz1, min(p[1] for p in fp), edge * 1000))
+    assert abs(min(p[1] for p in fp) - TOP) < 1e-5 and edge > 0.02, "the second monitor's foot must stand on the desk top"
+    # clearances
+    wall = min(common.to_gltf(o.matrix_world @ v.co)[2] for o in mon2 for v in o.data.vertices) - ROOM["z"][0]
+    gaps = {"wall": wall}
+    for label, prefixes in (("main monitor", ["mon_"]), ("light bar", ["bar_"]), ("speakers", ["spk_"])):
+        gaps[label] = clearance(mon2, [o for o in meshes if _is(o, prefixes)])
+    others = [o for o in meshes if not _is(o, ["mon2_", "cab_mon2", "desk_top"])]
+    nearest = min(((clearance(mon2, [o]), o.name) for o in others if (o.matrix_world @ o.data.vertices[0].co - c).length < 1.5), default=(9.0, "-"))
+    common.log("mon2 clearances: " + ", ".join("%s %.0f mm" % (k, v * 1000) for k, v in gaps.items()) + "; nearest other object %s at %.0f mm" % (nearest[1], nearest[0] * 1000))
+    assert min(gaps.values()) >= 0.03 and nearest[0] >= 0.015, "the second monitor touches or crowds something"
+    # both screens free from where they are looked at
+    for quad, (eyes, margin) in SCREEN_VIEWS.items():
+        proxy = bpy.data.objects.get("MascotProxy")
+        cand = [o for o in meshes if not _is(o, SCREEN_OWN[quad])] + ([proxy] if proxy else [])
+        for eye in eyes:
+            hits = view_blockers(quad, eye, margin, cand)
+            common.log("%s from (%.2f, %.2f, %.2f), %.0f mm to spare: %s" % (quad, *eye, margin * 1000, "free" if not hits else "BLOCKED by " + ", ".join("%s (%d)" % kv for kv in hits.items())))
+            assert not hits, "%s is not free from %s: %s" % (quad, eye, sorted(hits))
+    # the zone's box and budget
+    x0, x1, z0, z1, y1 = ZONES["desk"]["box"]
+    box_lo, box_hi = np.array((x0, 0.0, z0)) - 1e-4, np.array((x1, y1, z1)) + 1e-4
+    lo, hi, out = np.full(3, np.inf), np.full(3, -np.inf), set()
+    for o in meshes:
+        pts = np.array([common.to_gltf(o.matrix_world @ v.co) for v in o.data.vertices])
+        lo, hi = np.minimum(lo, pts.min(axis=0)), np.maximum(hi, pts.max(axis=0))
+        if (pts.min(axis=0) < box_lo).any() or (pts.max(axis=0) > box_hi).any():
+            out.add(o.name.split(".")[0])
+    inside = not out
+    common.log("zone extent x %.3f..%.3f, y %.3f..%.3f, z %.3f..%.3f; box x %.2f..%.2f, y 0..%.1f, z %.2f..%.2f: %s" % (lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], x0, x1, y1, z0, z1, "inside" if inside else "OUTSIDE: " + ", ".join(sorted(out))))
+    tris = 0
+    for o in meshes:
+        o.data.calc_loop_triangles()
+        tris += len(o.data.loop_triangles)
+    budget = ZONES["desk"]["triangles"]
+    common.log("zone triangles %d of %d" % (tris, budget))
+    assert inside and tris <= budget, "the desk zone left its box or its triangle budget"
+
+
 def build():
+    before = set(bpy.data.objects)
     tray_z, tray_y = build_desk()
     mon_back = build_monitor()
-    mon2_back = build_monitor2()
+    mon2_runs = build_monitor2()
     kb_back, mouse_back = build_keyboard()
     lamp_base = build_lamp()
     build_mic()
@@ -812,9 +965,10 @@ def build():
     build_picture_light()
     build_chair()
     build_rug()
-    build_cables(tray_z, tray_y, mon_back, mon2_back, kb_back, mouse_back, spk_backs, voice_back, lamp_base)
+    build_cables(tray_z, tray_y, mon_back, mon2_runs, kb_back, mouse_back, spk_backs, voice_back, lamp_base)
     common.make_anchor("MascotAnchor")
     common.make_anchor("Wordmark")
+    check_layout([o for o in bpy.data.objects if o not in before])
 
 
 if __name__ == "__main__":

@@ -2,10 +2,15 @@
 """Zone `corner`: the back-left corner of the room.
 
 A whiteboard on the back wall (quad `Text_install`: the install command, in
-marker), a framed blueprint on the left wall (quad `Text_open`), a rolling
-drawer cart and a stool under the whiteboard, a low sideboard under the
-blueprint with a small 3D printer mid-print, books, a plant and a speaker, a
-backpack leaning on the sideboard and an unlit tripod floor lamp in the corner.
+marker), a wall display on the left wall (quad `Screen_repo`: the site lays a
+live view of the repository on it, to the pixel), a rolling drawer cart and a
+stool under the whiteboard, a low sideboard under the display with a small 3D
+printer mid-print, books, a plant and a speaker, a backpack leaning on the
+sideboard and a tall snake plant in the corner.
+
+Nothing may stand between `Screen_repo` and the point RP_EYE, with 6 cm to
+spare: check_layout() tests every triangle of the zone against that pyramid
+and casts the cameras' sight lines to both quads.
 
 Run headless:
   blender --background --factory-startup --python zone_corner.py -- [flags]
@@ -27,7 +32,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import common  # noqa: E402
-from spec import CAMERAS, QUADS, ROOM  # noqa: E402
+from spec import CAMERAS, QUADS, ROOM, ZONES  # noqa: E402
 
 
 # --------------------------------------------------------------------------- #
@@ -81,7 +86,11 @@ def finish(bm, name, keys, smooth=True, sharp=42.0, weighted=True, drop_bottom=F
     """bmesh -> object with crisp-but-soft normals. keys: palette keys or materials.
     cull(n): drop faces whose glTF normal n the camera can never see (saves atlas space)."""
     if recalc:
+        # recalc_face_normals trusts the faces' stored normals, and bevel() and transform() leave
+        # them stale: without the update a part turned by a yaw came out inside out and baked black
+        bm.normal_update()
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        bm.normal_update()
     if cull is not None:
         kill = [f for f in bm.faces if cull((f.normal.x, f.normal.z, -f.normal.y))]
         bmesh.ops.delete(bm, geom=kill, context="FACES")
@@ -422,50 +431,197 @@ def build_stool():
 
 
 # --------------------------------------------------------------------------- #
-# The blueprint (left wall)
+# The repository display (left wall)
 # --------------------------------------------------------------------------- #
-BP = QUADS["Text_open"]
-BP_Z, BP_Y = BP["at"][2], BP["at"][1]
-BP_W, BP_H = BP["size"]
+RP = QUADS["Screen_repo"]
+RP_X, RP_Y, RP_Z = RP["at"]
+RP_W, RP_H = RP["size"]
 WALL_LEFT = ROOM["x"][0]
+RP_GAP = 0.0015                    # the quad floats 1.5 mm in front of the glass
+RP_SIDE, RP_CHIN = 0.010, 0.019    # bezel at the sides and the top, and the chin
+RP_PANEL, RP_REAR = 0.013, 0.022   # the thin panel and the rear housing: 35 mm in all
+RP_EYE = (-1.6, 1.6, -1.85)        # spec.py, the comment on Screen_repo: the apex of the pyramid that stays free
+RP_SPARE = 0.06                    # and the room to spare around that pyramid
 
 
-def build_blueprint():
+def build_display():
+    """The housing around `Screen_repo`: a thin panel with one flat glass front, a rear
+    housing, a low-profile bracket, a status LED on the chin and the power cable."""
     # local frame on the left wall: front faces +X, local +x runs toward the back wall (-Z)
-    M = place((WALL_LEFT, BP_Y, BP_Z), yaw=90)
-    sheet = abs(BP["at"][0] - WALL_LEFT) - 0.0015   # sheet surface 1.5 mm under the quad
-    mat_w = 0.075
-    fr_w = 0.024
-    hw, hh = BP_W / 2 + mat_w + fr_w, BP_H / 2 + mat_w + fr_w
-    # backing board and the dark sheet, flat under the quad
-    rbox("bp_sheet", "device", (BP_W + 0.05, BP_H + 0.05, 0.0012), (0, 0, sheet - 0.0006), bev=0, M=M, smooth=False, texel=1.8, cull=lambda n: n[0] < 0.9)
-    # passe-partout with a bevelled window, 2.5 mm proud of the sheet
-    mprof = [(-0.002, sheet - 0.0008), (-0.002, sheet + 0.0025), (0.0, sheet + 0.0025)]
-    win_hw, win_hh = BP_W / 2 + 0.012, BP_H / 2 + 0.012
-    rings = []
-    outer_hw, outer_hh = hw - fr_w + 0.004, hh - fr_w + 0.004
-    for (ow, oh, z) in ((outer_hw, outer_hh, sheet - 0.0008), (outer_hw, outer_hh, sheet + 0.0025),
-                        (win_hw, win_hh, sheet + 0.0025), (win_hw - 0.0025, win_hh - 0.0025, sheet - 0.0002)):
-        rings.append([M @ G(x, y, z) for x, y in rrect2(ow, oh, 0.0005, 1)])
-    del mprof
-    finish(loft(rings, closed=True), "bp_mat", "paper_dim", sharp=30, texel=1.8, cull=lambda n: n[0] < -0.9)
-    # thin dark frame
-    fz = sheet + 0.008
-    prof = [(0.0, 0.003), (0.0, fz - 0.002), (0.002, fz), (fr_w - 0.002, fz), (fr_w, fz - 0.002), (fr_w, sheet + 0.0018),
-            (fr_w - 0.006, sheet + 0.0018), (fr_w - 0.006, 0.003)]
-    frame_ring("bp_frame", "device", hw, hh, 0.003, prof, M, n=2)["texel"] = 1.2
+    M = place((WALL_LEFT, RP_Y, RP_Z), yaw=90)
+    glass = (RP_X - WALL_LEFT) - RP_GAP          # the glass face, measured from the wall
+    back = glass - RP_PANEL - RP_REAR            # what is left behind the housing is the bracket's
+    hw = RP_W / 2 + RP_SIDE
+    y1, y0 = RP_H / 2 + RP_SIDE, -RP_H / 2 - RP_CHIN
+    cy, hh = (y0 + y1) / 2, (y1 - y0) / 2
+    bev = 0.0025
+    # the thin panel: its edge is what the room sees from the side
+    rbox("disp_panel", "device", (2 * hw, 2 * hh, RP_PANEL), (0, cy, glass - RP_PANEL / 2), bev=bev, M=M, texel=1.5, cull=lambda n: abs(n[0]) > 0.99)
+    # the front: one flat sheet of glass from edge to edge, nothing proud of it. The bezel is
+    # the strip the camera sees; the middle lies under the quad and needs next to no lightmap.
+    ox, oy = hw - bev, hh - bev
+    ix, iy = RP_W / 2 - 0.0015, RP_H / 2 - 0.0015
+    outer = [(-ox, cy - oy), (ox, cy - oy), (ox, cy + oy), (-ox, cy + oy)]
+    inner = [(-ix, -iy), (ix, -iy), (ix, iy), (-ix, iy)]
+    bm = bmesh.new()
+    for i in range(4):   # four mitred strips that share no vertex: four slim islands in the lightmap, not one hollow one
+        j = (i + 1) % 4
+        bm.faces.new([bm.verts.new(M @ G(x, y, glass)) for x, y in (outer[i], outer[j], inner[j], inner[i])])
+    finish(bm, "disp_bezel", "device", smooth=False, recalc=False, texel=2.5)
+    bm = bmesh.new()
+    bm.faces.new([bm.verts.new(M @ G(x, y, glass)) for x, y in inner])
+    finish(bm, "disp_glass", "device", smooth=False, recalc=False, texel=0.05)
+    # status LED on the chin, lower right: lit, tiny, flush with the glass (the weight buys it
+    # the handful of texels it needs to be baked at all)
+    rbox("disp_led", emissive("accent", 2.0), (0.007, 0.002, 0.0006), (hw - 0.05, y0 + RP_CHIN / 2, glass + 0.0002), bev=0, M=M, smooth=False, texel=80.0,
+         cull=lambda n: n[0] < 0.99)
+    # rear housing, set in from the panel's edge
+    rw, rh = 2 * hw - 0.12, 2 * hh - 0.10
+    rbox("disp_rear", "device", (rw, rh, RP_REAR), (0, cy, back + RP_REAR / 2), bev=0.008, M=M, texel=0.4, cull=lambda n: abs(n[0]) > 0.99)
+    # low-profile bracket: a wall plate and the two rails the display hooks on
+    def hidden(n):   # faces against the wall or against the housing's back
+        return n[0] < -0.3 or n[0] > 0.99
+
+    def to_wall(n):
+        return n[0] < -0.3
+
+    rbox("disp_plate", "metal", (0.46, 0.24, back * 0.55), (0, cy + 0.03, back * 0.275), bev=0.002, segs=1, M=M, texel=0.2, cull=hidden)
+    for sx in (-1, 1):
+        rbox("disp_rail", "metal", (0.032, 0.34, back), (sx * 0.15, cy + 0.02, back / 2), bev=0.002, segs=1, M=M, texel=0.2, cull=hidden)
+
+    # --- power: down the wall in a slim cable cover, behind the sideboard, to a socket ---
+    W = place((WALL_LEFT, 0.0, RP_Z), yaw=90)    # same frame, y is the height above the floor
+    rear_y0 = RP_Y + cy - rh / 2
+    cov_y0, cov_y1 = SB["top"] + 0.036, RP_Y + y0 - 0.058
+    cov_w, cov_d = 0.026, 0.0115
+    cab = 0.0065                                  # the cable's axis off the wall, where it runs along it
+    pts = [W @ G(0.040, rear_y0 + 0.012, back + 0.011), W @ G(0.040, rear_y0 - 0.030, back + 0.011), W @ G(0.034, RP_Y + y0 - 0.010, 0.012),
+           W @ G(0.012, cov_y1 + 0.018, 0.0075), W @ G(0.002, cov_y1 - 0.004, cab), W @ G(0.0, cov_y1 - 0.03, cab)]
+    finish(tube(smooth_path(pts, 5), 0.0032, sides=6), "disp_cable", "device", sharp=70)
+    rbox("disp_cover", "metal", (cov_w, cov_y1 - cov_y0, cov_d), (0, (cov_y0 + cov_y1) / 2, cov_d / 2), bev=0.003, M=W, cull=to_wall)
+    # out of the cover's foot and down behind the sideboard
+    finish(tube([W @ G(0.0, cov_y0 + 0.02, cab), W @ G(0.0, SB["top"] - 0.07, cab)], 0.0032, sides=6), "disp_cable", "device", sharp=70, texel=0.3)
+    # a double socket in the free strip of wall between the sideboard and the window
+    sx0, sy = -(SB["w"] / 2 + 0.165), 0.30
+    rbox("sock_plate", "device_key", (0.158, 0.084, 0.008), (sx0, sy, 0.004), bev=0.003, M=W, texel=3.0, cull=to_wall)
+    side_x = -(SB["w"] / 2)                       # the sideboard's end toward the window
+    for k, gx in enumerate((sx0 + 0.037, sx0 - 0.037)):
+        # (front face only: its 1 mm sides would be islands thinner than a texel, which bake as whatever lies next to them)
+        rbox("sock_inset", "device", (0.060, 0.060, 0.002), (gx, sy, 0.008), bev=0, M=W, smooth=False, texel=3.0, cull=lambda n: n[0] < 0.99)
+        rbox("sock_plug", "device", (0.038, 0.040, 0.030), (gx, sy, 0.025), bev=0.007, M=W, texel=2.0, cull=to_wall)
+        # the lead leaves the plug downward, sags, and climbs out of sight behind the sideboard
+        # (k 0: the display's, k 1: the printer's and the speaker's power strip)
+        sag = 0.195 - 0.045 * k
+        pts = [W @ G(gx, sy - 0.012, 0.026), W @ G(gx, sy - 0.050, 0.026), W @ G(gx + 0.022, sag + 0.012, 0.020), W @ G((gx + side_x) / 2 + 0.01, sag, 0.012),
+               W @ G(side_x - 0.004, sag + 0.035, 0.007), W @ G(side_x + 0.05, sag + 0.10, 0.006), W @ G(side_x + 0.09, sag + 0.17, 0.006)]
+        finish(tube(smooth_path(pts, 5), 0.0032, sides=6), "sock_lead", "device", sharp=70)
     return M
 
 
 # --------------------------------------------------------------------------- #
-# Under the blueprint: a sideboard and what lives on it
+# The pyramid in front of the display that stays free
+# --------------------------------------------------------------------------- #
+def _repo_planes():
+    """The half-spaces (n, d: inside is n.p <= d, Blender space) whose intersection is the
+    pyramid from RP_EYE to the edges of `Screen_repo`, grown by RP_SPARE on its four sides,
+    from just in front of the quad to just behind the eye."""
+    eye = G(*RP_EYE)
+    hz, hy = RP_W / 2, RP_H / 2
+    cs = [G(RP_X, RP_Y + sy * hy, RP_Z + sz * hz) for sy, sz in ((-1, -1), (-1, 1), (1, 1), (1, -1))]
+    mid = G(RP_X, RP_Y, RP_Z)
+    planes = []
+    for i in range(4):
+        n = (cs[i] - eye).cross(cs[(i + 1) % 4] - eye).normalized()
+        if n.dot(mid - eye) > 0:
+            n = -n
+        planes.append((n, n.dot(eye) + RP_SPARE))
+    ax = G(1, 0, 0)
+    planes.append((-ax, -(RP_X + 0.0005)))       # only what is in front of the quad's plane
+    planes.append((ax, RP_EYE[0] + RP_SPARE))
+    return planes
+
+
+REPO_PLANES = _repo_planes()
+
+
+def _repo_depth(p):
+    """How far the Blender-space point p is outside the grown pyramid (<= 0: inside it)."""
+    return max(n.dot(p) - d for n, d in REPO_PLANES)
+
+
+def _clip(poly, n, d):
+    """A convex polygon (Vectors) cut to the half-space n.p <= d."""
+    out = []
+    for i, a in enumerate(poly):
+        b = poly[(i + 1) % len(poly)]
+        da, db = n.dot(a) - d, n.dot(b) - d
+        if da <= 0:
+            out.append(a)
+        if da * db < 0:
+            out.append(a + (b - a) * (da / (da - db)))
+    return out
+
+
+def check_layout():
+    """Log the zone's triangles against its budget, what leaves the zone's box, what blocks a
+    camera's sight lines to a quad, and what reaches into the free pyramid in front of the
+    display. Returns the names of the parts in that pyramid."""
+    from mathutils.bvhtree import BVHTree
+    x0, x1, z0, z1, ytop = ZONES["corner"]["box"]
+    tris, outside, inside = 0, {}, {}
+    verts, polys, owner = [], [], []
+    for ob in CREATED:
+        me = ob.data
+        name = ob.name.split(".")[0]
+        co = [ob.matrix_world @ v.co for v in me.vertices]
+        for p in co:   # (a slanted leg's rim may sink a few millimetres into the floor)
+            if not (x0 - 0.001 <= p.x <= x1 + 0.001 and z0 - 0.001 <= -p.y <= z1 + 0.001 and -0.005 <= p.z <= ytop + 0.001):
+                outside[name] = (round(p.x, 3), round(p.z, 3), round(-p.y, 3))
+        me.calc_loop_triangles()
+        base = len(verts)
+        verts.extend(co)
+        for lt in me.loop_triangles:
+            tris += 1
+            polys.append(tuple(base + i for i in lt.vertices))
+            owner.append(name)
+            poly = [co[i] for i in lt.vertices]
+            if any(all(n.dot(p) > d for p in poly) for n, d in REPO_PLANES):
+                continue
+            for n, d in REPO_PLANES:
+                poly = _clip(poly, n, d)
+                if len(poly) < 3:
+                    break
+            else:
+                inside[name] = inside.get(name, 0) + 1
+    # sight lines: from each camera (and the pyramid's apex) to a 13 x 9 grid on its quad
+    tree = BVHTree.FromPolygons(verts, polys)
+    blocks = set()
+    for label, eye, qn in (("repo", CAMERAS["repo"][0], "Screen_repo"), ("eye", RP_EYE, "Screen_repo"), ("whiteboard", CAMERAS["whiteboard"][0], "Text_install")):
+        q = QUADS[qn]
+        w, h = q["size"]
+        m = common.quad_matrix(q)
+        src = G(*eye)
+        for i in range(13):
+            for j in range(9):
+                d = m @ Vector(((i / 12 - 0.5) * w, 0.0, (j / 8 - 0.5) * h)) - src
+                hit = tree.ray_cast(src, d.normalized(), d.length - 0.0008)
+                if hit[0] is not None:
+                    blocks.add("%s:%s by %s" % (label, qn, owner[hit[2]]))
+    budget = ZONES["corner"]["triangles"]
+    common.log("corner check: %d triangles (budget %d)%s; outside the zone's box: %s; blocking a sight line: %s; in the free pyramid of Screen_repo (%.0f cm to spare): %s" % (
+        tris, budget, "  OVER BUDGET" if tris > budget else "", outside or "none", sorted(blocks) or "none", RP_SPARE * 100, inside or "none"))
+    return sorted(inside)
+
+
+# --------------------------------------------------------------------------- #
+# Under the display: a sideboard and what lives on it
 # --------------------------------------------------------------------------- #
 SB = {"w": 1.0, "d": 0.38, "leg": 0.16, "top": 0.611}
 
 
 def build_sideboard():
     d = SB["d"]
-    M = place((WALL_LEFT + 0.012 + d / 2, 0.0, BP_Z), yaw=90)
+    M = place((WALL_LEFT + 0.012 + d / 2, 0.0, RP_Z), yaw=90)
     w, leg, top = SB["w"], SB["leg"], SB["top"]
     body_y0, body_y1 = leg, top - 0.022
     # carcass panels (open compartment on the right half, doors on the left)
@@ -656,24 +812,21 @@ def build_backpack():
 
 # --------------------------------------------------------------------------- #
 # A tall snake plant in the very corner. Its sword leaves stand upright, so it
-# fits the narrow gap between the whiteboard and the blueprint and stays out of
-# the sight lines from the `whiteboard` and `blueprint` cameras to their quads.
+# fits the narrow gap between the whiteboard and the display, out of the
+# `whiteboard` camera's sight lines and out of the display's free pyramid.
 # --------------------------------------------------------------------------- #
 CORNER_PLANT = (-3.455, -2.545)
 
 
-def _clear_of_quads(x, z, margin=0.07):
-    """True if (x, z) lies left of the whiteboard camera's ray to the quad's
-    left edge and behind the blueprint camera's ray to its quad's right edge."""
+def _clear_of_quads(x, y, z, r=0.0, margin=0.07):
+    """True if (x, z) lies left of the whiteboard camera's ray to the quad's left edge, and a
+    leaf of half width r at (x, y, z) stays out of the free pyramid in front of the display."""
     cam, q = CAMERAS["whiteboard"][0], QUADS["Text_install"]
     ex, ez = q["at"][0] - q["size"][0] / 2, q["at"][2]
     t = (cam[2] - z) / (cam[2] - ez)
     ok_wb = x < cam[0] + (ex - cam[0]) * t - margin
-    cam, q = CAMERAS["blueprint"][0], QUADS["Text_open"]
-    ex, ez = q["at"][0], q["at"][2] - q["size"][0] / 2
-    t = (cam[0] - x) / (cam[0] - ex)
-    ok_bp = z < cam[2] + (ez - cam[2]) * t - margin
-    return ok_wb and ok_bp
+    ok_rp = _repo_depth(G(x, y, z)) > r + 0.01
+    return ok_wb and ok_rp
 
 
 def build_corner_plant():
@@ -710,14 +863,14 @@ def build_corner_plant():
             t = s_ / segs
             px = bx + math.cos(la) * lean * t ** 1.6
             pz = bz + math.sin(la) * lean * t ** 1.6
-            # keep the leaf behind both cameras' sight lines
+            py = soil + h * t
+            wv = wid * (0.55 + 0.45 * math.sin(math.pi * min(0.25 + t, 1.0))) * (1.0 - t ** 3) + 0.0015
+            # keep the leaf behind the whiteboard camera's sight lines and out of the display's pyramid
             for _ in range(20):
-                if _clear_of_quads(px, pz):
+                if _clear_of_quads(px, py, pz, wv / 2):
                     break
                 px -= 0.01
                 pz -= 0.01
-            py = soil + h * t
-            wv = wid * (0.55 + 0.45 * math.sin(math.pi * min(0.25 + t, 1.0))) * (1.0 - t ** 3) + 0.0015
             # and off the walls and the whiteboard's frame
             px = max(px, WALL_LEFT + 0.012 + wv / 2)
             pz = max(pz, (WALL_BACK + 0.012 if px < WB_X - WB_HW - 0.01 else WALL_BACK + 0.058) + wv / 2)
@@ -755,14 +908,16 @@ def build():
     build_whiteboard()
     build_cart()
     build_stool()
-    M = build_blueprint()
-    del M
+    build_display()
     Ms = build_sideboard()
     build_sideboard_top(Ms)
     build_backpack()
     build_corner_plant()
     make_quad("Text_install")
-    make_quad("Text_open")
+    make_quad("Screen_repo")
+    blocked = check_layout()
+    if blocked and STRICT:
+        raise RuntimeError("zone corner: in the free pyramid in front of Screen_repo: %s" % ", ".join(blocked))
 
 
 def tri_count():
@@ -785,9 +940,16 @@ DETAIL_CAMS = {
     "printer": ((-2.85, 1.02, -1.70), (-3.41, 0.76, -1.95), 34),
     "cart": ((-2.30, 1.10, -1.55), (-2.62, 0.62, -2.50), 44),
     "floor": ((-2.0, 0.75, -0.95), (-3.1, 0.3, -1.9), 55),
+    "display": ((-2.55, 1.45, -1.0), (-3.56, 1.45, -1.80), 40),
+    "display_wide": ((-1.9, 1.3, -1.6), (-3.56, 1.1, -1.80), 55),
+    "socket": ((-2.75, 0.55, -0.95), (-3.58, 0.28, -1.28), 34),
 }
+
+# Run on its own, the zone refuses to build with something in the display's free pyramid;
+# built by bake_shell.py it only logs it.
+STRICT = __name__ == "__main__"
 
 if __name__ == "__main__":
     if "--detail" in sys.argv:
         CAMERAS.update(DETAIL_CAMS)
-    common.run_zone("corner", build, cameras=["whiteboard", "blueprint", "finale"])
+    common.run_zone("corner", build, cameras=["whiteboard", "repo", "finale"])

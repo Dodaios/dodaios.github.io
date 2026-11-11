@@ -16,14 +16,10 @@ import {
   AdditiveBlending,
   BackSide,
   Box3,
-  BufferAttribute,
-  BufferGeometry,
   CanvasTexture,
   ConeGeometry,
   DoubleSide,
   Group,
-  LineBasicMaterial,
-  LineSegments,
   Mesh,
   MeshBasicMaterial,
   PlaneGeometry,
@@ -42,6 +38,12 @@ import type { Channels } from "../timeline";
 
 /** Every shipped file of the room, by its name (scripts/build-world-assets.mjs writes them). */
 const FILES = import.meta.glob<string>("../../assets/world/room-*", { query: "?url", import: "default", eager: true });
+/** What the wall display shows while the camera is not in front of it: a picture of the repository's view. */
+const REPO_FILES = import.meta.glob<string>("../../assets/world/repo.webp", {
+  query: "?url",
+  import: "default",
+  eager: true,
+});
 const SCREEN_FILES = import.meta.glob<string>("../../assets/world/screen.webp", {
   query: "?url",
   import: "default",
@@ -137,7 +139,6 @@ export interface Room {
   loadZone(name: ZoneName): Promise<void>;
   /** Fetch the morning's textures for every zone that is in. */
   loadDawn(): Promise<void>;
-  loadEdges(): Promise<void>;
   update(ch: Channels, reveal: number, time: number): void;
 }
 
@@ -241,15 +242,6 @@ export function createRoom(ctx: Context, glow: Texture): Room {
   sky.frustumCulled = false;
   group.add(sky);
 
-  let edges: LineSegments | null = null;
-  const edgeMaterial = new LineBasicMaterial({
-    color: ctx.token("--ink"),
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-  });
-  let edgesRequested = false;
-
   /* ---- Bringing a zone in ----------------------------------------------- */
 
   const adopt = async (name: ZoneName): Promise<void> => {
@@ -345,6 +337,15 @@ export function createRoom(ctx: Context, glow: Texture): Room {
       const wordmark = anchors.get("Wordmark");
       if (wordmark) wordmarkGlow.position.copy(wordmark.position).add(new Vector3(0, 0, 0.12));
     }
+    if (name === "corner") {
+      const display = quads.get("Screen_repo");
+      const url = Object.values(REPO_FILES)[0];
+      if (display && url) {
+        const texture = await loadTexture(url, ctx);
+        display.material = new MeshBasicMaterial({ map: texture, toneMapped: false });
+        display.userData.picture = true;
+      }
+    }
     if (name === "lounge") {
       const holo = anchors.get("HoloCenter")?.position ?? new Vector3(...HOLO_CENTER);
       beam.position.set(holo.x, holo.y - 0.74, holo.z);
@@ -383,37 +384,11 @@ export function createRoom(ctx: Context, glow: Texture): Room {
       );
     },
 
-    async loadEdges() {
-      if (edgesRequested) return;
-      edgesRequested = true;
-      const url = file("room-edges.bin");
-      if (!url) return;
-      const response = await fetch(url, { priority: "low" } as RequestInit);
-      if (!response.ok) return;
-      // Pairs of points, packed by scripts/build-world-assets.mjs: four floats
-      // (the size of one step, then the offset per axis), then 16-bit triples.
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength < 16 + 12) return;
-      const [step, ox, oy, oz] = new Float32Array(buffer, 0, 4);
-      const packed = new Uint16Array(buffer, 16);
-      const points = new Float32Array(packed.length);
-      for (let i = 0; i < packed.length; i += 3) {
-        points[i] = ox + packed[i] * step;
-        points[i + 1] = oy + packed[i + 1] * step;
-        points[i + 2] = oz + packed[i + 2] * step;
-      }
-      const geometry = new BufferGeometry();
-      geometry.setAttribute("position", new BufferAttribute(points, 3));
-      edges = new LineSegments(geometry, edgeMaterial);
-      edges.renderOrder = 3;
-      group.add(edges);
-    },
 
     update(ch, reveal, time) {
       // The lamp does not fade up: it catches, like a real one.
       const flicker =
         reveal >= 1 ? 1 : reveal < 0.18 ? 0 : reveal < 0.3 ? 0.55 : reveal < 0.38 ? 0.12 : Math.min(1, 0.6 + (reveal - 0.38) * 0.9);
-      const dim = 1 - 0.74 * ch.wire;
       const awake = Math.min(1, ch.agents / AGENT_COUNT);
       // Morning comes to the whole room at once, sky included, or not yet at all.
       const dawnReady = atlases.every((atlas) => atlas.material.uniforms.tDawn.value !== atlas.material.uniforms.tNight.value);
@@ -424,7 +399,7 @@ export function createRoom(ctx: Context, glow: Texture): Room {
         // The agents wall is baked with its six screens on; until they wake it
         // stands in the half dark, and the morning lights it either way.
         const zoneGain = atlas.zone === "right" ? Math.min(1, 0.4 + 0.6 * awake + 0.6 * dawn) : 1;
-        atlas.material.uniforms.uGain.value = flicker * dim * zoneGain;
+        atlas.material.uniforms.uGain.value = flicker * zoneGain;
         atlas.material.uniforms.uDawn.value = dawn;
       }
       skyMaterial.uniforms.uDawn.value = dawn;
@@ -433,26 +408,25 @@ export function createRoom(ctx: Context, glow: Texture): Room {
       if (monitor?.userData.picture) {
         // The screen wakes a moment before the lamp.
         const on = Math.min(1, reveal / 0.16);
-        (monitor.material as MeshBasicMaterial).color.setScalar(on * dim * (0.94 + 0.02 * Math.sin(beat * 1.7)));
-        (screenGlow.material as SpriteMaterial).opacity = 0.08 * on * dim * (1 - 0.6 * dawn) * (1 - ch.dock);
+        (monitor.material as MeshBasicMaterial).color.setScalar(on * (0.94 + 0.02 * Math.sin(beat * 1.7)));
+        (screenGlow.material as SpriteMaterial).opacity = 0.08 * on * (1 - 0.6 * dawn) * (1 - ch.dock);
       }
 
-      const lamp = flicker * (1 - dawn) * dim;
+      const display = quads.get("Screen_repo");
+      if (display?.userData.picture) (display.material as MeshBasicMaterial).color.setScalar(Math.min(1, reveal / 0.4) * 0.92);
+
+      const lamp = flicker * (1 - dawn);
       (bulbGlow.material as SpriteMaterial).opacity = 0.8 * lamp * (1 - 0.8 * ch.dock);
       if (lampCone) {
         (lampCone.material as ShaderMaterial).uniforms.uStrength.value = 0.14 * lamp * (1 - ch.dock);
         lampCone.visible = lamp > 0.01;
       }
-      (wordmarkGlow.material as SpriteMaterial).opacity = 0.16 * flicker * dim * (1 - 0.7 * dawn);
+      (wordmarkGlow.material as SpriteMaterial).opacity = 0.16 * flicker * (1 - 0.7 * dawn);
 
-      const holo = ch.rings * dim;
+      const holo = ch.rings;
       (beam.material as ShaderMaterial).uniforms.uStrength.value = 0.2 * holo * (0.9 + 0.1 * Math.sin(beat * 2.3));
       beam.visible = holo > 0.01;
 
-      if (edges) {
-        edges.visible = ch.wire > 0.01;
-        edgeMaterial.opacity = 0.5 * ch.wire;
-      }
     },
   };
 }

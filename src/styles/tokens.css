@@ -295,7 +295,13 @@
   --world-cloth: #262626;       /* the mascot's cloak when no texture came */
   --world-face: #080808;        /* the void inside the hood                */
   --world-star: #f4f7ff;        /* a stargazer's light                     */
-  --world-accent: #3d8bff;      /* the one accent, as light: LED lines     */
+  --world-accent: #3d8bff;
+  /* The colour each command-line tool's own terminal speaks in, for the
+   * sessions on the agents wall (src/world/parts/terminals.ts). */
+  --tui-claude: #d97757;
+  --tui-codex: #c9d1d9;
+  --tui-gemini: #8e9cf7;
+  --tui-opencode: #f0a04b;      /* the one accent, as light: LED lines     */
   --world-gold: #e2b964;        /* the wordmark's bloom                    */
 }
 

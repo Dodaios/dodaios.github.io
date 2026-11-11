@@ -35,7 +35,15 @@ let received = 0;
 let pulseAt = 0;
 
 const hotKey = (hot: FrameOutput["hot"]) =>
-  hot ? (hot.kind === "tile" ? `tile:${hot.label}:${hot.ring}` : hot.kind === "spot" ? `spot:${hot.id}` : hot.kind) : "";
+  hot
+    ? hot.kind === "tile"
+      ? `tile:${hot.label}:${hot.ring}`
+      : hot.kind === "spot"
+        ? `spot:${hot.id}`
+        : hot.kind === "pin"
+          ? `pin:${hot.label}`
+          : hot.kind
+    : "";
 
 /** Only what changed crosses back: the page has nothing to do with the rest. */
 const report = (out: FrameOutput) => {

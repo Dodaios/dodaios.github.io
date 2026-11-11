@@ -24,14 +24,16 @@ import {
 } from "three";
 
 import { breathe, damp, loadFonts, tokenLookup, type Context, type Tier, type Tokens } from "./kit";
+import { createGlobe, type Globe, type GlobeData } from "./parts/globe";
+import { createSecond, type Second } from "./parts/second";
 import { createLabels, type Labels, type LabelTexts } from "./parts/labels";
 import { createMascot, type Mascot } from "./parts/mascot";
 import { createRings, type RingData, type RingPick, type Rings } from "./parts/rings";
 import { createRoom, glowTexture, type Room, type ZoneName } from "./parts/room";
 import { createSky, type Sky } from "./parts/sky";
 import { createTerminals, type Terminals } from "./parts/terminals";
-import { HOLO_CENTER } from "./script";
-import { CHANNELS_AT_REST, cameraPosition, poseLooking, type Channels, type Pose } from "./timeline";
+import { GLOBE_RADIUS, HOLO_CENTER } from "./script";
+import { CHANNELS_AT_REST, cameraPosition, poseLooking, type Channels, type Pose, type ScreenQuad } from "./timeline";
 
 export interface WorldOptions {
   /** The page's canvas, or the worker's end of it. */
@@ -48,6 +50,8 @@ export interface WorldOptions {
   labels: LabelTexts;
   /** The typefaces the labels and terminals are drawn in. */
   fonts: readonly { family: string; url: string; weight: string }[];
+  /** The places pinned on the globe by the window. */
+  globe: GlobeData;
 }
 
 export interface Rect {
@@ -61,8 +65,9 @@ export interface Rect {
 export interface FrameInput {
   pose: Pose;
   ch: Channels;
-  /** Where the monitor's screen has to land while docked, in canvas px. */
+  /** Where a screen of the room has to land while docked, in canvas px, and which screen. */
   dockRect: Rect | null;
+  dockQuad: ScreenQuad | null;
   /** The pointer may reach the scene (it is not over a control of the page). */
   pointerFree: boolean;
 }
@@ -71,8 +76,10 @@ export interface FrameInput {
 export type Hot =
   | { kind: "mascot" }
   | { kind: "tile"; label: string; ring: number }
-  /** An object of the room: the whiteboard, the blueprint, a card, the counter. */
-  | { kind: "spot"; id: string };
+  /** An object of the room: the whiteboard, a card, the counter. */
+  | { kind: "spot"; id: string }
+  /** A place on the globe. */
+  | { kind: "pin"; label: string };
 
 /** What the world answers. */
 export interface FrameOutput {
@@ -90,14 +97,15 @@ export interface Extras {
   zones: readonly ZoneName[];
   rings: RingData | null;
   dawn: boolean;
-  edges: boolean;
+  /** The frames of the thread that plays on the desk's second monitor. */
+  frames: boolean;
 }
 
-const CHANNEL_KEYS = ["dawn", "agents", "rings", "ring", "wire", "stars", "voice", "dock"] as const;
+const CHANNEL_KEYS = ["dawn", "agents", "rings", "ring", "stars", "voice", "dock", "repo", "globe"] as const;
 /** Seconds the scene takes to come alive once its first frame is ready. */
 const REVEAL_SECONDS = 1.9;
 /** The quads of the room that answer a press, by name. */
-const SPOTS = ["Text_install", "Text_open", "Text_quote1", "Text_quote2", "Text_quote3", "Text_stars"] as const;
+const SPOTS = ["Text_install", "Text_quote1", "Text_quote2", "Text_quote3", "Text_stars"] as const;
 
 export class World {
   /** The monitor's screen in the world, for the dock (src/world/timeline.ts). */
@@ -115,6 +123,8 @@ export class World {
 
   private rings: Rings | null = null;
   private ringsAsked = false;
+  private globe: Globe | null = null;
+  private globeHover = -1;
   private spots: Mesh[] = [];
   private pose: Pose | null = null;
   private ch: Channels = { ...CHANNELS_AT_REST };
@@ -144,8 +154,10 @@ export class World {
     private readonly room: Room,
     private readonly labels: Labels,
     private readonly terminals: Terminals,
+    private readonly second: Second,
     private readonly mascot: Mascot,
     private readonly sky: Sky,
+    private readonly globeData: GlobeData,
   ) {
     this.pixelRatio = renderer.getPixelRatio();
     const { center, height } = room.screen;
@@ -187,8 +199,10 @@ export class World {
 
     const labels = createLabels(ctx, options.labels);
     const terminals = createTerminals(ctx);
+    const second = createSecond(ctx);
     labels.attach(room.quads);
     terminals.attach(room.quads);
+    second.attach(room.quads);
     await breathe();
 
     const seat = room.anchors.get("MascotAnchor") ?? { position: new Vector3(-0.62, 0.74, -2.12), yaw: 0.24 };
@@ -197,7 +211,7 @@ export class World {
     await breathe();
     const sky = createSky(ctx, lamp, options.stargazers);
 
-    const world = new World(ctx, renderer, room, labels, terminals, mascot, sky);
+    const world = new World(ctx, renderer, room, labels, terminals, second, mascot, sky, options.globe);
     world.resize(options.width, options.height);
     return world;
   }
@@ -219,6 +233,12 @@ export class World {
       this.labels.attach(this.room.quads);
       this.terminals.attach(this.room.quads);
       this.collect();
+      // The globe stands on the stand the window zone brings.
+      const stand = this.room.anchors.get("GlobeCenter");
+      if (zone === "window" && stand && !this.globe) {
+        this.globe = createGlobe(this.ctx, stand.position, GLOBE_RADIUS, this.globeData);
+        this.scene.add(this.globe.group);
+      }
       await breathe();
     }
     if (extras.rings && !this.ringsAsked) {
@@ -234,7 +254,7 @@ export class World {
       await breathe();
     }
     if (extras.dawn) await this.room.loadDawn().catch((error) => console.warn("[world] no morning textures", error));
-    if (extras.edges) await this.room.loadEdges().catch((error) => console.warn("[world] no wireframe", error));
+    if (extras.frames) await this.second.load().catch((error) => console.warn("[world] the thread does not play", error));
   }
 
   /** The quads that answer a press, of the zones that are in. */
@@ -295,7 +315,7 @@ export class World {
 
   /** Something happened on the page that the room acts out. */
   act(name: string): void {
-    if (name === "voice-run") this.terminals.run();
+    if (name === "voice-run") this.second.run();
   }
 
   /** The canvas's size on the page, in CSS px. */
@@ -354,7 +374,7 @@ export class World {
       this.pose = { ...input.pose };
     } else {
       // Arriving at the monitor has to finish: the page waits for an exact fit.
-      const rate = input.ch.dock > 0.98 ? 11 : 6.5;
+      const rate = Math.max(input.ch.dock, input.ch.repo) > 0.98 ? 11 : 6.5;
       // The camera follows as a place and a subject, each in a straight line: a
       // jump across the room (a link in the nav) must not swing it through a wall.
       const eye = cameraPosition(this.pose);
@@ -387,7 +407,7 @@ export class World {
     const free = pointed && !calm;
     this.pointerSmooth.x = damp(this.pointerSmooth.x, free ? this.pointer.x : 0, 3.5, dt);
     this.pointerSmooth.y = damp(this.pointerSmooth.y, free ? this.pointer.y : 0, 3.5, dt);
-    const sway = 1 - Math.min(1, this.ch.dock * 1.2);
+    const sway = 1 - Math.min(1, Math.max(this.ch.dock, this.ch.repo) * 1.2);
     const pose = this.pose;
     const az = ((pose.az + this.pointerSmooth.x * 2.4 * sway) * Math.PI) / 180;
     const el = ((pose.el - this.pointerSmooth.y * 1.4 * sway) * Math.PI) / 180;
@@ -407,6 +427,7 @@ export class World {
     this.room.update(this.ch, this.reveal, time);
     this.labels.update(this.ch, this.reveal);
     this.terminals.update(this.ch, this.reveal, time);
+    this.second.update(this.ch, this.reveal, time);
     this.mascot.update({
       dt,
       time,
@@ -426,11 +447,19 @@ export class World {
       face: this.mascot.face,
     });
     this.rings?.update(this.ch, time);
+    this.globe?.update({
+      ch: this.ch,
+      reveal: this.reveal,
+      time,
+      camera: this.camera,
+      pixelRatio: this.pixelRatio,
+      viewportHeight: this.height,
+    });
 
     this.renderer.render(this.scene, this.camera);
     this.frames++;
 
-    this.out.dockError = input.dockRect ? this.dockError(input.dockRect) : Infinity;
+    this.out.dockError = input.dockRect && input.dockQuad ? this.dockError(input.dockRect, input.dockQuad) : Infinity;
     if (!pointed && this.hover) {
       // The pointer left the scene: no tile may stay lit behind it.
       this.hover = null;
@@ -443,13 +472,19 @@ export class World {
   }
 
   /** The worst distance between a screen corner and the matching corner of `rect`. */
-  private dockError(rect: Rect): number {
-    const { center, width, height } = this.room.screen;
+  private dockError(rect: Rect, quad: ScreenQuad): number {
+    const { center, width, height } = quad;
+    // The screen's own "right", seen from its front.
+    const yaw = (quad.yaw * Math.PI) / 180;
+    const rx = Math.cos(yaw);
+    const rz = -Math.sin(yaw);
     let worst = 0;
     for (let i = 0; i < 4; i++) {
       const sx = i % 2 === 0 ? -1 : 1;
       const sy = i < 2 ? 1 : -1;
-      this.corner.set(center.x + (sx * width) / 2, center.y + (sy * height) / 2, center.z).project(this.camera);
+      this.corner
+        .set(center[0] + (rx * sx * width) / 2, center[1] + (sy * height) / 2, center[2] + (rz * sx * width) / 2)
+        .project(this.camera);
       const x = ((this.corner.x + 1) / 2) * this.width;
       const y = ((1 - this.corner.y) / 2) * this.height;
       const wantX = sx < 0 ? rect.left : rect.left + rect.width;
@@ -469,6 +504,15 @@ export class World {
         this.rings.setHover(pick);
       }
       if (pick) return { kind: "tile", label: pick.label, ring: pick.ring };
+    }
+    if (this.globe) {
+      const place = this.ch.globe > 0.5 ? this.globe.pick(this.raycaster.ray) : null;
+      const index = place?.index ?? -1;
+      if (index !== this.globeHover) {
+        this.globeHover = index;
+        this.globe.setHover(index);
+      }
+      if (place) return { kind: "pin", label: place.label };
     }
     if (this.ch.dock < 0.5) {
       if (this.raycaster.intersectObject(this.mascot.hit, false).length > 0) return { kind: "mascot" };

@@ -210,137 +210,88 @@ const SPECS: Record<string, Spec> = {
     },
   },
 
-  /* The blueprint: how a request runs, as line work, and the chapter's words. */
-  open: {
-    size: [1280, 896],
+  /* The strip of paper across the top of the corkboard: what the board is. */
+  board: {
+    size: [1056, 136],
     opaque: false,
-    lit: "print-light",
+    lit: "print-dark",
     draw(g, w, h, lines, paint) {
-      g.strokeStyle = paint.ink;
-      g.fillStyle = paint.ink;
-      // A drawing frame and a faint grid, as on any plan.
-      g.globalAlpha = 0.16;
-      g.lineWidth = 1;
-      for (let x = 64; x < w - 32; x += 64) {
-        g.beginPath();
-        g.moveTo(x, 40);
-        g.lineTo(x, h - 40);
-        g.stroke();
-      }
-      for (let y = 40 + 64; y < h - 40; y += 64) {
-        g.beginPath();
-        g.moveTo(40, y);
-        g.lineTo(w - 40, y);
-        g.stroke();
-      }
-      g.globalAlpha = 0.9;
-      g.lineWidth = 3;
-      g.strokeRect(40, 40, w - 80, h - 80);
-
-      g.textBaseline = "alphabetic";
-      g.textAlign = "left";
-      spaced(g, -0.02);
-      g.font = `500 78px ${SANS}`;
-      g.fillText(lines[0] ?? "", 84, 150);
-      g.globalAlpha = 0.72;
-      g.font = `400 46px ${SANS}`;
-      g.fillText(lines[1] ?? "", 84, 216);
-      spaced(g, 0);
-
-      // The plan itself: who hands work to whom. Boxes joined by lines.
-      const boxes = lines.slice(3);
-      const top = 330;
-      const boxH = 150;
-      const gap = 44;
-      const boxW = (w - 168 - gap * (boxes.length - 1)) / Math.max(1, boxes.length);
-      g.globalAlpha = 0.95;
-      g.lineWidth = 3;
+      g.fillStyle = paint.ground;
       g.textAlign = "center";
-      boxes.forEach((label, i) => {
-        const x = 84 + i * (boxW + gap);
-        g.strokeRect(x, top, boxW, boxH);
-        const [name, note] = label.split("|");
-        g.font = `500 34px ${MONO}`;
-        g.fillText(name.trim().toUpperCase(), x + boxW / 2, top + 66);
-        if (note) {
-          g.globalAlpha = 0.62;
-          g.font = `400 24px ${MONO}`;
-          g.fillText(note.trim(), x + boxW / 2, top + 108);
-          g.globalAlpha = 0.95;
-        }
-        if (i < boxes.length - 1) {
-          g.beginPath();
-          g.moveTo(x + boxW, top + boxH / 2);
-          g.lineTo(x + boxW + gap, top + boxH / 2);
-          g.stroke();
-          g.beginPath();
-          g.moveTo(x + boxW + gap, top + boxH / 2);
-          g.lineTo(x + boxW + gap - 12, top + boxH / 2 - 8);
-          g.lineTo(x + boxW + gap - 12, top + boxH / 2 + 8);
-          g.closePath();
-          g.fill();
-        }
-      });
-
-      // The title block every plan has, bottom right.
-      g.textAlign = "left";
-      g.globalAlpha = 0.8;
-      g.lineWidth = 2;
-      g.strokeRect(w - 560, h - 200, 520, 160);
-      spaced(g, 0.1);
-      g.font = `500 24px ${MONO}`;
-      (lines[2] ?? "").split("|").forEach((row, i) => g.fillText(row.trim().toUpperCase(), w - 536, h - 150 + i * 40));
+      g.textBaseline = "middle";
+      spaced(g, 0.08);
+      fit(g, (lines[0] ?? "").toUpperCase(), w * 0.9, (px) => `700 ${px}px ${SANS}`, 58, 28);
+      g.fillText((lines[0] ?? "").toUpperCase(), w / 2, h / 2 + 3);
       spaced(g, 0);
-      g.globalAlpha = 1;
     },
   },
 
-  /* The whiteboard: the one command, in marker. */
+  /*
+   * The whiteboard: what to do to have the app, top to bottom. A heading, one
+   * line that says where the command goes, the command itself on a printed
+   * slip, and what happens after it.
+   */
   install: {
     size: [1600, 1000],
     opaque: false,
     lit: "print-dark",
     draw(g, w, _h, lines, paint) {
+      const [title = "", paste = "", command = "", then = "", ...rest] = lines;
+      const hint = rest.length > 0 ? rest[rest.length - 1] : "";
+      const steps = rest.slice(0, -1);
       const marker = "rgb(18,24,38)";
       g.fillStyle = marker;
       g.strokeStyle = marker;
       g.textBaseline = "alphabetic";
       g.textAlign = "left";
-      g.font = `700 120px ${HAND}`;
-      g.fillText(lines[0] ?? "", 90, 190);
+      g.font = `700 112px ${HAND}`;
+      g.fillText(title, 90, 168);
       // Underline, by hand.
       g.lineWidth = 7;
       g.lineCap = "round";
       g.beginPath();
-      g.moveTo(92, 222);
-      g.bezierCurveTo(300, 236, 520, 212, 92 + g.measureText(lines[0] ?? "").width * 0.96, 226);
+      g.moveTo(92, 198);
+      g.bezierCurveTo(300, 212, 520, 188, 92 + g.measureText(title).width * 0.96, 202);
       g.stroke();
 
+      g.font = `400 56px ${HAND}`;
+      g.fillText(paste, 92, 296);
+
       // The command: printed, on a slip taped to the board, so every character is exact.
-      const command = lines[1] ?? "";
-      g.fillStyle = "rgba(255,255,255,0.96)";
-      g.fillRect(84, 290, w - 168, 190);
+      g.fillStyle = "rgba(255,255,255,0.97)";
+      g.fillRect(84, 338, w - 168, 176);
       g.fillStyle = "rgba(0,0,0,0.1)";
-      g.fillRect(84, 476, w - 168, 4);
+      g.fillRect(84, 510, w - 168, 4);
       g.fillStyle = paint.ground;
-      const rows = (() => {
-        fit(g, command, w - 260, (px) => `500 ${px}px ${MONO}`, 46, 30);
-        return wrap(g, command, w - 260);
-      })();
-      rows.slice(0, 2).forEach((row, i) => g.fillText(row, 130, rows.length === 1 ? 402 : 368 + i * 62));
+      fit(g, command, w - 260, (px) => `500 ${px}px ${MONO}`, 46, 30);
+      const rows = wrap(g, command, w - 260);
+      rows.slice(0, 2).forEach((row, i) => g.fillText(row, 130, rows.length === 1 ? 444 : 412 + i * 60));
       // Tape.
       g.fillStyle = "rgba(210,210,210,0.85)";
-      g.fillRect(140, 272, 120, 34);
-      g.fillRect(w - 260, 272, 120, 34);
-
-      g.fillStyle = marker;
-      g.font = `400 62px ${HAND}`;
-      lines.slice(2, 6).forEach((row, i) => g.fillText(`${i + 1}.  ${row}`, 104, 610 + i * 92));
-      // What a press on the board does, in the accent: the one hint in colour.
+      g.fillRect(140, 320, 120, 34);
+      g.fillRect(w - 260, 320, 120, 34);
+      // What a press on the board does, in the accent: the one hint in colour,
+      // with an arrow up to the slip it is about.
       g.fillStyle = paint.accent;
+      g.strokeStyle = paint.accent;
       g.font = `700 54px ${HAND}`;
       g.textAlign = "right";
-      g.fillText(lines[6] ?? "", w - 96, 250);
+      g.fillText(hint, w - 150, 596);
+      g.lineWidth = 6;
+      g.beginPath();
+      g.moveTo(w - 118, 600);
+      g.quadraticCurveTo(w - 84, 580, w - 104, 532);
+      g.moveTo(w - 128, 548);
+      g.lineTo(w - 104, 530);
+      g.lineTo(w - 90, 558);
+      g.stroke();
+
+      g.fillStyle = marker;
+      g.textAlign = "left";
+      g.font = `400 56px ${HAND}`;
+      g.fillText(then, 92, 680);
+      g.font = `400 58px ${HAND}`;
+      steps.slice(0, 3).forEach((row, i) => g.fillText(`${i + 1}.  ${row}`, 132, 772 + i * 84));
     },
   },
 };
@@ -446,14 +397,13 @@ export function createLabels(ctx: Context, texts: LabelTexts): Labels {
 
     update(ch, reveal) {
       const on = Math.min(1, reveal / 0.5);
-      const dim = 1 - 0.6 * ch.wire;
       for (const [id, { spec, material }] of live) {
         // Seated at the monitor, the page's own headline lies on the bar: the
         // bar's letters would only show beside it where the two differ in size.
-        if (id === "hero") material.color.setScalar(on * dim * (1 - ch.dock));
-        else if (spec.lit === "emits") material.color.setScalar(on * dim);
+        if (id === "hero") material.color.setScalar(on * (1 - ch.dock));
+        else if (spec.lit === "emits") material.color.setScalar(on);
         // Print takes the room's light: dim at night, full in the morning.
-        else if (spec.lit === "print-light") material.color.setScalar(on * (0.62 + 0.38 * ch.dawn) * (1 - 0.2 * ch.wire));
+        else if (spec.lit === "print-light") material.color.setScalar(on * (0.62 + 0.38 * ch.dawn));
         else material.opacity = on;
       }
     },

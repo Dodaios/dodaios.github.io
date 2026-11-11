@@ -13,15 +13,17 @@
 import { loadMarkSheet, openWorld, type WorldLink } from "./link";
 import type { RingData } from "./parts/rings";
 import type { ZoneName } from "./parts/room";
-import { SCRIPT, STILLS } from "./script";
+import { REPO_SCREEN, SCRIPT, STILLS } from "./script";
 import {
   CHANNELS_AT_REST,
-  DOCK,
+  isDock,
   buildKeys,
   clamp01,
   sample,
   type ChapterSpan,
+  type DockShot,
   type DockTarget,
+  type ScreenQuad,
   type Key,
 } from "./timeline";
 import type { FrameInput, FrameOutput } from "./World";
@@ -32,6 +34,8 @@ interface WorldData {
   rings: Omit<RingData, "sheet"> & { sheet: string };
   /** The words of every label in the room, and their variants (`id:variant`). */
   labels: Record<string, string[]>;
+  /** The places pinned on the globe: latitude, longitude and head count in threes, and their names. */
+  globe: { pins: number[]; labels: string[] };
 }
 
 /** The app window's size and the scale below which it stops shrinking (DemoStage.tsx). */
@@ -44,7 +48,6 @@ const RING_ROUTES = ["/plugins", "/skills", "/clis"];
 /** What the pointer's label says over a thing in the room that answers a press. */
 const SPOT_TIPS: Record<string, string> = {
   install: "Press to copy the command",
-  open: "Open the repository",
   stars: "Star it on GitHub",
   quote1: "Read it where it was said",
   quote2: "Read it where it was said",
@@ -227,7 +230,25 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
   const home = data.scene === "home";
   const small = matchMedia("(max-width: 767px), (pointer: coarse) and (max-width: 1100px)").matches;
   const chapters = home ? Array.from(document.querySelectorAll<HTMLElement>("[data-chapter]")) : [];
-  const dockStage = document.querySelector<HTMLElement>("[data-dock-stage]");
+  /*
+   * Two screens of the room carry a piece of the page: the desk's monitor is the
+   * app's window, the display on the wall is the repository. Each has a stage
+   * in the page, and the camera docks onto whichever the reader is at.
+   */
+  type DockId = DockShot["dock"];
+  const DOCK_IDS: readonly DockId[] = ["desk", "repo"];
+  const dockStage = document.querySelector<HTMLElement>('[data-dock-stage="desk"]');
+  const stages: Record<DockId, HTMLElement | null> = {
+    desk: dockStage,
+    repo: document.querySelector<HTMLElement>('[data-dock-stage="repo"]'),
+  };
+  /** The window inside each stage that the screen has to match. */
+  const FRAMES: Record<DockId, string> = { desk: ".demo-window", repo: ".repo-window" };
+  /** Which chapter each stage belongs to, and where in it the camera is docked (for the keyboard). */
+  const DOCK_CHAPTER: Record<DockId, { chapter: string; at: number }> = {
+    desk: { chapter: "hero", at: 0 },
+    repo: { chapter: "open", at: 0.56 },
+  };
   const agentCount = document.querySelector<HTMLElement>("[data-agents-count]");
   const tip = document.querySelector<HTMLElement>("[data-world-tip]");
 
@@ -238,7 +259,10 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
   let pinHeight = window.innerHeight;
   let size = { width: 1, height: 1 };
   let pointerFree = true;
-  let dockInView = false;
+  /** The stage whose chapter is on or near the screen. */
+  let dockNear: DockId | null = null;
+  /** The stage the last frame was docked onto. */
+  let frameDock: DockId | null = null;
   let queued = false;
   let stillPaused = false;
   let current: HTMLElement | null = null;
@@ -282,7 +306,7 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
     if (gone) return;
     const y = window.scrollY;
     const view = window.innerHeight;
-    dockInView = false;
+    dockNear = null;
     // (A cast, because the compiler does not follow an assignment into a callback.)
     let reading = null as HTMLElement | null;
     chapters.forEach((el, i) => {
@@ -291,7 +315,7 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
       const top = span.top - y;
       const bottom = top + span.height;
       const near = bottom > -view * 0.5 && top < view * 1.5;
-      if (near && span.id === "hero") dockInView = true;
+      if (near) for (const id of DOCK_IDS) if (DOCK_CHAPTER[id].chapter === span.id && stages[id]) dockNear = id;
       // The chapter the middle of the window is in owns the foot of the screen.
       if (top <= view * 0.5 && bottom > view * 0.5) reading = el;
       if (!near) return;
@@ -357,9 +381,13 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
     if (!span) return;
     const stretch = Math.max(0, span.height - pinHeight);
     const docked = dockStage?.hasAttribute("data-shown") ?? false;
+    const inStage = target.closest<HTMLElement>("[data-dock-stage]");
     let at: number | null = null;
-    if (target.closest("[data-dock-stage]")) at = docked ? null : 0;
-    else if (span.id === "hero") at = docked || chapter !== current ? 1 : null;
+    if (inStage) {
+      // A control on one of the room's screens: go and stand in front of it.
+      const id = inStage.dataset.dockStage as DockId;
+      at = inStage.hasAttribute("data-shown") ? null : (DOCK_CHAPTER[id]?.at ?? 0);
+    } else if (span.id === "hero") at = docked || chapter !== current ? 1 : null;
     else if (chapter !== current) at = 0.5;
     if (at !== null) window.scrollTo({ top: span.top + stretch * at, behavior: "instant" });
   };
@@ -374,12 +402,14 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
    * the window at MIN_SCALE and lets it run out of the frame on both sides, and
    * the monitor has to match the window, not the frame.
    */
-  const dockRect = (): FrameInput["dockRect"] => {
-    const frame = dockStage?.querySelector<HTMLElement>(".demo-window");
+  const dockRect = (id: DockId): FrameInput["dockRect"] => {
+    const frame = stages[id]?.querySelector<HTMLElement>(FRAMES[id]);
     if (!frame) return null;
     const box = frame.getBoundingClientRect();
     if (box.width <= 0) return null;
     const origin = canvasRect();
+    // The display on the wall is its window, edge to edge.
+    if (id !== "desk") return { left: box.left - origin.left, top: box.top - origin.top, width: box.width, height: box.height };
     const natural = box.width / WINDOW_W;
     const scale = Math.max(natural, MIN_SCALE);
     const shift = natural >= MIN_SCALE ? 0 : SIDEBAR_W * MIN_SCALE;
@@ -394,10 +424,26 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
   let ringShown = 1;
   const getFrame = (): FrameInput | null => {
     if (!world || gone) return null;
-    const rect = dockInView ? dockRect() : null;
-    const dock: DockTarget | null = rect ? { center: world.screen.center, height: world.screen.height, rect } : null;
-    const state = sample(keys, window.scrollY, size, dock, calm);
+    const id = dockNear;
+    const rect = id ? dockRect(id) : null;
+    const quad: ScreenQuad | null =
+      id === "desk"
+        ? { center: world.screen.center, width: (world.screen.height * WINDOW_W) / WINDOW_H, height: world.screen.height, yaw: 0 }
+        : id === "repo"
+          ? REPO_SCREEN
+          : null;
+    // On a phone the wall display would be a few lines high. There the
+    // repository is a panel over the picture, as tall as it needs to be, and
+    // the camera only looks at the display instead of matching it.
+    const panel = id === "repo" && small;
+    const docks: Partial<Record<DockId, DockTarget>> = {};
+    if (id && rect && quad && !panel) docks[id] = { ...quad, rect };
+    const state = sample(keys, window.scrollY, size, docks, calm);
     if (!state) return null;
+    const docking = id === "desk" ? state.ch.dock : id === "repo" ? state.ch.repo : 0;
+    frameDock = docking > 0.02 && !panel ? id : null;
+    // The panel follows the chapter, not the scene's report of a fit: there is none to wait for.
+    if (small) showStage("repo", panel ? docking : 0);
     if (agentCount) {
       const lit = String(Math.round(state.ch.agents));
       if (agentCount.textContent !== lit) agentCount.textContent = lit;
@@ -412,33 +458,45 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
     return {
       pose: state.pose,
       ch: state.ch,
-      dockRect: state.ch.dock > 0.02 ? rect : null,
+      dockRect: frameDock ? rect : null,
+      dockQuad: frameDock ? quad : null,
       pointerFree: home && pointerFree,
     };
   };
 
-  let dockOpacity = -1;
+  const dockOpacity: Record<DockId, number> = { desk: -1, repo: -1 };
+  const showStage = (id: DockId, opacity: number) => {
+    const el = stages[id];
+    const was = dockOpacity[id];
+    if (!el || !(Math.abs(opacity - was) > 0.004 || (opacity !== was && (opacity === 0 || opacity === 1)))) return;
+    dockOpacity[id] = opacity;
+    el.style.opacity = String(opacity);
+    el.toggleAttribute("data-shown", opacity > 0.01);
+    el.toggleAttribute("data-live", opacity > 0.96);
+  };
   let hotKey = "";
   let lastError = Infinity;
   const onFrame = (out: FrameOutput) => {
     lastError = out.dockError;
-    if (dockStage) {
-      // The live window fades in exactly as fast as the monitor lines up with it.
-      const opacity = Number.isFinite(out.dockError) ? clamp01(1 - (out.dockError - 1.5) / 14) : 0;
-      if (Math.abs(opacity - dockOpacity) > 0.004 || (opacity !== dockOpacity && (opacity === 0 || opacity === 1))) {
-        dockOpacity = opacity;
-        dockStage.style.opacity = String(opacity);
-        dockStage.toggleAttribute("data-shown", opacity > 0.01);
-        dockStage.toggleAttribute("data-live", opacity > 0.96);
-      }
-    }
+    // The live window fades in exactly as fast as the screen lines up with it.
+    const fit = Number.isFinite(out.dockError) ? clamp01(1 - (out.dockError - 1.5) / 14) : 0;
+    for (const id of DOCK_IDS) if (!(small && id === "repo")) showStage(id, id === frameDock ? fit : 0);
     const hot = out.hot;
-    const key = hot ? (hot.kind === "tile" ? `tile:${hot.label}` : hot.kind === "spot" ? `spot:${hot.id}` : hot.kind) : "";
+    const key = hot
+      ? hot.kind === "tile"
+        ? `tile:${hot.label}`
+        : hot.kind === "spot"
+          ? `spot:${hot.id}`
+          : hot.kind === "pin"
+            ? `pin:${hot.label}`
+            : hot.kind
+      : "";
     if (key !== hotKey) {
       hotKey = key;
       root.toggleAttribute("data-world-hot", key !== "");
       if (tip) {
-        const text = hot?.kind === "tile" ? hot.label : hot?.kind === "spot" ? (SPOT_TIPS[hot.id] ?? "") : "";
+        const text =
+          hot?.kind === "tile" || hot?.kind === "pin" ? hot.label : hot?.kind === "spot" ? (SPOT_TIPS[hot.id] ?? "") : "";
         tip.textContent = text;
         tip.toggleAttribute("data-on", text !== "");
       }
@@ -472,7 +530,6 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
   /** A thing in the room was pressed: do what its counterpart in the page does. */
   const pressSpot = (id: string) => {
     if (id === "install") document.querySelector<HTMLButtonElement>("[data-copy-install]")?.click();
-    else if (id === "open") document.querySelector<HTMLAnchorElement>("[data-open-repo]")?.click();
     else if (id === "stars") document.querySelector<HTMLAnchorElement>("#stargazers .hud a")?.click();
     else if (id.startsWith("quote")) document.querySelector<HTMLAnchorElement>(`[data-quote="${id.slice(5)}"]`)?.click();
   };
@@ -577,10 +634,10 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
     root.classList.add("world-off");
     root.removeAttribute("data-world-hot");
     current?.removeAttribute("data-current");
-    if (dockStage) {
-      dockStage.style.removeProperty("opacity");
-      dockStage.removeAttribute("data-shown");
-      dockStage.removeAttribute("data-live");
+    for (const el of Object.values(stages)) {
+      el?.style.removeProperty("opacity");
+      el?.removeAttribute("data-shown");
+      el?.removeAttribute("data-live");
     }
     if (tip) {
       tip.textContent = "";
@@ -604,6 +661,7 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
         tier: { small: small || !home, calm, maxPixelRatio: small ? 1.5 : home ? 2 : 1.5 },
         stargazers: data.stargazers,
         labels,
+        globe: data.globe,
       });
       canvas = opened.canvas;
       link = opened.link;
@@ -623,11 +681,9 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
     syncPause();
     // The page opens seated at the monitor: the window is already where it
     // belongs, so it must not blink out while the scene takes over.
-    if (dockStage && keys[0]?.shot === DOCK && keys[1]?.shot === DOCK && window.scrollY < keys[1].y) {
-      dockOpacity = 1;
-      dockStage.style.opacity = "1";
-      dockStage.setAttribute("data-shown", "");
-      dockStage.setAttribute("data-live", "");
+    if (dockStage && keys[0] && keys[1] && isDock(keys[0].shot) && isDock(keys[1].shot) && window.scrollY < keys[1].y) {
+      frameDock = "desk";
+      showStage("desk", 1);
     }
     link.start(getFrame, onFrame, onCut);
     root.classList.add("world-live");
@@ -676,10 +732,10 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
       if (home) {
         await idle();
         if (gone) return;
-        await link.extend({ dawn: true });
+        await link.extend({ frames: true });
         await idle();
         if (gone) return;
-        await link.extend({ edges: true });
+        await link.extend({ dawn: true });
       }
     } catch (error) {
       // A station that did not arrive would leave its chapter with no words.
@@ -695,8 +751,8 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
       hidden: document.hidden,
       size,
       canvas: [canvas.clientWidth, canvas.clientHeight],
-      dockInView,
-      dockRect: dockRect(),
+      dockNear,
+      dockRect: dockNear ? dockRect(dockNear) : null,
       dockError: lastError,
       keys: keys.map((key) => `${key.chapter}@${Math.round(key.y)}`),
       pinHeight,

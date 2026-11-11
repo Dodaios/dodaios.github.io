@@ -10,7 +10,6 @@
  *                              blend night into morning and pick a size for
  *                              the device
  *   room-<atlas>-<state>.webp  the baked light, full size, and -1k.webp at half
- *   room-edges.bin             the room's hard edges, for the wireframe
  *
  * A zone that Blender has not exported yet is skipped, and what is already in
  * src/assets/world stays as it is.
@@ -18,7 +17,7 @@
  * Run it after rebuilding a model:  node scripts/build-world-assets.mjs
  * See docs/world.md, "The models".
  */
-import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -67,93 +66,11 @@ async function textured(name, size) {
   report(target);
 }
 
-/**
- * The hard edges of a zone's furniture, as pairs of points: every edge where
- * the surface turns by more than `ANGLE` degrees or simply ends. Short ones are
- * dropped, they are the bevels and would only thicken every corner.
- */
-function hardEdges(document, segments) {
-  const ANGLE = 38;
-  const MIN_LENGTH = 0.03;
-  const cos = Math.cos((ANGLE * Math.PI) / 180);
-  for (const node of document.getRoot().listNodes()) {
-    const mesh = node.getMesh();
-    if (!mesh || !node.getName().startsWith("Zone_")) continue;
-    const matrix = node.getWorldMatrix();
-    for (const primitive of mesh.listPrimitives()) {
-      const position = primitive.getAttribute("POSITION");
-      const indices = primitive.getIndices();
-      const count = indices ? indices.getCount() : position.getCount();
-      const point = (i) => {
-        const [x, y, z] = position.getElement(indices ? indices.getScalar(i) : i, []);
-        return [
-          matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12],
-          matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13],
-          matrix[2] * x + matrix[6] * y + matrix[10] * z + matrix[14],
-        ];
-      };
-      const key = (p) => `${Math.round(p[0] * 4000)},${Math.round(p[1] * 4000)},${Math.round(p[2] * 4000)}`;
-      /** edge key -> { a, b, normals: [] } */
-      const edges = new Map();
-      for (let i = 0; i < count; i += 3) {
-        const corners = [point(i), point(i + 1), point(i + 2)];
-        const u = corners[1].map((v, k) => v - corners[0][k]);
-        const w = corners[2].map((v, k) => v - corners[0][k]);
-        const normal = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
-        const length = Math.hypot(...normal);
-        if (length < 1e-12) continue;
-        const unit = normal.map((v) => v / length);
-        for (let e = 0; e < 3; e++) {
-          const a = corners[e];
-          const b = corners[(e + 1) % 3];
-          const ka = key(a);
-          const kb2 = key(b);
-          if (ka === kb2) continue;
-          const id = ka < kb2 ? `${ka}|${kb2}` : `${kb2}|${ka}`;
-          let edge = edges.get(id);
-          if (!edge) edges.set(id, (edge = { a, b, normals: [] }));
-          edge.normals.push(unit);
-        }
-      }
-      for (const { a, b, normals } of edges.values()) {
-        if (Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < MIN_LENGTH) continue;
-        const open = normals.length === 1;
-        const turned =
-          normals.length >= 2 &&
-          normals[0][0] * normals[1][0] + normals[0][1] * normals[1][1] + normals[0][2] * normals[1][2] < cos;
-        if (open || turned) segments.push(a, b);
-      }
-    }
-  }
-}
-
-/**
- * Pack the segments: a header of four floats (the size of one step, then the
- * offset on each axis) followed by one 16-bit triple per point.
- */
-function packEdges(points) {
-  const min = [Infinity, Infinity, Infinity];
-  const max = [-Infinity, -Infinity, -Infinity];
-  for (const p of points) for (let k = 0; k < 3; k++) (min[k] = Math.min(min[k], p[k])), (max[k] = Math.max(max[k], p[k]));
-  const span = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]) || 1;
-  const step = span / 65535;
-  const header = new Float32Array([step, min[0], min[1], min[2]]);
-  const body = new Uint16Array(points.length * 3);
-  points.forEach((p, i) => {
-    for (let k = 0; k < 3; k++) body[i * 3 + k] = Math.round((p[k] - min[k]) / step);
-  });
-  return Buffer.concat([Buffer.from(header.buffer), Buffer.from(body.buffer)]);
-}
-
 /** One zone: its model without textures, and its atlases in two states and two sizes. */
-async function zone(name, segments) {
+async function zone(name) {
   const source = join(ROOM, `${name}.glb`);
-  if (!existsSync(source)) {
-    console.warn(`  (skipped ${name}: ${source} is missing)`);
-    return false;
-  }
+  if (!existsSync(source)) return console.warn(`  (skipped ${name}: ${source} is missing)`);
   const document = await io.read(source);
-  hardEdges(document, segments);
 
   // The light is shipped beside the model, not inside it. A baked mesh's
   // material is named `Bake_<atlas>`; that name is how the scene finds the files.
@@ -182,20 +99,8 @@ async function zone(name, segments) {
       report(half);
     }
   }
-  return true;
 }
 
 console.log("world assets:");
 await textured("mascot", 1024);
-const segments = [];
-let whole = true;
-for (const name of ZONES) whole = (await zone(name, segments)) && whole;
-// The wireframe is one file for the whole room: from a partial export it would
-// lose the lines of every zone that was skipped.
-if (!whole) console.warn("  (room-edges.bin left as it is: not every zone was exported)");
-else if (segments.length > 0) {
-  const edges = join(OUT, "room-edges.bin");
-  writeFileSync(edges, packEdges(segments));
-  report(edges);
-  console.log(`    ${segments.length / 2} edges`);
-}
+for (const name of ZONES) await zone(name);

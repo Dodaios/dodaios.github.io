@@ -276,7 +276,7 @@ export function createSky(ctx: Context, lampBulb: Vector3, stargazers: number): 
       far.material.uniforms.uLevel.value = shown * (0.34 + 0.5 * ch.stars) * (1 - 0.75 * ch.dawn);
       gazers.material.uniforms.uLevel.value = Math.max(ch.stars, 0.35 * shown) * (1 - 0.9 * ch.dawn);
       gazers.visible = shown > 0.003;
-      dust.material.uniforms.uLevel.value = shown * 0.7 * (1 - 0.55 * ch.dawn) * (1 - ch.dock) * (1 - 0.7 * ch.wire);
+      dust.material.uniforms.uLevel.value = shown * 0.7 * (1 - 0.55 * ch.dawn) * (1 - ch.dock);
       if (!calm) turning.rotation.y = time * 0.02;
 
       const level = listening * 0.5 * ch.voice * (1 - ch.dock);

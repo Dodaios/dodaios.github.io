@@ -14,12 +14,14 @@ import Chapter from "./Chapter.astro";
 ---
 
 <Chapter id={INSTALL_ID} chapter="install" len={2.6} labelledby="install-heading">
-  <p class="eyebrow">Install</p>
+  <p class="eyebrow">{INSTALL.board}</p>
   <h2 id="install-heading" class="display">{INSTALL.title}</h2>
   <p class="lede">{INSTALL.lede}</p>
+  <p class="fine">{INSTALL.paste}</p>
   <div class="install__box">
     <InstallCommand />
   </div>
+  <p class="fine">{INSTALL.then}</p>
   <ol class="install__steps">
     {
       INSTALL.steps.map((step, i) => (
@@ -43,6 +45,6 @@ import Chapter from "./Chapter.astro";
     >
       {INSTALL.copy}
     </button>
-    <span class="hud__note hud__note--world">Windows, macOS or Linux · on the whiteboard: {INSTALL.hint}</span>
+    <span class="hud__note hud__note--world">Windows, macOS or Linux · or {INSTALL.hint}</span>
   </Fragment>
 </Chapter>

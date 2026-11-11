@@ -26,7 +26,6 @@ import claudeLogo from "@/assets/app/claude.svg?url";
 import openaiLogo from "@/assets/app/openai.svg?url";
 import {
   Bot,
-  Building2,
   CheckCheck,
   ChevronLeft,
   Ellipsis as MoreHorizontal,
@@ -790,7 +789,6 @@ const SIDE_PANEL_TABS = [
   { id: "changes", label: "Changes", icon: FileDiff },
   { id: "files", label: "Folder", icon: FolderTree },
   { id: "git", label: "Git", icon: GitBranch },
-  { id: "office", label: "Dodaios Verse", icon: Building2 },
 ] as const;
 
 /** IdeSidePanelRail: what a closed panel leaves on the right edge. */

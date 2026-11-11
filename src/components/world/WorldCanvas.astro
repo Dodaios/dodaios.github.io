@@ -1,0 +1,45 @@
+---
+/**
+ * The 3D world's place in the document: one canvas fixed behind the page, the
+ * data the scene needs, and the script that starts it. Rendered by the root
+ * layout on every route that names a scene. See docs/world.md.
+ *
+ * NOTHING HERE DRAWS BEFORE THE PAGE HAS PAINTED. The canvas is empty and
+ * invisible until `boot.ts` has loaded the scene, which it only starts after
+ * the load event, in an idle moment. The page's text is the first paint.
+ *
+ * `world-on` IS STAMPED IN THE HEAD (Base.astro), not here: it decides the
+ * layout of the chapters, and a class that arrived after the first paint would
+ * move the page under the reader.
+ */
+import { marks } from "@/components/logos/marks";
+import catalog from "@/data/app-catalog.json";
+import counts from "@/data/social-counts.json";
+import { CLI_MARKS, MARK_SHEET_COLUMNS } from "@/world/marks";
+
+interface Props {
+  /** "home" for the scrolled journey; otherwise the name of a still (src/world/script.ts). */
+  scene: string;
+}
+
+const { scene } = Astro.props;
+
+const data = {
+  scene,
+  stargazers: counts.platforms.github.value,
+  rings: {
+    sheet: "/world/marks.svg",
+    columns: MARK_SHEET_COLUMNS,
+    marks: marks.map((mark) => mark.name),
+    clis: CLI_MARKS,
+    skills: catalog.skills.map((skill) => skill.name),
+  },
+};
+---
+
+<canvas class:list={["world-canvas", scene !== "home" && "world-canvas--still"]} data-world aria-hidden="true"></canvas>
+<div class="world-tip" data-world-tip aria-hidden="true"></div>
+<script is:inline type="application/json" id="world-data" set:html={JSON.stringify(data)} />
+<script>
+  import "@/world/boot";
+</script>

@@ -1,0 +1,4 @@
+# Blender build script: long geometry tables and %-formatted logs are intended.
+line-length = 120
+[lint]
+ignore = ["UP031", "B905", "B023", "I001", "E501"]

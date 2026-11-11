@@ -1,37 +1,38 @@
 ---
+/**
+ * The front page: one scrolled journey through the 3D world, in chapters.
+ * Each chapter is a pinned screen over the scene; what the camera does in it is
+ * written in src/world/script.ts. See docs/world.md.
+ */
 import Base from "@/layouts/Base.astro";
-import Hero from "@/sections/Hero.astro";
-import LogoStrip from "@/sections/LogoStrip.astro";
-import Voices from "@/sections/Voices.astro";
-import Talk from "@/sections/Talk.astro";
-import Agents from "@/sections/Agents.astro";
-import Plugins from "@/sections/Plugins.astro";
-import Skills from "@/sections/Skills.astro";
-import Clis from "@/sections/Clis.astro";
-import VoiceSwitch from "@/sections/VoiceSwitch.astro";
-import Stargazers from "@/sections/Stargazers.astro";
-import BuiltInPublic from "@/sections/BuiltInPublic.astro";
-import OpenSource from "@/sections/OpenSource.astro";
-import Install from "@/sections/Install.astro";
 import Legal from "@/sections/Legal.astro";
+import AgentsChapter from "@/sections/world/AgentsChapter.astro";
+import HeroChapter from "@/sections/world/HeroChapter.astro";
+import InstallChapter from "@/sections/world/InstallChapter.astro";
+import OpenChapter from "@/sections/world/OpenChapter.astro";
+import ReachChapters from "@/sections/world/ReachChapters.astro";
+import StarsChapter from "@/sections/world/StarsChapter.astro";
+import TalkChapter from "@/sections/world/TalkChapter.astro";
+import TryChapter from "@/sections/world/TryChapter.astro";
 ---
 
 <Base
   title="Dodaios — an open-source agent OS for your desktop"
   description="Dodaios is an open-source agent OS for your desktop: it runs your coding agents, browser and apps by voice or chat, on your own machine."
+  world="home"
+  chrome={false}
 >
-  <Hero />
-  <LogoStrip />
-  <Voices />
-  <Talk />
-  <Plugins />
-  <Skills />
-  <Clis />
-  <Agents />
-  <VoiceSwitch />
-  <Stargazers />
-  <BuiltInPublic />
-  <OpenSource />
-  <Install />
-  <Legal />
+  <main>
+    <HeroChapter />
+    <TryChapter />
+    <TalkChapter />
+    <AgentsChapter />
+    <ReachChapters />
+    <StarsChapter />
+    <OpenChapter />
+    <InstallChapter />
+  </main>
+  <div class="world-foot">
+    <Legal />
+  </div>
 </Base>

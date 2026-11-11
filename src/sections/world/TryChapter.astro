@@ -1,0 +1,34 @@
+---
+/**
+ * Sit down: the camera takes the empty chair, and the monitor becomes the app.
+ *
+ * The window is the working clone of the app (src/components/demo). It lies
+ * exactly where the monitor's screen comes to rest, and fades in as the two
+ * line up (src/world/boot.ts, "dockRect"). Without the scene it is simply
+ * there, as it was in the old hero. See docs/hero.md.
+ */
+import DemoStage from "@/components/demo/DemoStage";
+import Chapter from "./Chapter.astro";
+---
+
+<Chapter id="try" chapter="try" len={3.4} labelledby="try-heading">
+  <div class="panel panel--wide dock">
+    <p class="dock__invite display" aria-hidden="true">Take the chair.</p>
+
+    <div class="dock__stage" data-dock-stage data-ui>
+      <div class="dock__caption">
+        <h2 id="try-heading" class="text-[length:inherit]">
+          <strong>This is the app, not a recording.</strong> Press anything, type, start a job.
+        </h2>
+        <span class="dock__leave" aria-hidden="true">Scroll on to stand up</span>
+      </div>
+      <p class="sr-only">
+        A working copy of the Dodaios desktop app with sample data. It shows a conversation with the assistant, the
+        agents, the Agentic IDE and the plugins. Left alone it plays one errand: a failing test is handed to an agent,
+        which fixes it and opens a pull request. The three buttons under it start an errand.
+      </p>
+      {/* `client:visible`: the window's script arrives when the reader does. */}
+      <DemoStage client:visible />
+    </div>
+  </div>
+</Chapter>

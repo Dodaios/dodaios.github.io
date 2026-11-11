@@ -280,3 +280,19 @@
  * If a light mode is ever wanted, add it as `:root[data-theme="light"]`
  * overrides — never move a colour's only definition into a block, or the page
  * loses that colour wherever the block does not apply. */
+
+/* --- The 3D world ----------------------------------------------------------
+ * The colours of the light in the real-time scene behind the page (src/world,
+ * docs/world.md). They are light, not paint: nothing in the DOM may use them.
+ * The scene's surfaces are baked textures and need no token; these are the few
+ * values the renderer adds on top at run time.
+ */
+:root {
+  --world-lamp: #ffb975;        /* the desk lamp, warm tungsten            */
+  --world-screen: #f2f1ec;      /* the monitor's glow, paper white         */
+  --world-dawn: #ffd3a1;        /* low morning sun                         */
+  --world-sky: #9fb4cc;         /* the cool fill opposite the lamp         */
+  --world-cloth: #2a2824;       /* the mascot's cloak when no texture came */
+  --world-face: #0b0a09;        /* the void inside the hood                */
+  --world-star: #fff4e0;        /* a stargazer's light                     */
+}

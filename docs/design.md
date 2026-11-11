@@ -32,6 +32,28 @@ Key characteristics:
 - Five pastel stage colours, scoped to agent-timeline visualisations only.
 - Mono on every code surface, and code surfaces are roughly half the page.
 
+## The scene behind the page
+
+Since 2026-11-11 the site stands in a real-time 3D scene
+([`world.md`](world.md)). The scene follows this system rather than adding to
+it:
+
+- **Its ground is the page's ground.** The canvas is cleared to `--canvas` and
+  the set's outer edges fall off to that colour, so the scene has no frame.
+- **Its colours are light, not paint.** The surfaces are baked textures in the
+  warm charcoal of this palette. The few values the renderer adds at run time
+  are the `--world-*` tokens: the lamp, the monitor's glow, the morning sun.
+  Nothing in the page may use them.
+- **The one warm tone is the lamp.** It is not an accent colour and never
+  colours a control. The primary action is still paper on ink.
+- **Words stay in the page.** No text is drawn in the scene.
+- **Copy never sits straight on the picture.** A patch of `--canvas` fades out
+  under each panel of copy; it has no edge and is not a card.
+- **The front page has no rails and no section marker**, and its foot paints
+  `--canvas` under the legal text, the one ground a part of the front page
+  paints for itself. A frame around a scene with depth reads as a window pane,
+  and legal text over a picture is neither read nor looked at.
+
 ## What this is not
 
 The reference document this system was adapted from described **another

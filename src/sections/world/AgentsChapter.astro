@@ -1,0 +1,24 @@
+---
+/**
+ * The camera pulls back and the room turns out not to be empty: the agent pods
+ * light up one after another. The figure counts them as they do.
+ */
+import { POD_COUNT } from "@/world/script";
+import Chapter from "./Chapter.astro";
+---
+
+<Chapter id="agents" chapter="agents" len={2.8} labelledby="agents-heading">
+  <div class="panel" data-ui>
+    <p class="eyebrow reveal">Agents</p>
+    <h2 id="agents-heading" class="display reveal" style="--i: 1">A team that works while you don't.</h2>
+    <p class="lede reveal" style="--i: 2">
+      Each agent has its own chat, model, browser and routines. Dodaios leads, they talk to each other, and anything
+      that sends waits for your OK.
+    </p>
+    <p class="agents3d__count reveal" style="--i: 3">
+      {/* Counted up by the scene as the pods light; the full number without it. */}
+      <span class="agents3d__figure" data-pods-count>{POD_COUNT}</span>
+      <span>agents at work around your desk</span>
+    </p>
+  </div>
+</Chapter>

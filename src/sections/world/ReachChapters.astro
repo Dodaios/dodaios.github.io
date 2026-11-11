@@ -1,0 +1,58 @@
+---
+/**
+ * The three orbits: plugins, skills and command-line tools, one chapter each.
+ * The ids are the ones the nav and the detail pages already link to.
+ *
+ * The marks on the tiles identify third-party services; the caption under the
+ * first chapter says what docs/LOGOS.md requires wherever they are shown.
+ */
+import catalog from "@/data/app-catalog.json";
+import { detailHref } from "@/lib/nav";
+import Chapter from "./Chapter.astro";
+---
+
+<Chapter id="features" chapter="plugins" len={1.8} labelledby="plugins-heading">
+  <div class="panel panel--right" data-ui>
+    <p class="eyebrow reveal">Plugins · {catalog.plugins.length}</p>
+    <h2 id="plugins-heading" class="display reveal" style="--i: 1">It reaches the tools you already use.</h2>
+    <p class="lede reveal" style="--i: 2">
+      Sign in once, and it can read your mail, find a file or start the music. When a connection stops working, it
+      tells you which one and why.
+    </p>
+    <a class="text-link reveal" style="--i: 3" href={detailHref("plugins")}>
+      Every plugin <span class="text-link__arrow" aria-hidden="true">→</span>
+    </a>
+    <p class="fine reveal" style="--i: 4">
+      Integrations shown for identification only. No affiliation or endorsement implied. All marks belong to their
+      owners.
+    </p>
+  </div>
+</Chapter>
+
+<Chapter id="skills" chapter="skills" len={1.8} labelledby="skills-heading">
+  <div class="panel" data-ui>
+    <p class="eyebrow reveal">Skills · {catalog.skills.length}</p>
+    <h2 id="skills-heading" class="display reveal" style="--i: 1">Teach it once.</h2>
+    <p class="lede reveal" style="--i: 2">
+      Skills are what Dodaios knows how to do. Each one is a plain text file with a switch: a few lines saying what it
+      is for, and what sets it off, be it a spoken phrase, a shortcut or the clock.
+    </p>
+    <a class="text-link reveal" style="--i: 3" href={detailHref("skills")}>
+      How a skill is written <span class="text-link__arrow" aria-hidden="true">→</span>
+    </a>
+  </div>
+</Chapter>
+
+<Chapter id="clis" chapter="clis" len={1.8} labelledby="clis-heading">
+  <div class="panel panel--right" data-ui>
+    <p class="eyebrow reveal">Command line · {catalog.clis.length}</p>
+    <h2 id="clis-heading" class="display reveal" style="--i: 1">It drives the tools in your terminal.</h2>
+    <p class="lede reveal" style="--i: 2">
+      Ask in plain language; it picks the tool, runs the command, and shows you exactly what it ran and why that was
+      allowed. Every tool carries its own list of commands that are refused before they start.
+    </p>
+    <a class="text-link reveal" style="--i: 3" href={detailHref("clis")}>
+      Every command-line tool <span class="text-link__arrow" aria-hidden="true">→</span>
+    </a>
+  </div>
+</Chapter>

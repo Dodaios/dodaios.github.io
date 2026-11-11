@@ -19,7 +19,6 @@ import {
   Archive,
   ArrowLeft,
   ArrowRight,
-  Building2,
   ChevronDown,
   Download,
   Ellipsis,
@@ -90,17 +89,6 @@ function LayoutSwitch({ layout, onLayout }: { layout: IdeLayout; onLayout: (next
         onClick={() => onLayout("threads")}
       >
         <MessagesSquare className="h-4 w-4" strokeWidth={1.9} aria-hidden />
-      </button>
-      <button
-        type="button"
-        role="radio"
-        data-testid="ide-layout-verse"
-        aria-checked="false"
-        className={cn(SEGMENT, tone(false))}
-        style={{ width: SEGMENT_PX }}
-        tabIndex={-1}
-      >
-        <Building2 className="h-4 w-4" strokeWidth={1.9} aria-hidden />
       </button>
     </div>
   );
@@ -409,7 +397,6 @@ export function HomeSidebar({
             label="Agentic IDE"
             onClick={() => onSection("agentic-ide")}
           />
-          <NavRow id="verse" icon={Building2 as IconComponent} label="Verse" />
           <NavRow id="dictation" icon={SpeechIcon as IconComponent} label="Dodaios Voice" />
         </ul>
         <ul className="space-y-px">

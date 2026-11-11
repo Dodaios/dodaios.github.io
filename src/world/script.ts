@@ -42,6 +42,8 @@ export const RINGS = [
 /** The whole window, less a margin: the picture fills the screen now. */
 const FULL: Box = { x0: 0.05, y0: 0.1, x1: 0.95, y1: 0.86 };
 const FULL_TALL: Box = { x0: 0, y0: 0.12, x1: 1, y1: 0.84 };
+/** For a subject that is a row of things at one height: in a landscape window its width decides, not its height. */
+const BAND: Box = { x0: 0.05, y0: -0.2, x1: 0.95, y1: 1.2 };
 
 const shot = (partial: Partial<Shot> & Pick<Shot, "target" | "az" | "el" | "fit">): Shot => ({
   fov: 36,
@@ -51,6 +53,8 @@ const shot = (partial: Partial<Shot> & Pick<Shot, "target" | "az" | "el" | "fit"
 });
 
 const holo = (dy: number): Vec3 => [HOLO_CENTER[0], HOLO_CENTER[1] + dy, HOLO_CENTER[2]];
+/** Between the globe and the star counter on the sill next to it. */
+const GLOBE_PAIR: Vec3 = [-3.15, 1.03, -0.05];
 
 export const SCRIPT: Record<string, readonly Beat[]> = {
   /*
@@ -101,8 +105,9 @@ export const SCRIPT: Record<string, readonly Beat[]> = {
    */
   stars: [
     { at: 0, shot: shot({ target: [-3.6, 1.5, 0.15], az: 92, el: 0, fit: 1.4, fov: 40, reach: 4.2 }), ch: { rings: 0, ring: 0, stars: 1, globe: 0.4 } },
-    { at: 0.36, shot: shot({ target: GLOBE_CENTER, az: 64, el: 8, fit: 0.4, fov: 30, reach: 1.9 }), ch: { stars: 1, globe: 1 } },
-    { at: 0.64, shot: shot({ target: GLOBE_CENTER, az: 80, el: 6, fit: 0.38, fov: 30, reach: 1.8 }), ch: { stars: 1, globe: 1 } },
+    // The globe and the counter beside it, whole: a counter cut off at its first digits would state a wrong number.
+    { at: 0.36, shot: shot({ target: GLOBE_PAIR, az: 72, el: 6, fit: 0.72, fov: 32, reach: 2.4, wide: BAND }), ch: { stars: 1, globe: 1 } },
+    { at: 0.64, shot: shot({ target: GLOBE_PAIR, az: 86, el: 5, fit: 0.7, fov: 32, reach: 2.3, wide: BAND }), ch: { stars: 1, globe: 1 } },
     { at: 1, shot: shot({ target: [-3.56, 1.66, 2.05], az: 105, el: 0, fit: 0.6, fov: 32, reach: 2.2 }), ch: { stars: 1, globe: 0.3 } },
   ],
 

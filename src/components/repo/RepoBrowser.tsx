@@ -109,15 +109,16 @@ function ask<T>(path: string): Promise<T> {
   return job;
 }
 
+/** Folders first, then files, each by name: the order GitHub lists them in. */
+const byKind = (a: Entry, b: Entry) =>
+  a.type === b.type ? a.name.localeCompare(b.name) : a.type === "dir" ? -1 : b.type === "dir" ? 1 : 0;
+
 const SNAPSHOT_TREES: Record<string, Entry[]> = Object.fromEntries(
   Object.values(snapshot.pages).map((page) => [
     page.path,
-    page.entries.map((entry) => ({ ...entry, path: page.path ? `${page.path}/${entry.name}` : entry.name })),
+    page.entries.map((entry) => ({ ...entry, path: page.path ? `${page.path}/${entry.name}` : entry.name })).sort(byKind),
   ]),
 );
-
-const byKind = (a: Entry, b: Entry) =>
-  a.type === b.type ? a.name.localeCompare(b.name) : a.type === "dir" ? -1 : b.type === "dir" ? 1 : 0;
 
 function toCommit(raw: Record<string, unknown>): CommitRow {
   const commit = raw.commit as { message: string; author: { name: string; date: string } };

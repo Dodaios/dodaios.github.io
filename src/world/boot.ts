@@ -451,7 +451,7 @@ function run(firstCanvas: HTMLCanvasElement, data: WorldData): void {
    * chapter they were reading (the plain page's chapters are far shorter).
    */
   const giveUp = (error: unknown) => {
-    console.warn("[world] the 3D scene could not start; the page continues without it", error);
+    console.warn("[world] no 3D scene; the page continues without it", error);
     world = null;
     listen = null;
     const reading = chapters.find((el) => {

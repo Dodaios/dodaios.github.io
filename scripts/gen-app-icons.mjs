@@ -39,6 +39,8 @@ const ICONS = [
   "Archive", "ArrowUp", "Captions", "ChevronUp", "CircleDot", "Clock", "Diff", "FolderGit2", "FolderPlus",
   "Hand", "House", "LayoutDashboard", "MessageCircle", "MessagesSquare", "MicOff", "PanelBottom", "PhoneOff",
   "RefreshCw", "Send", "Server", "Settings2", "ShieldAlert", "SlidersHorizontal", "SquarePen", "Users",
+  // Added 2026-11-11: the caption's status light, the work bar, the activity panel, the IDE side panel.
+  "Activity", "BellRing", "Columns2", "Cpu", "CreditCard", "Files", "Gauge", "Laptop", "RotateCcw",
 ];
 
 const app = process.argv[2];

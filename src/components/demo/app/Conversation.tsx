@@ -14,13 +14,22 @@
  * The composer is real: what is typed into it is sent on Enter, and the
  * assistant answers from the scripts in demoData.ts.
  */
-import { useEffect, useLayoutEffect, useRef, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import { PROSE_LEAD } from "./classes";
 import { ASSISTANT_NAME, type LeadReply, type LeadStep } from "./demoData";
 import {
   ArrowUp,
   AudioLines,
+  BellRing,
   Bot,
   Captions,
   ChevronDown,
@@ -30,10 +39,10 @@ import {
   Clock,
   Hand,
   Mic,
+  PanelRightOpen,
   PhoneOff,
   Plus,
   Settings2,
-  ShieldAlert,
   Sun,
   X,
 } from "./lucide";
@@ -409,8 +418,8 @@ function Composer({
             className="flex items-center text-left transition-colors duration-150 focus:outline-none focus-visible:ring-border-strong h-8 w-auto gap-1.5 rounded-lg border-transparent bg-transparent px-2 py-0 text-sm font-medium text-foreground/80 shadow-none hover:border-transparent hover:bg-secondary hover:text-foreground focus-visible:ring-1 aria-expanded:bg-secondary aria-expanded:text-foreground aria-expanded:ring-0 [&>svg:last-child]:h-3.5 [&>svg:last-child]:w-3.5 max-w-[200px] max-md:[&>span.truncate]:sr-only"
             tabIndex={-1}
           >
-            <ShieldAlert className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="min-w-0 flex-1 truncate">Ask before changes</span>
+            <Hand className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="min-w-0 flex-1 truncate">Ask before acting</span>
             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform" aria-hidden />
           </button>
         </span>
@@ -492,7 +501,14 @@ function CallWave({ state }: { state: CallState }) {
               bars.current[i] = el;
             }}
             className="bg-current"
-            style={{ width: "40%", minWidth: 1.5, height: 2, opacity: 0.35 + 0.65 * (i / BARS) } as CSSProperties}
+            style={
+              {
+                width: "40%",
+                minWidth: 1.5,
+                height: 2,
+                opacity: 0.35 + 0.65 * (i / BARS),
+              } as CSSProperties
+            }
           />
         </span>
       ))}
@@ -529,7 +545,11 @@ function RoundButton({
   );
 }
 
-const CALL_WORD: Record<CallState, string> = { listening: "Listening", thinking: "Thinking", speaking: "Speaking" };
+const CALL_WORD: Record<CallState, string> = {
+  listening: "Listening",
+  thinking: "Thinking",
+  speaking: "Speaking",
+};
 
 function CallCard({ state, onHangUp }: { state: CallState; onHangUp: () => void }) {
   return (
@@ -602,18 +622,29 @@ function ActivitySection({ icon, title, rows }: { icon: ReactNode; title: string
   );
 }
 
-function ActivityPanel({ running, done }: { running: ActivityRow[]; done: ActivityRow[] }) {
+function ActivityPanel({
+  running,
+  done,
+  onClose,
+}: {
+  running: ActivityRow[];
+  done: ActivityRow[];
+  onClose: () => void;
+}) {
   return (
     <aside
       data-testid="lead-activity"
+      aria-label="Activity"
       className="flex h-full w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l border-border px-3 py-4"
     >
       <header className="flex items-center justify-between">
         <h2 className="text-sm font-medium text-foreground-strong">Activity</h2>
         <button
           type="button"
+          aria-label="Hide activity"
           className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           tabIndex={-1}
+          onClick={onClose}
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
@@ -636,6 +667,33 @@ function ActivityPanel({ running, done }: { running: ActivityRow[]; done: Activi
         <p className="pl-5 text-xs text-foreground-faint">
           A short summary of your day in this conversation. Runs only on a subscription or local model.
         </p>
+      </section>
+      <section className="space-y-1.5" data-testid="lead-proactive">
+        <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <BellRing className="h-3.5 w-3.5" aria-hidden />
+          Comes to you
+        </h3>
+        <div className="space-y-2 pl-5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm text-foreground">Speaks up</span>
+            <button
+              type="button"
+              role="combobox"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-label="Speaks up"
+              data-testid="lead-proactive-level"
+              className="flex items-center gap-2 rounded-md bg-input px-3 py-2 text-left text-foreground transition-colors duration-150 hover:bg-popover focus:outline-none focus-visible:ring-2 focus-visible:ring-border-strong h-7 w-36 text-xs"
+              tabIndex={-1}
+            >
+              <span className="min-w-0 flex-1 truncate">Off</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform" aria-hidden />
+            </button>
+          </div>
+          <p className="text-xs text-foreground-faint" data-testid="lead-proactive-cost">
+            Off. On, it writes into this conversation only when something needs you.
+          </p>
+        </div>
       </section>
       <p className="mt-auto flex items-center gap-2 text-xs text-foreground-faint">
         <Clock className="h-3.5 w-3.5" aria-hidden />
@@ -685,10 +743,19 @@ export function Conversation({
     };
     follow();
     const observer = new MutationObserver(follow);
-    observer.observe(el, { childList: true, subtree: true, characterData: true });
+    observer.observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
     return () => observer.disconnect();
   }, []);
   const busy = turns.some((turn) => turn.live);
+  // The panel is closed on a quiet page and opens by itself while work runs,
+  // unless the reader opened or closed it by hand (HomeView.tsx).
+  const [choice, setChoice] = useState<"open" | "closed" | null>(null);
+  const demand = running.length > 0;
+  const panelOpen = choice === null ? demand : choice === "open";
 
   return (
     <div className="flex h-full min-h-0" data-testid="home-view">
@@ -702,7 +769,11 @@ export function Conversation({
                     ref={viewport}
                     data-radix-scroll-area-viewport=""
                     className="h-full w-full rounded-[inherit] [&>div]:!block"
-                    style={{ overflow: "hidden scroll", overflowAnchor: "none", scrollbarWidth: "none" }}
+                    style={{
+                      overflow: "hidden scroll",
+                      overflowAnchor: "none",
+                      scrollbarWidth: "none",
+                    }}
                   >
                     <div style={{ minWidth: "100%", display: "table" }}>
                       <div className="relative mx-auto flex w-full max-w-[720px] flex-col gap-6 px-6 pb-6 pt-8">
@@ -728,10 +799,36 @@ export function Conversation({
           </div>
           {call && <CallCard state={call} onHangUp={onHangUp} />}
         </div>
+        {!panelOpen && (
+          <button
+            type="button"
+            data-testid="lead-activity-open"
+            aria-label="Show activity"
+            title={demand ? "Show activity — something is in progress" : "Show activity"}
+            className="absolute right-3 top-3 hidden rounded-md p-1.5 text-muted-foreground transition-colors duration-fast hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:block"
+            tabIndex={-1}
+            onClick={() => setChoice("open")}
+          >
+            <PanelRightOpen aria-hidden className="h-4 w-4" />
+            {demand && (
+              <span
+                data-testid="lead-activity-live"
+                aria-hidden
+                className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-accent"
+              />
+            )}
+          </button>
+        )}
       </div>
-      <div className="hidden lg:flex">
-        <ActivityPanel running={running} done={done} />
-      </div>
+      {panelOpen && (
+        <div
+          data-testid="lead-activity-frame"
+          data-state="open"
+          className="hidden transition-[opacity,transform] motion-reduce:transition-none lg:flex translate-x-0 opacity-100 duration-slow ease-out-soft"
+        >
+          <ActivityPanel running={running} done={done} onClose={() => setChoice("closed")} />
+        </div>
+      )}
     </div>
   );
 }

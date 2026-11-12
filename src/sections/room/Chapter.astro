@@ -1,0 +1,39 @@
+---
+/**
+ * One chapter of the front page: a stretch of scrolling with one screen pinned
+ * inside it, while the camera stands at one place in the 3D room. `chapter`
+ * names its beats in src/world/script.ts; `len` is how many screens of
+ * scrolling it takes.
+ *
+ * A chapter has two things. Its COPY (the default slot): the words, which the
+ * room shows as objects and the page keeps for screen readers and for browsers
+ * without the scene. And its HUD (slot "hud"): the one row of controls at the
+ * foot of the screen. The layout of both, with and without the scene, is in
+ * src/styles/world.css. See docs/world.md.
+ */
+import Container from "@/components/Container.astro";
+
+interface Props {
+  id: string;
+  chapter: string;
+  len?: number;
+  /** The id of the heading that names this chapter. */
+  labelledby?: string;
+}
+
+const { id, chapter, len = 1.6, labelledby } = Astro.props;
+---
+
+<section id={id} class="chapter" data-chapter={chapter} style={`--len: ${len}`} aria-labelledby={labelledby}>
+  <div class="chapter__pin">
+    <Container width="content" class="chapter__frame">
+      <slot name="stage" />
+      <div class="copy">
+        <slot />
+      </div>
+      <div class="hud">
+        <slot name="hud" />
+      </div>
+    </Container>
+  </div>
+</section>

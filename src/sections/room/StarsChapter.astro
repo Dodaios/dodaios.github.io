@@ -1,0 +1,53 @@
+---
+/**
+ * The window: one light outside for everyone who starred the repository, the
+ * count on the sill, and three cards on the corkboard with what people said in
+ * public. The quotes, their sources and the rules for adding one are in
+ * src/data/voices.ts and docs/section-voices.md.
+ */
+import LiveCount from "@/components/counters/LiveCount";
+import { GitHubMark } from "@/components/logos/GitHubMark";
+import { STARS } from "@/data/room";
+import { REPO } from "@/lib/install";
+import { SOCIAL_STATS } from "@/lib/socialCounts";
+import Chapter from "./Chapter.astro";
+
+/* The figure from the last build, corrected from GitHub when it comes into
+ * view. That request is the one the privacy policy describes; if it changes,
+ * src/pages/privacy.astro changes in the same commit. */
+const github = SOCIAL_STATS.find((stat) => stat.id === "github")!;
+---
+
+<Chapter id="stargazers" chapter="stars" len={2.4} labelledby="stars-heading">
+  <p class="eyebrow">In the open</p>
+  <h2 id="stars-heading">
+    <span class="stars__figure" data-stars-count>
+      <LiveCount client:idle value={github.value} live={github.live} />
+    </span>
+    <span class="sr-only"> {STARS.unit}</span>
+  </h2>
+  <p class="lede">{STARS.lede}</p>
+  <h3 class="quotes__title">{STARS.board}</h3>
+  <ul class="quotes" aria-label={STARS.board}>
+    {
+      STARS.cards.map((card, i) => (
+        <li class="contents">
+          <a class="quote" href={card.url} target="_blank" rel="noopener" data-quote={i + 1}>
+            <p class="quote__text">“{card.text}”</p>
+            <p class="quote__by">
+              {card.author} · {card.source}
+            </p>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+
+  <Fragment slot="hud">
+    <a class="button button--quiet" href={REPO} target="_blank" rel="noopener">
+      <GitHubMark className="button__mark" />
+      {STARS.link} <span aria-hidden="true">→</span>
+    </a>
+    <span class="hud__note hud__note--world">A pin for every place a stargazer lives · the cards are real quotes: press one to read it where it was said</span>
+  </Fragment>
+</Chapter>

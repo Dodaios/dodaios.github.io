@@ -2,9 +2,8 @@
  * The Agentic IDE, cloned from the app's own markup.
  *
  * Every element and class string below is copied from the app's components
- * at its repo HEAD — AgenticIdeView (the section frame), sidePanel/IdeSidePanel
- * (the frame, the closed rail and the open panel), sidePanel/AgentsOverview,
- * WorkspaceTerminalGrid + workspaceDocking.paneStyle (the tiling), AgenticTerminal
+ * at its repo HEAD — AgenticIdeView (the section frame; the side panel is
+ * SidePanel.tsx), WorkspaceTerminalGrid + workspaceDocking.paneStyle (the tiling), AgenticTerminal
  * (the minimal pane frame), WorkspaceTerminalHeader (the tile title row),
  * AgentMark, and IdeProjectTree plus the IDE branch of Sidebar (the left
  * column). The app's compiled stylesheet (app.css) styles them, so they render
@@ -22,24 +21,17 @@
  */
 import type { CSSProperties, ReactNode } from "react";
 
-import claudeLogo from "@/assets/app/claude.svg?url";
+import claudeLogo from "@/assets/app/claude-color.svg?url";
 import openaiLogo from "@/assets/app/openai.svg?url";
+import { SidePanelHost } from "./SidePanel";
 import {
-  Bot,
-  Building2,
-  CheckCheck,
-  ChevronLeft,
   Ellipsis as MoreHorizontal,
-  Eye,
   FileDiff,
   Folder,
+  FolderGit2,
   FolderOpen,
-  FolderTree,
-  GitBranch,
-  LoaderCircle as Loader2,
   Maximize2,
   Mic,
-  PanelRightClose,
   Plus,
   X,
 } from "./lucide";
@@ -67,8 +59,16 @@ const T = {
 } as const;
 
 /** PANE_BRAND.dark, PANE_CHROME.dark, PANE_TILE.dark. */
-const BRAND = { ink: "#f0f0f0", inkMuted: "#a3a3a3", inkFaint: "#7a7a7a", chip: "rgba(255,255,255,0.14)" };
-const CHROME = { shell: "rgba(18, 18, 18, 0.58)", border: "rgba(255,255,255,0.12)" };
+const BRAND = {
+  ink: "#f0f0f0",
+  inkMuted: "#a3a3a3",
+  inkFaint: "#7a7a7a",
+  chip: "rgba(255,255,255,0.14)",
+};
+const CHROME = {
+  shell: "rgba(18, 18, 18, 0.58)",
+  border: "rgba(255,255,255,0.12)",
+};
 const TILE = { edge: "rgba(255,255,255,0.26)", focus: "#3d8bff" };
 
 const TERMINAL_FONT_STACK = "'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, 'Courier New', monospace";
@@ -90,7 +90,11 @@ const TILE_ACTION = ACTION_CLASS.replace("h-7 w-7", "h-6 w-6").replace(" rounded
 type Seg = { t: string; c?: string; b?: boolean; bg?: string };
 type Row = Seg[];
 
-const s = (t: string, c?: string, extra: Omit<Seg, "t" | "c"> = {}): Seg => ({ t, c, ...extra });
+const s = (t: string, c?: string, extra: Omit<Seg, "t" | "c"> = {}): Seg => ({
+  t,
+  c,
+  ...extra,
+});
 const blank: Row = [];
 
 /** Columns a pane holds: ~334 px of text area over a 9 px cell. */
@@ -418,16 +422,61 @@ function paneDone(pane: PaneScript, step: number): boolean {
 // filling the cell (customGlyphs). The clone does the same, and gives every
 // other non-Latin glyph exactly one cell.
 
-type Line = { l?: number; r?: number; t?: number; b?: number; w?: number; h?: number; edges: string; radius?: string };
+type Line = {
+  l?: number;
+  r?: number;
+  t?: number;
+  b?: number;
+  w?: number;
+  h?: number;
+  edges: string;
+  radius?: string;
+};
 
 /** Lines inside a 9 x 20 cell, per box-drawing character. */
 const BOX_LINES: Record<string, Line[]> = {
   "─": [{ l: 0, r: 0, t: MID_Y, h: 1, edges: "" }],
   "│": [{ l: MID_X, w: 1, t: 0, b: 0, edges: "" }],
-  "╭": [{ l: MID_X, r: 0, t: MID_Y, b: 0, edges: "tl", radius: "borderTopLeftRadius" }],
-  "╮": [{ l: 0, w: MID_X + 1, t: MID_Y, b: 0, edges: "tr", radius: "borderTopRightRadius" }],
-  "╰": [{ l: MID_X, r: 0, t: 0, h: MID_Y + 1, edges: "bl", radius: "borderBottomLeftRadius" }],
-  "╯": [{ l: 0, w: MID_X + 1, t: 0, h: MID_Y + 1, edges: "br", radius: "borderBottomRightRadius" }],
+  "╭": [
+    {
+      l: MID_X,
+      r: 0,
+      t: MID_Y,
+      b: 0,
+      edges: "tl",
+      radius: "borderTopLeftRadius",
+    },
+  ],
+  "╮": [
+    {
+      l: 0,
+      w: MID_X + 1,
+      t: MID_Y,
+      b: 0,
+      edges: "tr",
+      radius: "borderTopRightRadius",
+    },
+  ],
+  "╰": [
+    {
+      l: MID_X,
+      r: 0,
+      t: 0,
+      h: MID_Y + 1,
+      edges: "bl",
+      radius: "borderBottomLeftRadius",
+    },
+  ],
+  "╯": [
+    {
+      l: 0,
+      w: MID_X + 1,
+      t: 0,
+      h: MID_Y + 1,
+      edges: "br",
+      radius: "borderBottomRightRadius",
+    },
+  ],
   "└": [{ l: MID_X, r: 0, t: 0, h: MID_Y + 1, edges: "bl" }],
   "⎿": [{ l: MID_X, w: CELL_PX - MID_X, t: 1, h: MID_Y + 2, edges: "bl" }],
 };
@@ -534,7 +583,13 @@ function SegText({ seg }: { seg: Seg }) {
   }
   if (run) parts.push(run);
   return (
-    <span style={{ color: seg.c, fontWeight: seg.b ? 700 : undefined, background: seg.bg }}>
+    <span
+      style={{
+        color: seg.c,
+        fontWeight: seg.b ? 700 : undefined,
+        background: seg.bg,
+      }}
+    >
       {parts}
     </span>
   );
@@ -590,6 +645,9 @@ function TerminalBody({ pane, step }: { pane: PaneScript; step: number }) {
 // AgentMark (AgentMark.tsx), the variants the scene uses
 // ---------------------------------------------------------------------------
 
+/** A colour mark is drawn as an image, a mono one as a mask (AgentMark.tsx). */
+const COLOUR_MARKS: ReadonlySet<PaneScript["agent"]> = new Set(["claude"]);
+
 const AGENT_LOGOS: Record<PaneScript["agent"], string | null> = {
   claude: claudeLogo,
   codex: openaiLogo,
@@ -618,7 +676,7 @@ function AgentMark({
   return (
     <span
       data-testid={`agent-mark-${agent}`}
-      data-ground={url ? "ink" : "none"}
+      data-ground={url ? (COLOUR_MARKS.has(agent) ? "any" : "ink") : "none"}
       aria-hidden="true"
       className={cn(
         "inline-flex shrink-0 items-center justify-center overflow-hidden text-micro font-bold tracking-tight text-muted-foreground",
@@ -627,7 +685,9 @@ function AgentMark({
         className,
       )}
     >
-      {url ? (
+      {url && COLOUR_MARKS.has(agent) ? (
+        <img src={url} alt="" className={cn("block object-contain", glyphClass)} />
+      ) : url ? (
         <span
           className={cn("block bg-foreground", glyphClass)}
           style={{
@@ -678,15 +738,21 @@ function TileHeader({ pane, focused }: { pane: PaneScript; focused: boolean }) {
       data-testid={`workspace-terminal-header-${pane.name}`}
       data-variant="tile"
       className="relative flex h-7 min-h-7 shrink-0 select-none items-center gap-1 border-b pl-2 pr-0.5"
-      style={{ ...variables, borderColor: CHROME.border, background: CHROME.shell }}
+      style={{
+        ...variables,
+        borderColor: CHROME.border,
+        background: CHROME.shell,
+        touchAction: "none",
+      }}
     >
       <button
         type="button"
         tabIndex={-1}
         data-ide-drag-handle="true"
+        data-testid={`pane-move-${pane.name}`}
         className="flex h-full min-w-0 flex-1 items-center gap-2 rounded-none text-left font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--pane-ink)] cursor-grab"
       >
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: T.green }} />
+        <span role="img" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: T.green }} />
         <AgentMark
           agent={pane.agent}
           label={pane.displayName}
@@ -695,6 +761,7 @@ function TileHeader({ pane, focused }: { pane: PaneScript; focused: boolean }) {
           className="!text-[color:var(--pane-ink)] [&>.bg-foreground]:!bg-[color:var(--pane-ink)]"
         />
         <span
+          data-testid={`pane-title-${pane.name}`}
           title={`${pane.title} (${pane.name})`}
           className={`truncate ${focused ? "font-semibold" : ""}`}
           style={{ color: focused ? TILE.focus : BRAND.inkMuted }}
@@ -702,10 +769,21 @@ function TileHeader({ pane, focused }: { pane: PaneScript; focused: boolean }) {
           {pane.title}
         </span>
       </button>
+      <span className="sr-only">Drag to reorder, or focus this title and press Alt plus an arrow key.</span>
       <div data-header-control="true" className="flex shrink-0 items-center gap-0.5">
-        <button type="button" tabIndex={-1} className={TILE_ACTION}><MoreHorizontal className="h-4 w-4" /></button>
-        <button type="button" tabIndex={-1} className={TILE_ACTION}><Maximize2 className="h-3.5 w-3.5" /></button>
-        <button type="button" tabIndex={-1} className={`group ${TILE_ACTION}`}>
+        <button type="button" tabIndex={-1} title="Review changes" className={TILE_ACTION}>
+          <FileDiff className="h-[15px] w-[15px]" />
+        </button>
+        <button type="button" tabIndex={-1} title="Show changes in Git" className={TILE_ACTION}>
+          <FolderGit2 className="h-[15px] w-[15px]" />
+        </button>
+        <button type="button" tabIndex={-1} className={TILE_ACTION}>
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+        <button type="button" tabIndex={-1} className={TILE_ACTION}>
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" tabIndex={-1} title="Fork" className={`group ${TILE_ACTION}`}>
           <BranchIcon className="h-[15px] w-[15px] opacity-75 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
         </button>
         <button type="button" tabIndex={-1} className={TILE_ACTION}><Plus className="h-4 w-4" /></button>
@@ -719,7 +797,10 @@ function AgentPane({ pane, step, focused }: { pane: PaneScript; step: number; fo
   return (
     <div
       className="relative flex h-full w-full flex-col overflow-hidden backdrop-blur-[4px] border rounded-none transition-[box-shadow,border-color,opacity] duration-150 ease-out motion-reduce:transition-none"
-      style={{ background: CHROME.shell, borderColor: focused ? TILE.focus : TILE.edge }}
+      style={{
+        background: CHROME.shell,
+        borderColor: focused ? TILE.focus : TILE.edge,
+      }}
       data-pane-style="minimal"
       data-testid={`agentic-pane-${pane.name}`}
     >
@@ -757,14 +838,9 @@ function columnStyle(index: number, count: number): CSSProperties {
 
 /** WorkspaceTerminalGrid, three panes side by side, the first one focused. */
 function TerminalGrid({ step }: { step: number }) {
-  const GAP = 8;
-  const MIN_WIDTH = 280;
   return (
-    <div data-testid="workspace-terminal-grid" className="relative h-full min-h-0 overflow-auto p-2">
-      <div
-        className="relative h-full"
-        style={{ minWidth: `${PANES.length * MIN_WIDTH + (PANES.length - 1) * GAP}px`, minHeight: "200px" }}
-      >
+    <div data-testid="workspace-terminal-grid" className="relative h-full min-h-0 overflow-hidden p-2">
+      <div data-testid="workspace-terminal-canvas" className="relative h-full w-full">
         {PANES.map((pane, index) => (
           <div
             key={pane.name}
@@ -782,160 +858,6 @@ function TerminalGrid({ step }: { step: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// The side panel: closed rail (the default) or the open Agents tab
-// ---------------------------------------------------------------------------
-
-const SIDE_PANEL_TABS = [
-  { id: "agents", label: "Agents", icon: Bot },
-  { id: "changes", label: "Changes", icon: FileDiff },
-  { id: "files", label: "Folder", icon: FolderTree },
-  { id: "git", label: "Git", icon: GitBranch },
-  { id: "office", label: "Dodaios Verse", icon: Building2 },
-] as const;
-
-/** IdeSidePanelRail: what a closed panel leaves on the right edge. */
-function IdeSidePanelRail() {
-  return (
-    <nav
-      data-testid="ide-side-panel-rail"
-      aria-label="Side panel tabs"
-      className="flex h-full w-12 shrink-0 flex-col items-center gap-1.5 border-l border-border/60 bg-card/40 py-2"
-    >
-      {SIDE_PANEL_TABS.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          tabIndex={-1}
-          title={tab.label}
-          className="relative flex w-10 flex-col items-center gap-0.5 rounded-lg py-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <tab.icon className="h-[18px] w-[18px]" aria-hidden />
-          <span className="max-w-full truncate text-[9.5px] font-medium leading-none">{tab.label}</span>
-        </button>
-      ))}
-    </nav>
-  );
-}
-
-const HEADER_BTN =
-  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors " +
-  "hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
-  "disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent";
-
-type Column = "done" | "working" | "reviewed";
-const COLUMN_ICON = { done: CheckCheck, working: Loader2, reviewed: Eye } as const;
-const COLUMN_TONE: Record<Column, string> = { done: "text-success", working: "text-accent", reviewed: "text-muted-foreground" };
-const COLUMN_LABEL: Record<Column, string> = { done: "Done", working: "Working", reviewed: "Reviewed" };
-const COLUMN_EMPTY: Record<Column, string> = {
-  done: "Nothing new has finished.",
-  working: "No agent is working right now.",
-  reviewed: "Click a finished agent to move it here.",
-};
-
-/** AgentsOverview, for the three panes at a given step. */
-function AgentsOverview({ step }: { step: number }) {
-  const columns: Record<Column, PaneScript[]> = { done: [], working: [], reviewed: [] };
-  for (const pane of PANES) columns[paneDone(pane, step) ? "done" : "working"].push(pane);
-  const card = (pane: PaneScript) => {
-    const working = !paneDone(pane, step);
-    const tone = working ? { text: "text-accent", pill: "bg-accent/10" } : { text: "text-muted-foreground", pill: "bg-muted" };
-    return (
-      <li key={pane.name}>
-        <button
-          type="button"
-          tabIndex={-1}
-          className={cn(
-            "group flex w-full items-center rounded-xl border p-3 text-left transition-[border-color,background-color,box-shadow] duration-150",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
-            "border-border/60 bg-background/40 hover:border-border hover:bg-muted/50",
-          )}
-        >
-          <span className="flex w-full items-start gap-3">
-            <span className="relative shrink-0">
-              <AgentMark agent={pane.agent} label={pane.displayName} size="md" />
-              <span aria-hidden="true" className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-card">
-                <span className={cn("relative h-2 w-2 rounded-full", working ? "bg-accent" : "bg-muted-foreground/40")} />
-              </span>
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">{pane.title}</span>
-              <span className="truncate text-[11px] tabular-nums text-muted-foreground">
-                {`${pane.displayName} · Last output ${pane.lastOutput} ago`}
-              </span>
-            </span>
-            <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium tabular-nums", tone.pill, tone.text)}>
-              {working ? "Working" : "Done"}
-              <span className="opacity-70"> · {pane.since}</span>
-            </span>
-          </span>
-        </button>
-      </li>
-    );
-  };
-  return (
-    <section aria-label="Agents in this workspace" className="flex h-full min-h-0 flex-col">
-      <div role="radiogroup" aria-label="Show agents from" className="mx-3 mt-3 flex shrink-0 rounded-lg border border-border/60 bg-muted/40 p-0.5">
-        <button type="button" tabIndex={-1} className="flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-background text-foreground shadow-sm">This space</button>
-        <button type="button" tabIndex={-1} className="flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-muted-foreground hover:text-foreground">Whole folder</button>
-      </div>
-      <div className="scrollbar-jarvis min-h-0 flex-1 space-y-4 overflow-y-auto px-3 pb-3 pt-3">
-        {(["done", "working", "reviewed"] as const).map((column) => {
-          const Icon = COLUMN_ICON[column];
-          const rows = columns[column];
-          return (
-            <section key={column} aria-label={COLUMN_LABEL[column]}>
-              <h3 className="mb-1.5 flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <Icon aria-hidden className={cn("h-3.5 w-3.5", COLUMN_TONE[column], column === "working" && rows.length > 0 && "animate-spin [animation-duration:2.4s] motion-reduce:animate-none")} />
-                <span>{COLUMN_LABEL[column]}</span>
-                <span className="rounded bg-muted px-1.5 text-[10px] tabular-nums text-muted-foreground">{rows.length}</span>
-              </h3>
-              {rows.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-[11px] text-muted-foreground">{COLUMN_EMPTY[column]}</p>
-              ) : (
-                <ul className="space-y-2">{rows.map(card)}</ul>
-              )}
-            </section>
-          );
-        })}
-      </div>
-      <div className="shrink-0 space-y-2 border-t border-border/60 px-4 py-3">
-        <p className="text-[11px] text-muted-foreground">Agents keep running when you close the app.</p>
-        <button type="button" tabIndex={-1} className="rounded-md border border-border px-2.5 py-1 text-xs text-destructive hover:bg-destructive/10">Stop all agents</button>
-      </div>
-    </section>
-  );
-}
-
-/** IdeSidePanel with the Agents tab in front. */
-function IdeSidePanel({ step }: { step: number }) {
-  return (
-    <aside id="ide-side-panel" aria-label="Side panel" className="flex h-full min-h-0 flex-col overflow-hidden border-l border-border bg-card/40">
-      <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border/60 px-2">
-        <div role="tablist" aria-label="Side panel tabs" className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-          <div className="group/tab flex h-8 min-w-0 shrink-0 items-center gap-1 rounded-lg pl-2.5 pr-1 text-sm transition-colors bg-secondary text-foreground">
-            <button type="button" role="tab" tabIndex={-1} aria-selected className="flex min-w-0 items-center gap-1.5 focus-visible:outline-none">
-              <Bot className="h-4 w-4 shrink-0" aria-hidden />
-              <span className="truncate font-medium">Agents</span>
-            </button>
-            <button type="button" tabIndex={-1} className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-background/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <X className="h-3.5 w-3.5" aria-hidden />
-            </button>
-          </div>
-        </div>
-        <div className="relative">
-          <button type="button" tabIndex={-1} className={HEADER_BTN}><Plus className="h-4 w-4" aria-hidden /></button>
-        </div>
-        <button type="button" tabIndex={-1} className={HEADER_BTN}><Maximize2 className="h-4 w-4" aria-hidden /></button>
-        <button type="button" tabIndex={-1} className={HEADER_BTN}><PanelRightClose className="h-4 w-4" aria-hidden /></button>
-      </div>
-      <div role="tabpanel" className="min-h-0 flex-1">
-        <AgentsOverview step={step} />
-      </div>
-    </aside>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
@@ -947,7 +869,7 @@ function IdeSidePanel({ step }: { step: number }) {
  * width than the clone window's main column has, so the grid scrolls sideways
  * exactly as the app's would.
  */
-export function IdeMain({ step, panelOpen = false }: { step: number; panelOpen?: boolean }) {
+export function IdeMain({ step, panel }: { step: number; panel?: ReactNode }) {
   const at = Math.max(0, Math.min(IDE_STEPS - 1, step));
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-background text-foreground" data-testid="igentic-ide">
@@ -956,14 +878,7 @@ export function IdeMain({ step, panelOpen = false }: { step: number; panelOpen?:
           <div data-testid="ide-side-panel-grid" className="h-full min-h-0 min-w-0 flex-1">
             <TerminalGrid step={at} />
           </div>
-          <div data-testid="ide-side-panel-host" className="h-full shrink-0 relative" style={{ width: panelOpen ? 340 : 0 }}>
-            {panelOpen && (
-              <div data-testid="ide-side-panel-body" className="relative h-full">
-                <IdeSidePanel step={at} />
-              </div>
-            )}
-          </div>
-          {!panelOpen && <IdeSidePanelRail />}
+          <SidePanelHost>{panel}</SidePanelHost>
         </div>
       </main>
     </div>
@@ -981,8 +896,18 @@ const PROJECTS: TreeProject[] = [
     open: true,
     workspaces: [
       { id: "web-app", name: "web-app", terminals: 3, status: "open" },
-      { id: "checkout-redesign", name: "checkout-redesign", terminals: 2, status: "open" },
-      { id: "old-onboarding", name: "old-onboarding", terminals: 0, status: "closed" },
+      {
+        id: "checkout-redesign",
+        name: "checkout-redesign",
+        terminals: 2,
+        status: "open",
+      },
+      {
+        id: "old-onboarding",
+        name: "old-onboarding",
+        terminals: 0,
+        status: "closed",
+      },
     ],
   },
   { id: "api-server", name: "api-server", open: false, workspaces: [{ id: "api-server", name: "api-server", terminals: 1, status: "open" }] },
@@ -1065,20 +990,12 @@ function ProjectRow({ project }: { project: TreeProject }) {
 
 /**
  * What the app's Sidebar shows in its scroll region on the IDE section: the
- * "Back to Dodaios" row (Sidebar.tsx, `onIdeSection`) and the project tree
- * (IdeProjectTree). Drop it into the sidebar's
+ * project tree (IdeProjectTree). Drop it into the sidebar's
  * `flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-jarvis` region.
  */
-export function IdeNav({ onBack }: { onBack?: () => void } = {}): ReactNode {
+export function IdeNav(): ReactNode {
   return (
     <>
-      <nav aria-label="IDE navigation" className="px-2 pt-2">
-        <button type="button" tabIndex={-1} onClick={onBack}
-          className="flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <ChevronLeft aria-hidden className="h-3.5 w-3.5 shrink-0" />
-          <span>Back to Dodaios</span>
-        </button>
-      </nav>
       <div data-testid="ide-project-tree" className="flex-1 px-2 pb-3 pt-2">
         <div className="flex h-8 items-center justify-between pl-2 pr-1 text-[15px] font-semibold text-foreground">
           <span>Workspaces</span>

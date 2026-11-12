@@ -1,0 +1,48 @@
+---
+/**
+ * The holo table: plugins, skills and command-line tools, one chapter each, as
+ * three rings of tiles. The ids are the ones the nav and the detail pages
+ * already link to.
+ *
+ * The marks on the tiles identify third-party services; the note at the foot
+ * of the first chapter says what docs/LOGOS.md requires wherever they are shown.
+ */
+import { REACH, REACH_SKILLS } from "@/data/room";
+import { detailHref } from "@/lib/nav";
+import Chapter from "./Chapter.astro";
+
+const chapters = [
+  { id: "features", chapter: "plugins", eyebrow: "Plugins", page: "plugins", ...REACH.plugins },
+  { id: "skills", chapter: "skills", eyebrow: "Skills", page: "skills", ...REACH.skills },
+  { id: "clis", chapter: "clis", eyebrow: "Command line", page: "clis", ...REACH.clis },
+] as const;
+---
+
+{
+  chapters.map((entry) => (
+    <Chapter id={entry.id} chapter={entry.chapter} len={1.9} labelledby={`${entry.chapter}-heading`}>
+      <p class="eyebrow">{entry.eyebrow}</p>
+      <h2 id={`${entry.chapter}-heading`} class="display">
+        {entry.title}. {entry.line}.
+      </h2>
+      <p class="lede">{entry.lede}</p>
+      {/* The names on the hologram's middle ring: the skills that ship with the app. */}
+      {entry.chapter === "skills" && (
+        <ul class="tags" aria-label="Some of the skills that ship with the app">
+          {REACH_SKILLS.map((name) => (
+            <li>{name}</li>
+          ))}
+        </ul>
+      )}
+
+      {/* The hologram turns in all three chapters, with other companies' marks on
+          two of its rings: the caption stays with it (docs/LOGOS.md). */}
+      <Fragment slot="hud">
+        <a class="button button--quiet" href={detailHref(entry.page)}>
+          {entry.link} <span aria-hidden="true">→</span>
+        </a>
+        <span class="hud__note hud__note--plain">{REACH.marks}</span>
+      </Fragment>
+    </Chapter>
+  ))
+}

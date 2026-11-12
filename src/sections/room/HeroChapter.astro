@@ -1,0 +1,54 @@
+---
+/**
+ * The first screen: seated at the desk, with the working app on the monitor.
+ *
+ * The stage is the room's monitor, in the page: the headline where the room has
+ * its light bar, the app's window where the room has the screen. The camera
+ * starts exactly there, so the visitor can use the app before they have
+ * scrolled at all; the room comes alive around it. See docs/hero.md.
+ *
+ * The headline is text in the page and is its largest paint: it is there
+ * before any of the scene has loaded.
+ */
+import DemoStage from "@/components/demo/DemoStage";
+import DownloadCta from "@/components/DownloadCta.astro";
+import poster from "@/assets/world/poster.webp";
+import { GitHubMark } from "@/components/logos/GitHubMark";
+import { HERO } from "@/data/room";
+import { REPO } from "@/lib/install";
+import { DOCS_URL, TOP_ID } from "@/lib/nav";
+import Chapter from "./Chapter.astro";
+---
+
+<Chapter id={TOP_ID} chapter="hero" len={2.5} labelledby="hero-heading">
+  <div class="dock" slot="stage">
+    <div class="dock__stage" data-dock-stage="desk" data-ui>
+      {/* The room, as a picture, until the room itself is there: taken from
+          where the camera starts, and laid so that its monitor is this stage's
+          window (world.css, ".dock__poster"; docs/world.md, "The first frame").
+          Lazy, so that a phone, which does not show it, does not fetch it. */}
+      <img class="dock__poster" src={poster.src} width={poster.width} height={poster.height} alt="" aria-hidden="true" decoding="async" loading="lazy" />
+      {/* A definition, not a slogan: the reader can repeat what this is after one line. */}
+      <h1 id="hero-heading" class="hero-bar">{HERO.headline}</h1>
+      <p class="sr-only">
+        Below is a working copy of the Dodaios desktop app with sample data. It shows a conversation with the
+        assistant, the agents, the Agentic IDE and the plugins. Left alone it plays one errand: a failing test is
+        handed to an agent, which fixes it and opens a pull request. The three buttons under it start an errand.
+      </p>
+      <DemoStage client:idle />
+    </div>
+  </div>
+
+  <p class="lede">{HERO.line}</p>
+
+  {/* While the reader sits at the monitor, the starters under the window are the
+      foot of the screen; this row takes over once the chair has rolled back. */}
+  <Fragment slot="hud">
+    <DownloadCta class="button" />
+    <a class="button button--quiet" href={REPO} target="_blank" rel="noopener">
+      <GitHubMark className="button__mark" />
+      Star on GitHub
+    </a>
+    <a class="button button--quiet" href={DOCS_URL} target="_blank" rel="noopener">Read the docs</a>
+  </Fragment>
+</Chapter>

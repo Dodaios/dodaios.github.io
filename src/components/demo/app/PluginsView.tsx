@@ -70,6 +70,7 @@ function Row({
       <button
         type="button"
         className="flex min-w-0 flex-1 items-center gap-4 rounded-2xl px-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={plugin.name}
         tabIndex={-1}
         onClick={() => state === "off" && onConnect(plugin.id)}
       >
@@ -81,17 +82,31 @@ function Row({
             <span className="truncate text-lg font-medium text-foreground-strong">{plugin.name}</span>
           </span>
           <span className="block">
-            <span className="block truncate text-base text-muted-foreground">{plugin.about}</span>
+            <span className="block truncate text-base text-muted-foreground" title={plugin.about}>
+              {plugin.about}
+            </span>
           </span>
         </span>
       </button>
       {state === "connected" ? (
         <span className="flex shrink-0 items-center gap-0.5">
-          <span role="img" className="grid h-9 w-7 place-items-center text-success">
+          <span
+            role="img"
+            aria-label="Connected"
+            title="Connected · Live"
+            className="grid h-9 w-7 place-items-center text-success"
+          >
             <Check className="h-[18px] w-[18px]" aria-hidden />
           </span>
           <div className="relative">
-            <button type="button" aria-expanded="false" className={ROW_ACTION} tabIndex={-1}>
+            <button
+              type="button"
+              aria-label={`More actions for ${plugin.name}`}
+              title="More actions"
+              aria-expanded="false"
+              className={ROW_ACTION}
+              tabIndex={-1}
+            >
               <Ellipsis className="h-[18px] w-[18px]" aria-hidden />
             </button>
           </div>

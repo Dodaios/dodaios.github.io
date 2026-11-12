@@ -13,6 +13,8 @@
  * point would mean a second render-blocking request on three of four routes. */
 @import "./app.css";
 @import "./detail.css";
+/* The 3D world's canvas and the chapters that ride on it (docs/world.md). */
+@import "./world.css";
 
 /* Expose the design tokens to Tailwind so `bg-canvas`, `text-ink` and friends
  * exist as utilities instead of every component reaching for arbitrary values. */

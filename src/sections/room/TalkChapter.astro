@@ -1,0 +1,34 @@
+---
+/**
+ * The mascot and its microphone: how talking to the app works. Holding the
+ * button plays it through in the room: the mascot leans in, the sign on the
+ * desk shows what it heard, and pane T1 on the second monitor runs the order.
+ * It is a simulation and says so; this page never asks for the microphone.
+ */
+import { VOICE } from "@/data/room";
+import Chapter from "./Chapter.astro";
+---
+
+<Chapter id="talk" chapter="talk" len={2.2} labelledby="talk-heading">
+  <p class="eyebrow">Voice</p>
+  <h2 id="talk-heading" class="display">{VOICE.sign.join(" ")}</h2>
+  <p class="lede">{VOICE.lede}</p>
+  {/* Typed letter by letter, which is for the eye only: a screen reader gets
+      the finished exchange once, from the status line. */}
+  <div class="talk__lines" aria-hidden="true">
+    <p class="talk__line"><span class="talk__who">You</span><span data-talk-said data-text={VOICE.said}></span></p>
+    <p class="talk__line">
+      <span class="talk__who">Dodaios</span><span data-talk-reply data-text={VOICE.reply}></span>
+    </p>
+  </div>
+  <p class="sr-only" role="status" data-talk-status data-listening={VOICE.listening[0]}></p>
+  <p class="fine">{VOICE.second}</p>
+
+  <Fragment slot="hud">
+    <button class="button button--quiet talk__hold" type="button" data-talk-hold aria-pressed="false" aria-describedby="talk-note">
+      <span class="talk__dot" aria-hidden="true"></span>
+      Hold to talk
+    </button>
+    <span class="hud__note hud__note--plain" id="talk-note">{VOICE.note}</span>
+  </Fragment>
+</Chapter>

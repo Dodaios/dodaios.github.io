@@ -39,14 +39,26 @@ import RenameNotice from "@/components/RenameNotice.astro";
 import RenameProbe from "@/components/RenameProbe.astro";
 import SectionMarker from "@/components/SectionMarker.astro";
 import SiteNav from "@/components/SiteNav.astro";
+import WorldCanvas from "@/components/world/WorldCanvas.astro";
 import "@/styles/global.css";
 
 interface Props {
   title: string;
   description: string;
+  /**
+   * The 3D scene behind this page: "home" for the scrolled journey, or the name
+   * of a still (src/world/script.ts). Every route names one. See docs/world.md.
+   */
+  world?: string;
+  /**
+   * The rails and the section marker. The front page turns them off: it is not
+   * a column of framed sections any more, and a frame around a scene with
+   * depth reads as a window pane.
+   */
+  chrome?: boolean;
 }
 
-const { title, description } = Astro.props;
+const { title, description, world = "quiet", chrome = true } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
@@ -78,10 +90,40 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     */}
     <OsProbe />
     <RenameProbe />
+    {/*
+      IN THE HEAD, BEFORE THE BODY IS PARSED. `world-on` decides how the
+      chapters are laid out (pinned, one screen each), so it has to be there
+      for the first paint or the page would rearrange itself under the reader.
+      It promises only that the browser can draw the scene; if the scene then
+      fails to start, boot.ts takes the class off again. `?world=off` asks for
+      the plain page outright (docs/world.md, "Without the scene").
+    */}
+    <script is:inline>
+      (function () {
+        var html = document.documentElement;
+        // A window too low to hold one pinned screen (a phone held sideways)
+        // gets the plain page.
+        if (!("WebGL2RenderingContext" in window) || /[?&]world=off/.test(location.search) || window.innerHeight < 600) return;
+        html.classList.add("world-on");
+        // The scene's script answers for this layout from the moment it runs
+        // (`world-ready`). If it never arrives (a blocked or a stale file), the
+        // page goes back to being the plain page instead of a row of empty screens.
+        window.addEventListener("load", function () {
+          setTimeout(function () {
+            if (html.classList.contains("world-ready")) return;
+            html.classList.remove("world-on");
+            // The chapters just became far shorter: keep the reader where the link sent them.
+            var target = location.hash.length > 1 && document.getElementById(location.hash.slice(1));
+            if (target) target.scrollIntoView();
+          }, 4000);
+        });
+      })();
+    </script>
   </head>
   <body>
-    <PageChrome />
-    <SectionMarker />
+    <WorldCanvas scene={world} />
+    {chrome && <PageChrome />}
+    {chrome && <SectionMarker />}
     <SiteNav />
     <slot />
     <RenameNotice />

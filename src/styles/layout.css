@@ -754,7 +754,7 @@ body > section {
 .site-nav__cta {
   display: inline-flex;
   align-items: center;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: var(--ink);
   padding-block: var(--space-xs);
   padding-inline: var(--space-md);

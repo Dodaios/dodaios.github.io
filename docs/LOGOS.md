@@ -1,4 +1,15 @@
-# Logos — the connection strip
+# Logos — the marks of the services Dodaios connects to
+
+> **Where the marks are shown since 2026-11-11.** The strip under the hero is
+> gone. The same marks now turn in the hologram over the table in the front
+> page's 3D room ([`world.md`](world.md), "The marks in the hologram") and are
+> drawn into one sprite sheet by `src/pages/world/marks.svg.ts`. What this file
+> says about **which** marks, their sources, their licences, the conversion to
+> one colour, the optical sizes and the trademark rule still governs. The
+> caption the trademark rule requires is in the Plugins chapter
+> (`src/sections/room/ReachChapters.astro`), in the page's copy and in the row
+> at the foot of the screen. The passages about the strip's row, cells and
+> motion are history.
 
 > Builds on [`layout.md`](layout.md) and [`design.md`](design.md). Widths come
 > from the `Container`, colour and rhythm from the tokens. This file governs

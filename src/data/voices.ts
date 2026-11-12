@@ -1,6 +1,6 @@
 /**
- * What people have said about the project in public — the cards of the
- * "voices" band under the hero (src/sections/Voices.astro).
+ * What people have said about the project in public — the cards under the
+ * star count on the front page (src/sections/world/StarsChapter.astro).
  *
  * THE RULES OF THIS FILE, because a quote on a marketing page is a claim about
  * a real person:

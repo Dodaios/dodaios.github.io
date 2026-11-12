@@ -11,6 +11,16 @@
 
 This file governs every section of the site. It is binding, not advisory.
 
+> **The front page since 2026-11-11.** The front page is no longer a column of
+> framed sections: it is a run of chapters over a 3D scene
+> ([`world.md`](world.md)). The width steps, the `Container`, the nav and the
+> `svh` rule below apply to it unchanged. The rails, the section marker, the
+> bounded-section frame and the full-height section rules do not: the front
+> page turns the page chrome off (`chrome={false}` on `Base.astro`) and lays its
+> chapters out in `src/styles/world.css`. Everything below still governs the
+> detail pages and the legal pages, and the passages that name a front-page
+> section that no longer exists are kept as the record of why a rule is there.
+
 ---
 
 ## Principle

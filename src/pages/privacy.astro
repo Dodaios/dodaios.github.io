@@ -9,14 +9,20 @@
  *
  *   hosting        GitHub Pages serves every file (public/CNAME, deploy.yml);
  *                  the domain's DNS is at Cloudflare, requests go to GitHub.
- *   live count     StarGlobe.tsx calls api.github.com from the browser on load
- *                  and caches the number in sessionStorage.
- *   live commits   CommitSkyline.tsx calls api.github.com for the commits since
- *                  the last build, on load and every five minutes while the tab
- *                  is visible. Nothing is stored.
+ *   live count     LiveCount.tsx, in the front page's star chapter
+ *                  (StarsChapter.astro), calls api.github.com from the browser
+ *                  when the figure comes into view and caches the number in
+ *                  sessionStorage.
+ *   repository     RepoBrowser.tsx, in the front page's open-source chapter
+ *                  (OpenChapter.astro), calls api.github.com from the browser
+ *                  when it comes into view, and again for each folder, file or
+ *                  commit the visitor opens; answers are kept in sessionStorage.
  *   nothing else   no cookies, no analytics, no web fonts from a CDN, no forms,
- *                  no video embeds. The YouTube gallery and the Discord member
- *                  count went with the "Built in public" section on 2026-10-19.
+ *                  no video embeds. The 3D scene is drawn in the browser from
+ *                  files this site serves itself. The YouTube gallery and the
+ *                  Discord member count went with the "Built in public" section
+ *                  on 2026-10-19; the live commit counts went with the front
+ *                  page's rebuild on 2026-11-11.
  *
  * The app section describes the desktop app's Google connections, read from
  * the app repo: dodaios/marketplace/auth/oauth_pkce_loopback.py (sign-in on
@@ -39,7 +45,7 @@ import { IMPRINT_HREF, OPERATOR } from "@/lib/legal";
     <li>There are no accounts, no forms and no newsletter.</li>
     <li>
       Your browser talks to one other service: GitHub, which hosts the site
-      and supplies the star count and the commit counts.
+      and supplies the star count.
     </li>
     <li>We never receive a record of your visit ourselves.</li>
     <li>
@@ -86,24 +92,27 @@ import { IMPRINT_HREF, OPERATOR } from "@/lib/legal";
 
   <h2>Live figures from GitHub</h2>
   <p>
-    The project's star count and its recent commit counts are fetched live
-    from GitHub's public API (api.github.com) when the page loads; the commit
-    counts are asked for again every five minutes while the page is open and
-    visible. For this, your browser connects
-    directly to GitHub, which receives your IP address and browser
+    Two things on the front page are fetched live from GitHub's public API
+    (api.github.com): the project's star count, when the figure comes into
+    view, and the view of the project's repository, when it comes into view,
+    which shows the repository's public files, its latest commits and what a
+    commit changed, each fetched when you open it. For this, your browser
+    connects directly to GitHub, which receives your IP address and browser
     information. No login and no cookie is involved, and we do not receive any
     of this data.
   </p>
   <p>
     The legal basis is Article 6(1)(f) GDPR: our legitimate interest in
-    showing current figures instead of outdated ones. GitHub, Inc. is based
+    showing the current figure and the repository as it is, instead of
+    outdated copies. GitHub, Inc. is based
     in the USA and certified under the EU–U.S. Data Privacy Framework.
   </p>
   <p>
-    So that the number is not fetched again on every page view, your browser
-    keeps it in its session storage until you close the tab. This stores only
-    the public number, no personal data, and is strictly necessary for the
-    function you see (Section 25(2) No. 2 TDDDG).
+    So that nothing is fetched again on every page view, your browser keeps
+    the number, and the answers about the repository it has received, in its
+    session storage until you close the tab. This stores only public data of
+    the project, no personal data, and is strictly necessary for the function
+    you see (Section 25(2) No. 2 TDDDG).
   </p>
 
   <h2>Links to other sites</h2>

@@ -1,0 +1,37 @@
+---
+/**
+ * The display in the corner: the repository, live. Where the room runs, the
+ * camera steps in front of the display on the wall and this chapter's window
+ * lies on it to the pixel, as the app's window does on the desk's monitor
+ * (docs/world.md, "The dock"). The window is a small browser of our own over
+ * GitHub's public API (RepoBrowser.tsx): GitHub's own pages cannot be framed.
+ */
+import { GitHubMark } from "@/components/logos/GitHubMark";
+import RepoBrowser from "@/components/repo/RepoBrowser";
+import { OPEN } from "@/data/room";
+import { REPO } from "@/lib/install";
+import Chapter from "./Chapter.astro";
+---
+
+<Chapter id="open-source" chapter="open" len={3} labelledby="oss-heading">
+  <div class="dock" slot="stage">
+    <div class="dock__stage dock__stage--repo" data-dock-stage="repo" data-ui>
+      <RepoBrowser client:visible />
+    </div>
+  </div>
+
+  <p class="eyebrow">Open source · Apache 2.0</p>
+  <h2 id="oss-heading" class="display">
+    {OPEN.title}
+    <span class="display__quiet">{OPEN.sub}</span>
+  </h2>
+  <p class="lede">{OPEN.lede}</p>
+
+  <Fragment slot="hud">
+    <a class="button button--quiet" href={REPO} target="_blank" rel="noopener" data-open-repo>
+      <GitHubMark className="button__mark" />
+      {OPEN.link}
+    </a>
+    <span class="hud__note hud__note--world">{OPEN.title} {OPEN.sub} This screen is the repository, live</span>
+  </Fragment>
+</Chapter>

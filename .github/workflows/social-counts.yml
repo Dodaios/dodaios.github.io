@@ -67,9 +67,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/fetch-commit-activity.mjs || echo "kept the previous commit activity"
 
+      - name: Fetch the repository snapshot
+        # What the repository view on the front page shows before GitHub has
+        # answered the visitor's own browser, and when it does not answer at
+        # all (src/components/repo/RepoBrowser.tsx). A failure keeps
+        # yesterday's file.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/fetch-repo-map.mjs || echo "kept the previous repository snapshot"
+
       - name: Commit if it changed
         run: |
-          if git diff --quiet -- src/data/social-counts.json src/data/commit-activity.json; then
+          if git diff --quiet -- src/data/social-counts.json src/data/commit-activity.json src/data/repo-map.json; then
             echo "no change"
             exit 0
           fi
@@ -80,5 +89,5 @@ jobs:
           # with "pathspec '-m' did not match any file(s)" — which is what the
           # first real run of this workflow did.
           git commit -m "chore(social): refresh the build-in-public counts" \
-            --only -- src/data/social-counts.json src/data/commit-activity.json
+            --only -- src/data/social-counts.json src/data/commit-activity.json src/data/repo-map.json
           git push

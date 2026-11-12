@@ -6,21 +6,20 @@
  * (the caption), layout/Sidebar.tsx, SidebarSearchBar.tsx, SidebarAgents.tsx
  * and the profile row (the sidebar). The app's own stylesheet (app.css) styles
  * them, so they render as the app renders them. Only the data is the demo's.
+ * The caption also carries the status light (layout/StatusLight.tsx).
  *
  * Keep the class strings verbatim when the app changes; then run
  * scripts/sync-app-ui.mjs so the new classes are in app.css.
  */
 import type { ReactNode } from "react";
 
-import { DEMO_AGENTS, USER_NAME, type AgentId } from "./demoData";
+import { ASSISTANT_NAME, DEMO_AGENTS, USER_NAME, type AgentId } from "./demoData";
 import { AgentFace, cn } from "./Pet";
 import { AgentsIcon, ArtifactsIcon, CodeIcon, ExtensionsIcon, MarketplaceIcon, SpeechIcon } from "./sectionIcons";
 import {
   Archive,
   ArrowLeft,
   ArrowRight,
-  Building2,
-  ChevronDown,
   Download,
   Ellipsis,
   House,
@@ -65,7 +64,10 @@ function LayoutSwitch({ layout, onLayout }: { layout: IdeLayout; onLayout: (next
       <span
         aria-hidden="true"
         className="absolute inset-y-[3px] left-[3px] rounded-full border border-border-strong/60 bg-background shadow-[0_1px_2px_rgb(var(--scrim-rgb)/0.25)] dark:border-border-strong dark:bg-surface-raised transition-transform duration-200 ease-out motion-reduce:transition-none"
-        style={{ width: SEGMENT_PX, transform: `translateX(${index * SEGMENT_PX}px)` }}
+        style={{
+          width: SEGMENT_PX,
+          transform: `translateX(${index * SEGMENT_PX}px)`,
+        }}
       />
       <button
         type="button"
@@ -91,18 +93,54 @@ function LayoutSwitch({ layout, onLayout }: { layout: IdeLayout; onLayout: (next
       >
         <MessagesSquare className="h-4 w-4" strokeWidth={1.9} aria-hidden />
       </button>
-      <button
-        type="button"
-        role="radio"
-        data-testid="ide-layout-verse"
-        aria-checked="false"
-        className={cn(SEGMENT, tone(false))}
-        style={{ width: SEGMENT_PX }}
-        tabIndex={-1}
-      >
-        <Building2 className="h-4 w-4" strokeWidth={1.9} aria-hidden />
-      </button>
     </div>
+  );
+}
+
+/** What runs and what waits on the person, for the caption's status light. */
+export interface StatusCounts {
+  running: number;
+  needs: number;
+}
+
+/**
+ * `StatusLight.tsx`: one calm chip in the caption, "2 running · 1 need you",
+ * or "All quiet". Its list opens on a click in the app; here it is inert.
+ */
+function StatusLight({ status }: { status: StatusCounts }) {
+  const parts: string[] = [];
+  if (status.running > 0) parts.push(`${status.running} running`);
+  if (status.needs > 0) parts.push(`${status.needs} need you`);
+  const summary = parts.length > 0 ? parts.join(" · ") : "All quiet";
+  return (
+    <button
+      type="button"
+      aria-label={`Status: ${summary}`}
+      title={summary}
+      aria-haspopup="dialog"
+      aria-expanded="false"
+      data-testid="status-light"
+      data-running={status.running}
+      data-needs-you={status.needs}
+      data-tone="calm"
+      className={cn(
+        "pointer-events-auto mx-1 inline-flex h-6 shrink-0 items-center gap-1.5 self-center rounded-full px-2.5 text-body transition-colors duration-150 hover:bg-secondary/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        status.needs > 0 ? "text-foreground" : "text-muted-foreground",
+      )}
+      tabIndex={-1}
+    >
+      <span
+        aria-hidden
+        data-testid="status-light-dot"
+        className={cn(
+          "h-2 w-2 shrink-0 rounded-full",
+          status.running > 0 || status.needs > 0 ? "bg-primary" : "bg-muted-foreground/40",
+        )}
+      />
+      <span className="hidden whitespace-nowrap tabular-nums md:inline" data-testid="status-light-text">
+        {summary}
+      </span>
+    </button>
   );
 }
 
@@ -110,16 +148,22 @@ function TopBar({
   section,
   layout,
   canGoBack,
+  status,
+  sidePanel,
   onHome,
   onBack,
   onLayout,
+  onSidePanel,
 }: {
   section: Section;
   layout: IdeLayout;
   canGoBack: boolean;
+  status: StatusCounts;
+  sidePanel: boolean;
   onHome: () => void;
   onBack: () => void;
   onLayout: (next: IdeLayout) => void;
+  onSidePanel?: () => void;
 }) {
   const ide = section === "agentic-ide";
   return (
@@ -164,11 +208,14 @@ function TopBar({
         </div>
       )}
       <div className="flex shrink-0 items-center">
+        <StatusLight status={status} />
         {ide && (
           <div className="flex items-center gap-0.5">
             <button
               type="button"
               aria-pressed="false"
+              aria-label="Show terminal"
+              title="Show terminal"
               data-testid="thread-terminal-toggle"
               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
               tabIndex={-1}
@@ -177,9 +224,16 @@ function TopBar({
             </button>
             <button
               type="button"
-              aria-expanded="false"
+              aria-expanded={sidePanel}
+              aria-label={sidePanel ? "Close side panel" : "Open side panel"}
+              title={sidePanel ? "Close side panel" : "Open side panel"}
+              aria-controls="ide-side-panel"
               data-testid="ide-side-panel-toggle"
-              className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={onSidePanel}
+              className={cn(
+                "relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                sidePanel && "bg-secondary text-foreground",
+              )}
               tabIndex={-1}
             >
               <PanelRight className="h-4 w-4" aria-hidden />
@@ -259,6 +313,7 @@ function SidebarAgents({
             <button
               type="button"
               tabIndex={-1}
+              title={agent.name}
               data-testid="sidebar-agent-row"
               onClick={() => onAgent(agent.id)}
               className="flex h-8 w-full items-center gap-3 rounded-lg px-3 text-left text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground hover:bg-secondary"
@@ -268,24 +323,19 @@ function SidebarAgents({
               </span>
               <span className="min-w-0 flex-1 truncate">{agent.name}</span>
               {working[agent.id] && (
-                <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent animate-jarvis-pulse" />
+                <span
+                  data-testid="sidebar-agent-state"
+                  data-state="working"
+                  className="flex shrink-0 items-center gap-1.5 text-xs text-foreground-faint"
+                >
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent animate-jarvis-pulse" />
+                  Working
+                </span>
               )}
             </button>
           </li>
         ))}
       </ul>
-      <button
-        type="button"
-        data-testid="sidebar-agents-more"
-        aria-expanded="false"
-        className="flex h-8 w-full items-center gap-3 rounded-lg px-3 text-left text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        tabIndex={-1}
-        onClick={() => onAgent(DEMO_AGENTS[0].id)}
-      >
-        <ChevronDown className="h-[18px] w-[18px] shrink-0 transition-transform" strokeWidth={1.75} aria-hidden />
-        <span className="min-w-0 flex-1 truncate text-sm">Show all</span>
-        <span className="shrink-0 text-sm tabular-nums text-foreground-faint">+2</span>
-      </button>
     </section>
   );
 }
@@ -358,7 +408,18 @@ export function SearchBar() {
       <div className="min-w-0 flex-1">
         <div className="flex h-8 w-full items-center gap-2 rounded-lg border px-2.5 text-sm transition-colors border-border bg-input hover:border-border-strong">
           <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="h-full min-w-0 flex-1 bg-transparent leading-8 text-muted-foreground">Search</span>
+          <input
+            type="text"
+            role="combobox"
+            aria-expanded="false"
+            aria-label={`Search ${ASSISTANT_NAME}`}
+            title={`Search ${ASSISTANT_NAME}`}
+            placeholder="Search"
+            data-testid="sidebar-search"
+            readOnly
+            tabIndex={-1}
+            className="h-full min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+          />
           <span data-testid="sidebar-voice-dot" role="img" className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
           <span className="hidden shrink-0 items-center gap-0.5 sm:inline-flex" aria-hidden>
             {["Ctrl", "Space"].map((cap) => (
@@ -395,11 +456,13 @@ export function HomeSidebar({
               type="button"
               tabIndex={-1}
               data-testid="sidebar-new-chat"
+              aria-label={ASSISTANT_NAME}
+              title={ASSISTANT_NAME}
               onClick={() => onSection("chats")}
               className={ROW_CLASS}
             >
               <MessageCircle aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
-              <span>Conversation</span>
+              <span>{ASSISTANT_NAME}</span>
             </button>
           </li>
           <NavRow id="agents" icon={AgentsIcon as IconComponent} label="Agents" onClick={() => onSection("agents")} />
@@ -409,8 +472,7 @@ export function HomeSidebar({
             label="Agentic IDE"
             onClick={() => onSection("agentic-ide")}
           />
-          <NavRow id="verse" icon={Building2 as IconComponent} label="Verse" />
-          <NavRow id="dictation" icon={SpeechIcon as IconComponent} label="Dodaios Voice" />
+          <NavRow id="dictation" icon={SpeechIcon as IconComponent} label={`${ASSISTANT_NAME} Voice`} />
         </ul>
         <ul className="space-y-px">
           <NavRow
@@ -456,9 +518,12 @@ export function AppShell({
   section,
   layout,
   canGoBack,
+  status,
+  sidePanel = false,
   onHome,
   onBack,
   onLayout,
+  onSidePanel,
   sidebar,
   overlay,
   children,
@@ -466,9 +531,14 @@ export function AppShell({
   section: Section;
   layout: IdeLayout;
   canGoBack: boolean;
+  /** What the caption's status light counts. */
+  status: StatusCounts;
+  /** Whether the Agentic IDE's side panel is open. */
+  sidePanel?: boolean;
   onHome: () => void;
   onBack: () => void;
   onLayout: (next: IdeLayout) => void;
+  onSidePanel?: () => void;
   /** Absent where the app shows a section across the whole window (Agents). */
   sidebar: ReactNode;
   /** What the app draws over the window below the caption (Plugins). */
@@ -488,9 +558,12 @@ export function AppShell({
             section={section}
             layout={layout}
             canGoBack={canGoBack}
+            status={status}
+            sidePanel={sidePanel}
             onHome={onHome}
             onBack={onBack}
             onLayout={onLayout}
+            onSidePanel={onSidePanel}
           />
           <div className="min-h-0 flex-1 jarvis-section-stage" data-testid="jarvis-section-stage">
             {children}

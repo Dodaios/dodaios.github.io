@@ -1,0 +1,55 @@
+---
+/**
+ * The 3D world's place in the document: one canvas fixed behind the page, the
+ * data the scene needs, and the script that starts it. Rendered by the root
+ * layout on every route that names a scene. See docs/world.md.
+ *
+ * NOTHING HERE DRAWS BEFORE THE PAGE HAS PAINTED. The canvas is empty and
+ * invisible until `boot.ts` has loaded the scene, which it only starts after
+ * the load event, in an idle moment. The page's text is the first paint.
+ *
+ * `world-on` IS STAMPED IN THE HEAD (Base.astro), not here: it decides the
+ * layout of the chapters, and a class that arrived after the first paint would
+ * move the page under the reader.
+ */
+import { marks } from "@/components/logos/marks";
+import { REACH_SKILLS, roomLabels } from "@/data/room";
+import counts from "@/data/social-counts.json";
+import stargazers from "@/data/stargazers.json";
+import { CLI_MARKS, MARK_SHEET_COLUMNS } from "@/world/marks";
+
+interface Props {
+  /** "home" for the scrolled journey; otherwise the name of a still (src/world/script.ts). */
+  scene: string;
+}
+
+const { scene } = Astro.props;
+
+const data = {
+  scene,
+  stargazers: counts.platforms.github.value,
+  labels: roomLabels(),
+  // A pin stands for a place, never for a person: the snapshot groups the
+  // stargazers who state a location by city or country.
+  globe: {
+    pins: stargazers.clusters.flatMap((place) => [Math.round(place.lat * 100) / 100, Math.round(place.lon * 100) / 100, place.count]),
+    labels: stargazers.clusters.map((place) =>
+      place.label === place.country ? `${place.label} · ${place.count}` : `${place.label}, ${place.country} · ${place.count}`,
+    ),
+  },
+  rings: {
+    sheet: "/world/marks.svg",
+    columns: MARK_SHEET_COLUMNS,
+    marks: marks.map((mark) => mark.name),
+    clis: CLI_MARKS,
+    skills: REACH_SKILLS,
+  },
+};
+---
+
+<canvas class:list={["world-canvas", scene !== "home" && "world-canvas--still"]} data-world aria-hidden="true"></canvas>
+<div class="world-tip" data-world-tip aria-hidden="true"></div>
+<script is:inline type="application/json" id="world-data" set:html={JSON.stringify(data)} />
+<script>
+  import "@/world/boot";
+</script>

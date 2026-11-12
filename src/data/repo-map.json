@@ -1,7 +1,7 @@
 {
   "repo": "Dodaios/Dodaios",
   "branch": "main",
-  "description": "Dodaios is an open-source agent OS for your desktop: it runs your coding agents, browser and apps by voice or chat, on your own machine. Formerly Personal Jarvis.",
+  "description": "The open-source superagent for your desktop. One agent that runs all your other agents. Formerly Personal Jarvis.",
   "license": "Apache-2.0",
   "language": "Python",
   "topics": [
@@ -12,15 +12,15 @@
     "coding-agent",
     "computer-use"
   ],
-  "stars": 263,
-  "forks": 100,
-  "openIssues": 33,
+  "stars": 361,
+  "forks": 128,
+  "openIssues": 30,
   "lastCommit": {
-    "message": "fix(verse): a desk monitor fills its whole screen with the pane (#986)",
-    "sha": "fb1af5e",
-    "date": "2026-10-27T16:34:15Z"
+    "message": "feat(threads): Claude Code's magic words show in the rainbow (#1449)",
+    "sha": "303ae81",
+    "date": "2026-11-11T17:10:47Z"
   },
-  "readAt": "2026-10-27T16:56:55.276Z",
+  "readAt": "2026-11-11T17:35:37.768Z",
   "pages": {
     "root": {
       "path": "",
@@ -488,6 +488,10 @@
           "type": "dir"
         },
         {
+          "name": "credential_broker",
+          "type": "dir"
+        },
+        {
           "name": "cu",
           "type": "dir"
         },
@@ -512,11 +516,11 @@
           "type": "dir"
         },
         {
-          "name": "friends",
+          "name": "evals",
           "type": "dir"
         },
         {
-          "name": "games",
+          "name": "friends",
           "type": "dir"
         },
         {
@@ -544,6 +548,14 @@
           "type": "dir"
         },
         {
+          "name": "lead_triggers",
+          "type": "dir"
+        },
+        {
+          "name": "life_admin",
+          "type": "dir"
+        },
+        {
           "name": "live",
           "type": "dir"
         },
@@ -565,6 +577,14 @@
         },
         {
           "name": "missions",
+          "type": "dir"
+        },
+        {
+          "name": "mobile",
+          "type": "dir"
+        },
+        {
+          "name": "notify",
           "type": "dir"
         },
         {
@@ -596,6 +616,10 @@
           "type": "dir"
         },
         {
+          "name": "projects",
+          "type": "dir"
+        },
+        {
           "name": "realtime",
           "type": "dir"
         },
@@ -613,6 +637,10 @@
         },
         {
           "name": "self_build",
+          "type": "dir"
+        },
+        {
+          "name": "self_change",
           "type": "dir"
         },
         {
@@ -664,6 +692,10 @@
           "type": "dir"
         },
         {
+          "name": "trust",
+          "type": "dir"
+        },
+        {
           "name": "ui",
           "type": "dir"
         },
@@ -697,7 +729,7 @@
   "file": {
     "path": "install/install.ps1",
     "lines": [
-      "# Personal Jarvis - Windows quick-install bootstrap (Stage 1)",
+      "# Dodaios - Windows quick-install bootstrap (Stage 1)",
       "#",
       "# Usage (from PowerShell):",
       "#   irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 | iex",
@@ -716,6 +748,6 @@
       "# All heavy logic lives in installer.py so it can be unit-tested and",
       "# kept cross-platform. The shell-native prerequisite block is delimited so it"
     ],
-    "totalLines": 1253
+    "totalLines": 1285
   }
 }

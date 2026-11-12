@@ -55,6 +55,27 @@ on success or failure. It is never presented as "the site".
 reports work that no longer exists — so a fix gets done twice, or a bug gets
 hunted that was gone an hour ago.
 
+## The 3D world
+
+The site is one real-time 3D room, and the front page is a scrolled tour of
+it that starts seated at the desk, with the working app on the monitor. **Read
+`docs/world.md` before touching `src/world/`, `src/sections/room/`,
+`src/styles/world.css` or `art/`.**
+
+The short version:
+
+- The page works without the scene. Never put a word, a link or a control only
+  in the scene.
+- Words in the room are on an object (a sign, a board, a screen), never
+  floating, and the same words are in the page: both come from
+  `src/data/room.ts`.
+- The scene runs in a worker. Nothing in `src/world/World.ts`,
+  `src/world/kit.ts` or `src/world/parts/` may touch `window` or `document`.
+- Nothing draws before the page has painted (`docs/performance.md`).
+- The models are built by the scripts in `art/` and shipped by
+  `node scripts/build-world-assets.mjs`. Never edit a file in
+  `src/assets/world/` by hand.
+
 ## Layout is binding
 
 **`docs/layout.md` governs every section of this site.** Read it before writing

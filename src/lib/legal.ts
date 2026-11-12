@@ -22,7 +22,7 @@ export const OPERATOR = {
 } as const;
 
 /** The date the legal texts were last reviewed against the code. */
-export const LEGAL_UPDATED = "2 October 2026";
+export const LEGAL_UPDATED = "11 November 2026";
 
 export const IMPRINT_HREF = "/imprint";
 export const PRIVACY_HREF = "/privacy";

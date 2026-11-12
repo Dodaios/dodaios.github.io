@@ -1,0 +1,50 @@
+---
+/**
+ * The whiteboard at first light: the one command that installs the app, then
+ * the whole room in the morning. In the room the command is written on the
+ * board and a press copies it; in the page it is the install box, which also
+ * serves the plain page and the keyboard. The four steps are the README's,
+ * shortened.
+ */
+import InstallCommand from "@/components/InstallCommand.astro";
+import { INSTALL } from "@/data/room";
+import { INSTALL_COMMANDS } from "@/lib/install";
+import { INSTALL_ID } from "@/lib/nav";
+import Chapter from "./Chapter.astro";
+---
+
+<Chapter id={INSTALL_ID} chapter="install" len={2.6} labelledby="install-heading">
+  <p class="eyebrow">{INSTALL.board}</p>
+  <h2 id="install-heading" class="display">{INSTALL.title}</h2>
+  <p class="lede">{INSTALL.lede}</p>
+  <p class="fine">{INSTALL.paste}</p>
+  <div class="install__box">
+    <InstallCommand />
+  </div>
+  <p class="fine">{INSTALL.then}</p>
+  <ol class="install__steps">
+    {
+      INSTALL.steps.map((step, i) => (
+        <li>
+          <span>
+            <strong class="font-medium text-ink">{step}.</strong> {INSTALL.stepNotes[i]}
+          </span>
+        </li>
+      ))
+    }
+  </ol>
+
+  <Fragment slot="hud">
+    <button
+      class="button hud__world"
+      type="button"
+      data-copy-install
+      data-windows={INSTALL_COMMANDS.windows}
+      data-unix={INSTALL_COMMANDS.unix}
+      data-done={INSTALL.copied}
+    >
+      {INSTALL.copy}
+    </button>
+    <span class="hud__note hud__note--world">Windows, macOS or Linux · or {INSTALL.hint}</span>
+  </Fragment>
+</Chapter>

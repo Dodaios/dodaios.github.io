@@ -1,11 +1,13 @@
 # Voices — what people say
 
-> Builds on [`layout.md`](layout.md) and [`design.md`](design.md). The band is
-> `src/sections/Voices.astro`; its content is `src/data/voices.ts`.
+> Builds on [`world.md`](world.md) and [`design.md`](design.md). The quotes
+> are shown in the Stars chapter, `src/sections/room/StarsChapter.astro`, and
+> in the room as the cards pinned to the corkboard;
+> their content is `src/data/voices.ts`.
 
-A band of quotes directly under the connection strip: the hero says what the
-product is, the strip what it reaches, and this band that other people have
-used it — before the page starts explaining features.
+Quotes from people who used the project, under the count of the people who
+starred it. Until 2026-11-11 they were a band of their own under the
+connection strip.
 
 ## What may be quoted
 
